@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type VfsEntry } from "../api";
+import { useAppStore } from "../store";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 
 interface FilePaneProps {
@@ -183,6 +184,39 @@ export function FilePane({
     }
   };
 
+  const fastDelete = async (entry: VfsEntry) => {
+    if (!window.confirm(t("files.fastDeleteConfirm", { name: entry.name }))) return;
+    try {
+      await api.vfsRemove(sessionId, entry.path, true);
+      await load();
+    } catch (err) {
+      onError(String(err));
+    }
+  };
+
+  const copyPath = (entry: VfsEntry) => {
+    navigator.clipboard
+      .writeText(entry.path)
+      .then(() => useAppStore.getState().setStatus(t("files.copied")))
+      .catch((err) => onError(String(err)));
+  };
+
+  const makeFile = async () => {
+    const name = window.prompt(t("files.newFilePrompt"));
+    if (!name?.trim()) return;
+    try {
+      await api.vfsWriteText(
+        sessionId,
+        `${path.replace(/\/+$/, "")}/${name.trim()}`,
+        "",
+        null,
+      );
+      await load();
+    } catch (err) {
+      onError(String(err));
+    }
+  };
+
   const open = (entry: VfsEntry) => {
     if (entry.isDir) {
       navigate(entry.path);
@@ -196,16 +230,16 @@ export function FilePane({
     const entry = menu.entry;
     return [
       {
-        label: entry.isDir ? t("files.openFolder") : t("files.edit"),
-        onSelect: () => open(entry),
-      },
-      {
         label: sendLabel,
         onSelect: () => onSend(entry),
       },
       {
-        label: t("files.permissions"),
-        onSelect: () => onPermissions(entry),
+        label: entry.isDir ? t("files.openFolder") : t("files.edit"),
+        onSelect: () => open(entry),
+      },
+      {
+        label: t("files.copyPath"),
+        onSelect: () => copyPath(entry),
       },
       {
         label: t("files.rename"),
@@ -217,8 +251,24 @@ export function FilePane({
         onSelect: () => void remove(entry),
       },
       {
+        label: t("files.fastDelete"),
+        danger: true,
+        onSelect: () => void fastDelete(entry),
+      },
+      {
+        label: t("files.permissions"),
+        onSelect: () => onPermissions(entry),
+      },
+      {
         label: t("files.refresh"),
         onSelect: refresh,
+      },
+      {
+        label: t("files.new"),
+        children: [
+          { label: t("files.newFile"), onSelect: () => void makeFile() },
+          { label: t("files.newFolder"), onSelect: () => void makeFolder() },
+        ],
       },
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -321,11 +371,11 @@ export function FilePane({
           <thead>
             <tr>
               <th>{t("files.name")}</th>
+              <th>{t("files.type")}</th>
               <th>{t("files.size")}</th>
               <th>{t("files.modified")}</th>
               <th>{t("files.permissions")}</th>
               <th>{t("files.owner")}</th>
-              <th>{t("files.type")}</th>
             </tr>
           </thead>
           <tbody>
@@ -346,13 +396,13 @@ export function FilePane({
                   {entry.name}
                   {entry.isSymlink && <span className="file-link">@</span>}
                 </td>
+                <td>{entry.isDir ? t("files.folder") : t("files.file")}</td>
                 <td>{entry.isDir ? "—" : formatSize(entry.size)}</td>
                 <td>{formatTime(entry.mtime)}</td>
                 <td className="mono">{permissionString(entry.mode)}</td>
                 <td className="mono">
                   {entry.uid}:{entry.gid}
                 </td>
-                <td>{entry.isDir ? t("files.folder") : t("files.file")}</td>
               </tr>
             ))}
           </tbody>

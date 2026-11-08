@@ -79,6 +79,9 @@ interface Status {
 
 export type SplitDirection = "horizontal" | "vertical";
 
+export const HOME_TAB = "home";
+export const TRANSFER_TAB = "transfer";
+
 interface AppState {
   sessions: SessionMeta[];
   activeId: string | null;
@@ -131,6 +134,9 @@ interface AppState {
   openTransfer: (sessionId?: string | null) => void;
   closeTransfer: () => void;
   setTransferSession: (id: string | null) => void;
+  goHome: () => void;
+  quickConnectOpen: boolean;
+  setQuickConnectOpen: (open: boolean) => void;
   transfers: TransferJob[];
   upsertTransfer: (job: TransferJob) => void;
   setTransfers: (jobs: TransferJob[]) => void;
@@ -154,6 +160,12 @@ interface AppState {
   importRequested: boolean;
   requestImport: () => void;
   clearImportRequest: () => void;
+  newHostRequested: boolean;
+  requestNewHost: () => void;
+  clearNewHostRequest: () => void;
+  newFolderRequested: boolean;
+  requestNewFolder: () => void;
+  clearNewFolderRequest: () => void;
   tagsRequested: boolean;
   requestTags: () => void;
   clearTagsRequest: () => void;
@@ -231,7 +243,7 @@ function scheduleHistorySave() {
 
 export const useAppStore = create<AppState>((set, get) => ({
   sessions: [],
-  activeId: null,
+  activeId: HOME_TAB,
   splitId: null,
   splitDirection: "horizontal",
   splitRatio: 0.5,
@@ -258,6 +270,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   forwardOpen: false,
   transferOpen: false,
   transferSessionId: null,
+  quickConnectOpen: false,
   transfers: [],
   keepaliveSecs: 30,
   shortcuts: { ...SHORTCUT_DEFAULTS },
@@ -268,6 +281,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   shortcutsOpen: false,
   importRequested: false,
   tagsRequested: false,
+  newHostRequested: false,
+  newFolderRequested: false,
   connectRequestId: null,
 
   toggleMonitor: () => set((s) => ({ monitorOpen: !s.monitorOpen })),
@@ -276,11 +291,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   openTransfer: (sessionId) =>
     set((s) => ({
       transferOpen: true,
+      activeId: TRANSFER_TAB,
       transferSessionId:
         sessionId !== undefined ? sessionId : s.transferSessionId,
     })),
-  closeTransfer: () => set({ transferOpen: false }),
+  closeTransfer: () =>
+    set((s) => ({
+      transferOpen: false,
+      activeId:
+        s.activeId === TRANSFER_TAB
+          ? (s.sessions[s.sessions.length - 1]?.id ?? HOME_TAB)
+          : s.activeId,
+    })),
   setTransferSession: (id) => set({ transferSessionId: id }),
+  goHome: () => set({ activeId: HOME_TAB }),
+  setQuickConnectOpen: (open) => set({ quickConnectOpen: open }),
   upsertTransfer: (job) =>
     set((s) => {
       const exists = s.transfers.some((item) => item.id === job.id);
@@ -321,6 +346,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
   requestImport: () => set({ importRequested: true }),
   clearImportRequest: () => set({ importRequested: false }),
+  requestNewHost: () => set({ newHostRequested: true, activeId: HOME_TAB }),
+  clearNewHostRequest: () => set({ newHostRequested: false }),
+  requestNewFolder: () => set({ newFolderRequested: true, activeId: HOME_TAB }),
+  clearNewFolderRequest: () => set({ newFolderRequested: false }),
   requestTags: () => set({ tagsRequested: true }),
   clearTagsRequest: () => set({ tagsRequested: false }),
   requestConnect: (id) => set({ connectRequestId: id }),
@@ -418,6 +447,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   splitActive: () => {
     const { activeId, sessions, splitId } = get();
     if (!activeId || splitId) return;
+    if (!sessions.some((s) => s.id === activeId && !s.closed)) return;
     const other = sessions.find((s) => s.id !== activeId && !s.closed);
     if (other) {
       set({ splitId: other.id, splitRatio: 0.5 });
@@ -531,7 +561,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       let splitId = s.splitId === id ? null : s.splitId;
       if (splitId && !sessions.some((x) => x.id === splitId)) splitId = null;
       let activeId =
-        s.activeId === id ? (sessions[sessions.length - 1]?.id ?? null) : s.activeId;
+        s.activeId === id ? (sessions[sessions.length - 1]?.id ?? HOME_TAB) : s.activeId;
       if (activeId && splitId === activeId) splitId = null;
       return {
         sessions,

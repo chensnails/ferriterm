@@ -2,6 +2,13 @@
   "app": {
     "name": "Ferriterm"
   },
+  "tab": {
+    "home": "主页",
+    "new": "新建标签",
+    "newLocal": "新建本地终端",
+    "newSsh": "新建 SSH 连接",
+    "transfer": "传输"
+  },
   "theme": {
     "toggle": "切换主题"
   },
@@ -33,6 +40,11 @@
     "noMatches": "没有匹配的主机。",
     "connect": "连接",
     "newWindow": "在新窗口中打开",
+    "copy": "复制地址",
+    "copied": "已复制地址",
+    "refresh": "刷新",
+    "expandAll": "全部展开",
+    "collapseAll": "全部折叠",
     "properties": "属性",
     "import": "导入…",
     "tags": "标签",
@@ -347,6 +359,13 @@
     "deleteFileConfirm": "删除“{name}”？",
     "openFolder": "打开文件夹",
     "edit": "在编辑器中打开",
+    "copyPath": "复制路径",
+    "copied": "已复制路径",
+    "new": "新建",
+    "newFile": "新建文件",
+    "newFilePrompt": "文件名",
+    "fastDelete": "快速删除（rm -rf）",
+    "fastDeleteConfirm": "永久删除“{name}”及其全部内容？此操作无法撤销。",
     "send": "发送到{target}",
     "bookmarks": "书签",
     "addBookmark": "收藏当前文件夹",
@@ -374,6 +393,7 @@
   "palette": {
     "title": "命令面板",
     "placeholder": "输入命令或主机名…",
+    "home": "返回主页",
     "newLocal": "新建本地终端",
     "settings": "打开设置",
     "import": "导入主机…",

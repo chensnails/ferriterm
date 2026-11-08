@@ -8,11 +8,12 @@
 
 Single main window:
 
-- **Top tab bar** (height `--tab-h`): Home tab (house glyph, original artwork) + session tabs + "new session" button; right-aligned tool icon row (split, SFTP, monitor, commands, forwarding, search, settings). Active tab uses `--bg-elevated` + accent top rule; closed tabs keep a muted style until dismissed.
-- **Home tab content**: centered original logo, search field, host tree below. No permanent left sidebar in session view.
+- **Top tab bar** (height `--tab-h`): a scrolling tab strip (Home tab with house glyph + session tabs + Transfer tab + "new tab" button) and a right-aligned, non-scrolling tool icon row (split, broadcast, SFTP, exec log, commands, monitor, forwarding, search, theme, language, settings). Active tab uses `--bg-elevated` + accent top rule; closed tabs keep a muted style until dismissed.
+- **Home tab content**: centered original logo, search field with new-host/new-folder buttons, host tree below. No permanent left sidebar in any view.
 - **Session view**: terminal fills the content area; splits divide it with draggable gutters (`--split-gutter`).
-- **Floating panels**: SFTP and system info open as movable, resizable panels above the terminal (`--shadow-panel`), remembered position/size per host; they never replace the main view.
-- **Transfer tab**: Local + one sub-tab per remote endpoint; dual file panes; transfer queue table docked at the bottom of the tab.
+- **Keep-alive views**: Home, Transfer and the terminal workspace stay mounted and are toggled with `hidden`, so xterm sessions survive tab switches.
+- **Floating panels**: system info opens as a floating panel above the content (`--shadow-panel`); it never replaces the main view.
+- **Transfer tab**: fills the content area like a session tab; dual file panes; transfer queue table docked at the bottom of the tab.
 - **Status strip**: bottom of window, connection state + latency; hidden on Home.
 
 ## 2. Design tokens (own definitions)
@@ -88,7 +89,9 @@ Single main window:
 | `--row-h` | `32px` | tree/table rows |
 | `--tab-h` | `36px` | tab bar |
 | `--tab-max-w` | `220px` | maximum width of a session tab |
-| `--sidebar-w` | `300px` | Home tree pane |
+| `--home-w` | `720px` | Home content column max width |
+| `--font-logo` | `28px` | Home logo mark |
+| `--sidebar-w` | `300px` | settings category pane |
 | `--dialog-w` | `440px` | dialog width cap |
 | `--split-gutter` | `4px` | split drag handle |
 | `--focus-width` / `--focus-offset` | `2px` / `2px` | keyboard focus ring |

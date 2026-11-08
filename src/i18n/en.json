@@ -2,6 +2,13 @@
   "app": {
     "name": "Ferriterm"
   },
+  "tab": {
+    "home": "Home",
+    "new": "New tab",
+    "newLocal": "New local terminal",
+    "newSsh": "New SSH connection",
+    "transfer": "Transfer"
+  },
   "theme": {
     "toggle": "Toggle theme"
   },
@@ -33,6 +40,11 @@
     "noMatches": "No hosts match the search.",
     "connect": "Connect",
     "newWindow": "Open in new window",
+    "copy": "Copy address",
+    "copied": "Address copied",
+    "refresh": "Refresh",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all",
     "properties": "Properties",
     "import": "Import…",
     "tags": "Tags",
@@ -347,6 +359,13 @@
     "deleteFileConfirm": "Delete \"{name}\"?",
     "openFolder": "Open folder",
     "edit": "Open in editor",
+    "copyPath": "Copy path",
+    "copied": "Path copied",
+    "new": "New",
+    "newFile": "New file",
+    "newFilePrompt": "File name",
+    "fastDelete": "Fast delete (rm -rf)",
+    "fastDeleteConfirm": "Permanently delete \"{name}\" and all of its contents? This cannot be undone.",
     "send": "Send to {target}",
     "bookmarks": "Bookmarks",
     "addBookmark": "Bookmark this folder",
@@ -374,6 +393,7 @@
   "palette": {
     "title": "Command palette",
     "placeholder": "Type a command or host…",
+    "home": "Go to Home",
     "newLocal": "New local terminal",
     "settings": "Open settings",
     "import": "Import hosts…",

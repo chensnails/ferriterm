@@ -1,18 +1,21 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Sidebar } from "./components/Sidebar";
+import { useTranslation } from "react-i18next";
 import { TabBar } from "./components/TabBar";
+import { HomeView } from "./components/HomeView";
 import { TerminalArea } from "./components/TerminalArea";
 import { BrowserBanner } from "./components/BrowserBanner";
 import { ExecutionLog } from "./components/ExecutionLog";
 import { BroadcastDialog } from "./components/BroadcastDialog";
 import { CommandPalette } from "./components/CommandPalette";
 import { CommandRail } from "./components/CommandRail";
+import { ConnectForm } from "./components/ConnectForm";
 import { HostKeyPrompt } from "./components/HostKeyPrompt";
 import { KeyboardInteractivePrompt } from "./components/KeyboardInteractivePrompt";
+import { Modal } from "./components/Modal";
 import { ShortcutsDialog } from "./components/ShortcutsDialog";
 import { api, isTauri, onTransferUpdate } from "./api";
 import { installShortcuts } from "./shortcuts";
-import { useAppStore } from "./store";
+import { HOME_TAB, TRANSFER_TAB, useAppStore } from "./store";
 
 const MonitorPanel = lazy(() =>
   import("./components/MonitorPanel").then((module) => ({
@@ -29,14 +32,27 @@ const TransferPanel = lazy(() =>
     default: module.TransferPanel,
   })),
 );
+const SettingsDialog = lazy(() =>
+  import("./components/SettingsDialog").then((module) => ({
+    default: module.SettingsDialog,
+  })),
+);
 
 const initialConnect = new URLSearchParams(window.location.search).get("connect");
 
 export default function App() {
+  const { t } = useTranslation();
   const broadcastRequested = useAppStore((s) => s.broadcastRequested);
   const monitorOpen = useAppStore((s) => s.monitorOpen);
   const forwardOpen = useAppStore((s) => s.forwardOpen);
   const transferOpen = useAppStore((s) => s.transferOpen);
+  const activeId = useAppStore((s) => s.activeId);
+  const settingsOpen = useAppStore((s) => s.settingsOpen);
+  const setSettingsOpen = useAppStore((s) => s.setSettingsOpen);
+  const quickConnectOpen = useAppStore((s) => s.quickConnectOpen);
+  const setQuickConnectOpen = useAppStore((s) => s.setQuickConnectOpen);
+
+  const isTerminalView = activeId !== HOME_TAB && activeId !== TRANSFER_TAB;
 
   useEffect(() => {
     const uninstall = installShortcuts();
@@ -107,15 +123,22 @@ export default function App() {
   return (
     <>
       <div id="app">
-        <Sidebar />
-        <main id="main">
-          <TabBar />
-          <div id="workspace">
+        <TabBar />
+        <div id="content">
+          {activeId === HOME_TAB && <HomeView />}
+          {transferOpen && (
+            <div className="view-transfer" hidden={activeId !== TRANSFER_TAB}>
+              <Suspense fallback={null}>
+                <TransferPanel />
+              </Suspense>
+            </div>
+          )}
+          <div id="workspace" hidden={!isTerminalView}>
             <TerminalArea />
             <CommandRail />
           </div>
-          <ExecutionLog />
-        </main>
+        </div>
+        <ExecutionLog />
       </div>
       <BrowserBanner />
       <Suspense fallback={null}>{monitorOpen && <MonitorPanel />}</Suspense>
@@ -124,8 +147,23 @@ export default function App() {
       <HostKeyPrompt />
       <KeyboardInteractivePrompt />
       {broadcastRequested && <BroadcastDialog />}
-      <Suspense fallback={null}>{transferOpen && <TransferPanel />}</Suspense>
       <ShortcutsDialog />
+      <Suspense fallback={null}>
+        {settingsOpen && (
+          <SettingsDialog onClose={() => setSettingsOpen(false)} />
+        )}
+      </Suspense>
+      {quickConnectOpen && (
+        <Modal
+          title={t("connect.quick")}
+          onClose={() => setQuickConnectOpen(false)}
+        >
+          <ConnectForm
+            heading={false}
+            onConnected={() => setQuickConnectOpen(false)}
+          />
+        </Modal>
+      )}
     </>
   );
 }

@@ -3,7 +3,13 @@ import { useTranslation } from "react-i18next";
 import { isTauri, type SshConnectArgs } from "../api";
 import { useAppStore } from "../store";
 
-export function ConnectForm() {
+export function ConnectForm({
+  heading = true,
+  onConnected,
+}: {
+  heading?: boolean;
+  onConnected?: () => void;
+}) {
   const { t } = useTranslation();
   const formRef = useRef<HTMLFormElement>(null);
   const openSession = useAppStore((s) => s.openSession);
@@ -24,16 +30,18 @@ export function ConnectForm() {
     };
     setStatus(t("connect.connecting"));
     openSession("ssh", `${username}@${host}`, { type: "ssh", args });
+    onConnected?.();
   };
 
   const handleLocal = () => {
     if (!isTauri) return;
     openSession("pty", t("session.localTitle"), { type: "pty" });
+    onConnected?.();
   };
 
   return (
     <form id="conn-form" ref={formRef} autoComplete="off" onSubmit={handleSubmit}>
-      <h2>{t("connect.title")}</h2>
+      {heading && <h2>{t("connect.title")}</h2>}
       <label>
         {t("connect.host")}
         <input name="host" placeholder={t("connect.hostPlaceholder")} required />

@@ -132,4 +132,23 @@ export function FilesIcon({ size = 14 }: { size?: number }) {
   );
 }
 
+export function HomeIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M2.5 7.5L8 2.8l5.5 4.7" />
+      <path d="M4 6.8V13h8V6.8" />
+      <path d="M6.5 13V9.5h3V13" />
+    </svg>
+  );
+}
+
+export function TerminalIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <rect x="2" y="3" width="12" height="10" rx="1.5" />
+      <path d="M4.5 6l2 2-2 2M8.5 10h3" />
+    </svg>
+  );
+}
+
 

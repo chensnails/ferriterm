@@ -62,7 +62,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
   );
 }
 
-export function HostTree() {
+export function HostTree({ chromeless = false }: { chromeless?: boolean }) {
   const { t } = useTranslation();
   const hosts = useAppStore((s) => s.hosts);
   const tags = useAppStore((s) => s.tags);
@@ -73,11 +73,16 @@ export function HostTree() {
   const connectRequestId = useAppStore((s) => s.connectRequestId);
   const importRequested = useAppStore((s) => s.importRequested);
   const tagsRequested = useAppStore((s) => s.tagsRequested);
+  const newHostRequested = useAppStore((s) => s.newHostRequested);
+  const newFolderRequested = useAppStore((s) => s.newFolderRequested);
   const clearConnectRequest = useAppStore((s) => s.clearConnectRequest);
   const clearImportRequest = useAppStore((s) => s.clearImportRequest);
   const clearTagsRequest = useAppStore((s) => s.clearTagsRequest);
+  const clearNewHostRequest = useAppStore((s) => s.clearNewHostRequest);
+  const clearNewFolderRequest = useAppStore((s) => s.clearNewFolderRequest);
   const updateHost = useAppStore((s) => s.updateHost);
   const deleteHost = useAppStore((s) => s.deleteHost);
+  const loadHosts = useAppStore((s) => s.loadHosts);
   const setStatus = useAppStore((s) => s.setStatus);
   const setHostFilter = useAppStore((s) => s.setHostFilter);
   const toggleFolder = useAppStore((s) => s.toggleFolder);
@@ -130,6 +135,18 @@ export function HostTree() {
     setTagManagerOpen(true);
     clearTagsRequest();
   }, [tagsRequested, clearTagsRequest]);
+
+  useEffect(() => {
+    if (!newHostRequested) return;
+    setDialog({ kind: "host", parentId: null });
+    clearNewHostRequest();
+  }, [newHostRequested, clearNewHostRequest]);
+
+  useEffect(() => {
+    if (!newFolderRequested) return;
+    setDialog({ kind: "folder", parentId: null });
+    clearNewFolderRequest();
+  }, [newFolderRequested, clearNewFolderRequest]);
 
   const query = hostFilter.trim().toLowerCase();
 
@@ -199,6 +216,27 @@ export function HostTree() {
     }
   };
 
+  const copyAddress = (node: HostEntry) => {
+    const address = `${node.username}@${node.host}:${node.port}`;
+    navigator.clipboard
+      .writeText(address)
+      .then(() => setStatus(t("hosts.copied")))
+      .catch((err) => setStatus(String(err), true));
+  };
+
+  const refreshHosts = () => {
+    loadHosts().catch((err) => setStatus(String(err), true));
+  };
+
+  const expandAll = () => useAppStore.setState({ collapsedFolders: {} });
+
+  const collapseAll = () =>
+    useAppStore.setState({
+      collapsedFolders: Object.fromEntries(
+        hosts.filter((host) => host.isFolder).map((host) => [host.id, true]),
+      ),
+    });
+
   const openInNewWindow = async (node: HostEntry) => {
     if (!isTauri) return;
     const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
@@ -222,6 +260,11 @@ export function HostTree() {
   const menuItems = (): MenuItem[] => {
     if (!menu) return [];
     const node = menu.node;
+    const treeActions: MenuItem[] = [
+      { label: t("hosts.refresh"), onSelect: refreshHosts },
+      { label: t("hosts.expandAll"), onSelect: expandAll },
+      { label: t("hosts.collapseAll"), onSelect: collapseAll },
+    ];
     if (!node) {
       return [
         { label: t("hosts.newHost"), onSelect: () => setDialog({ kind: "host", parentId: null }) },
@@ -231,6 +274,7 @@ export function HostTree() {
         },
         { label: t("hosts.import"), onSelect: () => openImport(null) },
         { label: t("hosts.manageTags"), onSelect: () => setTagManagerOpen(true) },
+        ...treeActions,
       ];
     }
     if (node.isFolder) {
@@ -248,6 +292,7 @@ export function HostTree() {
           onSelect: () => setDialog({ kind: "folder", host: node, parentId: node.parentId }),
         },
         { label: t("hosts.import"), onSelect: () => openImport(node.id) },
+        ...treeActions,
         {
           label: t("hosts.delete"),
           danger: true,
@@ -258,6 +303,11 @@ export function HostTree() {
     return [
       { label: t("hosts.connect"), onSelect: () => setConnectTarget(node) },
       { label: t("hosts.newWindow"), onSelect: () => void openInNewWindow(node) },
+      { label: t("hosts.copy"), onSelect: () => copyAddress(node) },
+      {
+        label: t("hosts.rename"),
+        onSelect: () => setDialog({ kind: "host", host: node, parentId: node.parentId }),
+      },
       {
         label: t("hosts.tags"),
         children: [
@@ -276,6 +326,7 @@ export function HostTree() {
         label: t("hosts.properties"),
         onSelect: () => setDialog({ kind: "host", host: node, parentId: node.parentId }),
       },
+      { label: t("hosts.refresh"), onSelect: refreshHosts },
       {
         label: t("hosts.delete"),
         danger: true,
@@ -412,51 +463,55 @@ export function HostTree() {
   const noMatches = visible !== null && hosts.length > 0 && ![...visible.values()].some(Boolean);
 
   return (
-    <section className="host-section">
-      <header className="section-head">
-        <h2>{t("hosts.title")}</h2>
-        <div className="section-actions">
-          <button
-            className="icon-btn"
-            title={t("hosts.newHost")}
-            aria-label={t("hosts.newHost")}
-            disabled={!isTauri}
-            onClick={() => setDialog({ kind: "host", parentId: null })}
-          >
-            <PlusIcon />
-          </button>
-          <button
-            className="icon-btn"
-            title={t("hosts.newFolder")}
-            aria-label={t("hosts.newFolder")}
-            disabled={!isTauri}
-            onClick={() => setDialog({ kind: "folder", parentId: null })}
-          >
-            <FolderPlusIcon />
-          </button>
-          <button
-            className="icon-btn"
-            title={t("hosts.manageTags")}
-            aria-label={t("hosts.manageTags")}
-            disabled={!isTauri}
-            onClick={() => setTagManagerOpen(true)}
-          >
-            <TagIcon />
-          </button>
-        </div>
-      </header>
+    <section className={chromeless ? "host-section chromeless" : "host-section"}>
+      {!chromeless && (
+        <>
+          <header className="section-head">
+            <h2>{t("hosts.title")}</h2>
+            <div className="section-actions">
+              <button
+                className="icon-btn"
+                title={t("hosts.newHost")}
+                aria-label={t("hosts.newHost")}
+                disabled={!isTauri}
+                onClick={() => setDialog({ kind: "host", parentId: null })}
+              >
+                <PlusIcon />
+              </button>
+              <button
+                className="icon-btn"
+                title={t("hosts.newFolder")}
+                aria-label={t("hosts.newFolder")}
+                disabled={!isTauri}
+                onClick={() => setDialog({ kind: "folder", parentId: null })}
+              >
+                <FolderPlusIcon />
+              </button>
+              <button
+                className="icon-btn"
+                title={t("hosts.manageTags")}
+                aria-label={t("hosts.manageTags")}
+                disabled={!isTauri}
+                onClick={() => setTagManagerOpen(true)}
+              >
+                <TagIcon />
+              </button>
+            </div>
+          </header>
 
-      <label className="search-field">
-        <SearchIcon />
-        <input
-          value={hostFilter}
-          onChange={(e) => setHostFilter(e.target.value)}
-          placeholder={t("hosts.searchPlaceholder")}
-          aria-label={t("hosts.searchPlaceholder")}
-          autoComplete="off"
-          spellCheck={false}
-        />
-      </label>
+          <label className="search-field">
+            <SearchIcon />
+            <input
+              value={hostFilter}
+              onChange={(e) => setHostFilter(e.target.value)}
+              placeholder={t("hosts.searchPlaceholder")}
+              aria-label={t("hosts.searchPlaceholder")}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </label>
+        </>
+      )}
 
       <div
         className={`tree-scroll${dropTarget === "__root__" ? " drop-root" : ""}`}

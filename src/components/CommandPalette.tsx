@@ -36,6 +36,11 @@ export function CommandPalette() {
     const store = useAppStore.getState();
     return [
       {
+        id: "home",
+        label: t("palette.home"),
+        run: () => store.goHome(),
+      },
+      {
         id: "local",
         label: t("palette.newLocal"),
         run: () =>

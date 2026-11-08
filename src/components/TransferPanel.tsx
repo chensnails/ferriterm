@@ -107,14 +107,6 @@ export function TransferPanel() {
     })();
   }, [setTransfers]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeTransfer();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [closeTransfer]);
-
   const refresh = useCallback(() => setRefreshToken((value) => value + 1), []);
 
   const saveBookmarks = (
@@ -195,8 +187,8 @@ export function TransferPanel() {
   const canSync = Boolean(sessionId && localPath && remotePath);
 
   return (
-    <div className="transfer-backdrop">
-      <div className="transfer-panel" role="dialog" aria-modal="true">
+    <div className="transfer-view">
+      <div className="transfer-panel">
         <header className="transfer-head">
           <h3>{t("transfer.title")}</h3>
           <div className="transfer-head-tools">

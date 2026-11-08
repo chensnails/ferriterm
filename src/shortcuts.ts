@@ -1,6 +1,6 @@
 import i18n from "./i18n";
 import { comboFromEvent, SHORTCUT_ACTIONS, type ShortcutAction } from "./keybindings";
-import { useAppStore } from "./store";
+import { HOME_TAB, TRANSFER_TAB, useAppStore } from "./store";
 
 const FORM_ALLOWED: ShortcutAction[] = ["palette", "search", "help"];
 
@@ -28,14 +28,18 @@ function runAction(action: ShortcutAction): boolean {
       store.togglePalette();
       return true;
     case "search":
-      if (!store.activeId) return false;
+      if (!store.sessions.some((s) => s.id === store.activeId)) return false;
       store.openSearch();
       return true;
     case "newTab":
       store.openSession("pty", i18n.t("session.localTitle"), { type: "pty" });
       return true;
     case "closeTab":
-      if (!store.activeId) return false;
+      if (store.activeId === TRANSFER_TAB) {
+        store.closeTransfer();
+        return true;
+      }
+      if (!store.activeId || store.activeId === HOME_TAB) return false;
       store.closeSession(store.activeId);
       return true;
     case "nextTab":
