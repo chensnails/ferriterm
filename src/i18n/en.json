@@ -150,7 +150,13 @@
     "load": "Load",
     "uptime": "Uptime",
     "sampling": "Sampling…",
-    "desktopOnly": "Available in the desktop app."
+    "desktopOnly": "Available in the desktop app.",
+    "host": "Host",
+    "os": "System",
+    "cpuModel": "CPU",
+    "cores": "{count, plural, one {# core} other {# cores}}",
+    "gpu": "GPU",
+    "gpuNone": "No GPU detected"
   },
   "forward": {
     "open": "Port forwarding",

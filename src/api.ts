@@ -89,8 +89,17 @@ export interface ImportPreview {
   hosts: ImportedHost[];
 }
 
+export interface GpuInfo {
+  name: string;
+  utilization: number | null;
+  memoryUsed: number | null;
+  memoryTotal: number | null;
+}
+
 export interface MonitorSnapshot {
   cpuUsage: number;
+  cpuBrand: string;
+  cpuCores: number;
   memUsed: number;
   memTotal: number;
   swapUsed: number;
@@ -99,6 +108,10 @@ export interface MonitorSnapshot {
   load5: number;
   load15: number;
   uptimeSecs: number;
+  hostName: string;
+  osName: string;
+  kernelVersion: string;
+  gpus: GpuInfo[];
 }
 
 export interface CommandItem {

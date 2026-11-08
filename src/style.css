@@ -1538,6 +1538,30 @@ mark {
   font-family: var(--font-mono);
 }
 
+.monitor-system {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+}
+
+.monitor-system-row {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: var(--space-2);
+  color: var(--fg-secondary);
+}
+
+.monitor-system-row .monitor-label {
+  width: auto;
+}
+
+.monitor-gpu {
+  display: block;
+}
+
 .tab-commands {
   margin-left: auto;
   align-self: center;

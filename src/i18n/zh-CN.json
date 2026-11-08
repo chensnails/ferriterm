@@ -150,7 +150,13 @@
     "load": "负载",
     "uptime": "运行时长",
     "sampling": "采样中…",
-    "desktopOnly": "仅在桌面应用中可用。"
+    "desktopOnly": "仅在桌面应用中可用。",
+    "host": "主机",
+    "os": "系统",
+    "cpuModel": "处理器",
+    "cores": "{count, plural, other {# 核}}",
+    "gpu": "显卡",
+    "gpuNone": "未检测到显卡"
   },
   "forward": {
     "open": "端口转发",

@@ -112,6 +112,48 @@ export function MonitorPanel() {
               {t("monitor.uptime")}: {formatUptime(snapshot.uptimeSecs)}
             </span>
           </div>
+          <div className="monitor-system">
+            <div className="monitor-system-row">
+              <span className="monitor-label">{t("monitor.host")}</span>
+              <span>{snapshot.hostName || "—"}</span>
+            </div>
+            <div className="monitor-system-row">
+              <span className="monitor-label">{t("monitor.os")}</span>
+              <span>
+                {snapshot.osName || "—"}
+                {snapshot.kernelVersion ? ` · ${snapshot.kernelVersion}` : ""}
+              </span>
+            </div>
+            <div className="monitor-system-row">
+              <span className="monitor-label">{t("monitor.cpuModel")}</span>
+              <span>
+                {snapshot.cpuBrand || "—"}
+                {snapshot.cpuCores > 0
+                  ? ` · ${t("monitor.cores", { count: snapshot.cpuCores })}`
+                  : ""}
+              </span>
+            </div>
+            <div className="monitor-system-row">
+              <span className="monitor-label">{t("monitor.gpu")}</span>
+              <span>
+                {snapshot.gpus.length === 0 ? (
+                  t("monitor.gpuNone")
+                ) : (
+                  snapshot.gpus.map((gpu, index) => (
+                    <span key={`${gpu.name}-${index}`} className="monitor-gpu">
+                      {gpu.name}
+                      {gpu.utilization != null
+                        ? ` · ${gpu.utilization.toFixed(0)}%`
+                        : ""}
+                      {gpu.memoryTotal
+                        ? ` · ${formatBytes(gpu.memoryUsed ?? 0)} / ${formatBytes(gpu.memoryTotal)}`
+                        : ""}
+                    </span>
+                  ))
+                )}
+              </span>
+            </div>
+          </div>
         </div>
       )}
     </section>
