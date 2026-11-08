@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri, type RemoteConfig } from "../api";
 import { useAppStore } from "../store";
+import { BUILTIN_THEMES } from "../theme";
 import { Modal } from "./Modal";
 
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
@@ -10,6 +11,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const language = useAppStore((s) => s.language);
   const languagePacks = useAppStore((s) => s.languagePacks);
   const pluginScan = useAppStore((s) => s.pluginScan);
+  const themes = pluginScan?.themes ?? [];
   const loadLanguagePacks = useAppStore((s) => s.loadLanguagePacks);
   const bumpCommandLibrary = useAppStore((s) => s.bumpCommandLibrary);
   const keepaliveSecs = useAppStore((s) => s.keepaliveSecs);
@@ -208,44 +210,110 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       <div className="settings-form">
         <fieldset className="settings-group">
           <legend>{t("settings.theme")}</legend>
-          <label className="checkbox">
-            <input
-              type="radio"
-              name="theme"
-              checked={theme === "dark"}
-              onChange={() => setTheme("dark")}
-            />
-            <span>{t("settings.themeDark")}</span>
+          <label className="field">
+            <span>{t("settings.themeTitle")}</span>
+            <select
+              value={theme}
+              onChange={(e) => setTheme(e.target.value)}
+            >
+              <optgroup label={t("settings.themeBuiltin")}>
+                {BUILTIN_THEMES.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {t(`settings.theme_${item.id}`)}
+                  </option>
+                ))}
+              </optgroup>
+              {themes.length > 0 && (
+                <optgroup label={t("settings.themePacks")}>
+                  {themes.map((pack) => (
+                    <option key={pack.id} value={pack.id}>
+                      {pack.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
           </label>
-          <label className="checkbox">
-            <input
-              type="radio"
-              name="theme"
-              checked={theme === "light"}
-              onChange={() => setTheme("light")}
-            />
-            <span>{t("settings.themeLight")}</span>
-          </label>
+          {themes.length === 0 ? (
+            <p className="hint">{t("settings.themePackHint")}</p>
+          ) : (
+            <ul className="plugin-list">
+              {themes.map((pack) => (
+                <li key={pack.id} className="plugin-row">
+                  <span className="plugin-name">{pack.name}</span>
+                  <span className="plugin-kind">
+                    {t(`settings.theme_${pack.base}`)}
+                    {pack.version ? ` · ${pack.version}` : ""}
+                  </span>
+                  {theme === pack.id ? (
+                    <span className="hint">{t("settings.themeActive")}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="link-btn"
+                      onClick={() => setTheme(pack.id)}
+                    >
+                      {t("settings.themeApply")}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </fieldset>
 
-        <label className="field">
-          <span>{t("settings.language")}</span>
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-          >
-            <option value="en">English</option>
-            <option value="zh-CN">简体中文</option>
-            {languagePacks
-              .filter((pack) => pack.locale !== "en" && pack.locale !== "zh-CN")
-              .map((pack) => (
-                <option key={pack.id} value={pack.locale}>
-                  {pack.name}
-                </option>
+        <fieldset className="settings-group">
+          <legend>{t("settings.languageTitle")}</legend>
+          <label className="field">
+            <span>{t("settings.language")}</span>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+            >
+              <option value="en">English</option>
+              <option value="zh-CN">简体中文</option>
+              {languagePacks
+                .filter((pack) => pack.locale !== "en" && pack.locale !== "zh-CN")
+                .map((pack) => (
+                  <option key={pack.id} value={pack.locale}>
+                    {pack.name}
+                  </option>
+                ))}
+            </select>
+            <span className="hint">{t("settings.languagePackHint")}</span>
+          </label>
+          <div className="plugin-actions">
+            <button type="button" onClick={() => void refreshPlugins()}>
+              {t("settings.languageReload")}
+            </button>
+            <button type="button" onClick={() => void openPluginDir()}>
+              {t("plugins.openFolder")}
+            </button>
+          </div>
+          {languagePacks.length === 0 ? (
+            <p className="hint">{t("settings.languagePackEmpty")}</p>
+          ) : (
+            <ul className="plugin-list">
+              {languagePacks.map((pack) => (
+                <li key={pack.id} className="plugin-row">
+                  <span className="plugin-name">{pack.name}</span>
+                  <span className="plugin-kind">{pack.locale}</span>
+                  {language === pack.locale ? (
+                    <span className="hint">{t("settings.languageActive")}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="link-btn"
+                      onClick={() => setLanguage(pack.locale)}
+                    >
+                      {t("settings.languageActivate")}
+                    </button>
+                  )}
+                </li>
               ))}
-          </select>
-          <span className="hint">{t("settings.languagePackHint")}</span>
-        </label>
+            </ul>
+          )}
+        </fieldset>
 
         <label className="field">
           <span>{t("settings.keepalive")}</span>

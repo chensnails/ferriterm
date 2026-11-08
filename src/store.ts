@@ -12,7 +12,7 @@ import {
 } from "./api";
 import { buildConnectArgs } from "./connect";
 import { isSensitiveCommand } from "./commands";
-import { applyTheme, type Theme } from "./theme";
+import { applyTheme, applyThemePack, type Theme } from "./theme";
 import i18n, {
   detectLanguage,
   registerLanguagePack,
@@ -598,14 +598,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   toggleTheme: () => {
-    const theme = get().theme === "dark" ? "light" : "dark";
-    applyTheme(theme);
-    set({ theme });
-    if (isTauri) api.setSetting("theme", theme).catch(() => {});
+    const theme = get().theme === "light" ? "dark" : "light";
+    get().setTheme(theme);
   },
 
   setTheme: (theme) => {
-    applyTheme(theme);
+    const pack = get().pluginScan?.themes.find((item) => item.id === theme);
+    if (pack) applyThemePack(theme, pack.base, pack.tokens);
+    else applyTheme(theme);
     set({ theme });
     if (isTauri) api.setSetting("theme", theme).catch(() => {});
   },
@@ -619,10 +619,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   loadSettings: async () => {
     if (!isTauri) return;
     const settings = await api.getSettings();
-    const theme = settings.theme === "light" ? "light" : "dark";
+    const theme = settings.theme || "dark";
     const language = settings.language || get().language;
     const keepalive = Number.parseInt(settings.keepalive ?? "", 10);
-    applyTheme(theme);
+    const pack = get().pluginScan?.themes.find((item) => item.id === theme);
+    if (pack) applyThemePack(theme, pack.base, pack.tokens);
+    else applyTheme(theme);
     void i18n.changeLanguage(language);
     set({
       theme,
@@ -644,6 +646,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         locale,
       })),
     });
+    const current = get().theme;
+    const pack = scan.themes.find((item) => item.id === current);
+    if (pack) applyThemePack(current, pack.base, pack.tokens);
   },
 
   bumpCommandLibrary: () =>
