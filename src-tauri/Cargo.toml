@@ -16,12 +16,18 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde.workspace = true
 serde_json.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["fs", "io-util", "process"] }
 ft-core.workspace = true
 ft-ssh.workspace = true
 ft-pty.workspace = true
 ft-store.workspace = true
 ft-security.workspace = true
+ft-import.workspace = true
+ft-monitor.workspace = true
+ft-sync.workspace = true
+ft-plugin.workspace = true
+ft-vfs.workspace = true
+ft-transfer.workspace = true
 
 [dev-dependencies]
 russh.workspace = true

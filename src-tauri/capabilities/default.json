@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default desktop capability for the main window",
-  "windows": ["main"],
-  "permissions": ["core:default"]
+  "description": "Default desktop capability for the main and session windows",
+  "windows": ["main", "session-*"],
+  "permissions": ["core:default", "core:webview:allow-create-webview-window"]
 }

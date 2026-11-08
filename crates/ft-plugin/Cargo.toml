@@ -1,0 +1,10 @@
+[package]
+name = "ft-plugin"
+description = "Plugin host: manifest registry, language packs (data-only plugins)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true

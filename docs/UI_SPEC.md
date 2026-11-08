@@ -34,6 +34,15 @@ Single main window:
 | `--warning` | `#f59e0b` | caution states |
 | `--success` | `#22c55e` | connected/healthy states |
 | `--selection` | `#33415588` | text/table selection |
+| `--overlay` | `rgb(0 0 0 / 0.45)` | modal backdrop scrim |
+| `--tag-blue` | `#4f8cff` | host tag palette (shared across themes) |
+| `--tag-green` | `#22c55e` | host tag palette |
+| `--tag-amber` | `#f59e0b` | host tag palette |
+| `--tag-red` | `#ef4444` | host tag palette |
+| `--tag-purple` | `#a855f7` | host tag palette |
+| `--tag-cyan` | `#06b6d4` | host tag palette |
+| `--tag-pink` | `#ec4899` | host tag palette |
+| `--tag-gray` | `#8a93a9` | host tag palette |
 
 ### Color — light
 
@@ -52,6 +61,15 @@ Single main window:
 | `--warning` | `#d97706` |
 | `--success` | `#16a34a` |
 | `--selection` | `#bfdbfe88` |
+| `--overlay` | `rgb(0 0 0 / 0.45)` |
+| `--tag-blue` | `#4f8cff` |
+| `--tag-green` | `#22c55e` |
+| `--tag-amber` | `#f59e0b` |
+| `--tag-red` | `#ef4444` |
+| `--tag-purple` | `#a855f7` |
+| `--tag-cyan` | `#06b6d4` |
+| `--tag-pink` | `#ec4899` |
+| `--tag-gray` | `#8a93a9` |
 
 ### Typography, spacing, geometry, motion
 
@@ -69,6 +87,7 @@ Single main window:
 | `--row-h` | `32px` | tree/table rows |
 | `--tab-h` | `36px` | tab bar |
 | `--sidebar-w` | `280px` (resizable 220–400) | Home tree pane |
+| `--dialog-w` | `440px` | dialog width cap |
 | `--split-gutter` | `4px` | split drag handle |
 | `--shadow-panel` | `0 8px 24px rgb(0 0 0 / .35)` | floating panels |
 | `--motion-fast` | `120ms ease-out` | hover/open transitions; disabled by reduce-motion setting |
@@ -87,6 +106,7 @@ Single main window:
 | TransferQueueTable | progress bar, speed, ETA, pause/cancel/retry actions | `--row-h`, `--accent` |
 | RwxEditor | 3×3 checkbox grid + octal preview | `--control-h` |
 | ContextMenu | keyboard navigable, submenu support, customizable entries | `--bg-elevated`, `--radius-md` |
+| TagManagerDialog | create/rename/recolor/delete tags; deleting detaches from hosts | `--bg-panel`, `--tag-*` |
 | CommandPalette | fuzzy actions, Ctrl+Shift+P | `--bg-elevated` |
 | SettingsCenter | left category list + right form; search across settings | `--sidebar-w` |
 | TerminalView | xterm.js host; theme mapped from tokens | `--font-terminal`, `--bg-base` |

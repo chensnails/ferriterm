@@ -1,13 +1,20 @@
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
 import { ConnectForm } from "./ConnectForm";
+import { HostTree } from "./HostTree";
 import { SessionList } from "./SessionList";
+import { SettingsDialog } from "./SettingsDialog";
+import { ForwardIcon, GearIcon, PulseIcon } from "./icons";
 
 export function Sidebar() {
   const { t } = useTranslation();
   const language = useAppStore((s) => s.language);
   const toggleTheme = useAppStore((s) => s.toggleTheme);
   const setLanguage = useAppStore((s) => s.setLanguage);
+  const toggleMonitor = useAppStore((s) => s.toggleMonitor);
+  const toggleForward = useAppStore((s) => s.toggleForward);
+  const settingsOpen = useAppStore((s) => s.settingsOpen);
+  const setSettingsOpen = useAppStore((s) => s.setSettingsOpen);
 
   return (
     <aside id="sidebar">
@@ -24,9 +31,40 @@ export function Sidebar() {
         <button className="icon-btn" title={t("theme.toggle")} onClick={toggleTheme}>
           ◐
         </button>
+        <button
+          className="icon-btn"
+          title={t("monitor.open")}
+          aria-label={t("monitor.open")}
+          onClick={toggleMonitor}
+        >
+          <PulseIcon />
+        </button>
+        <button
+          className="icon-btn"
+          title={t("forward.open")}
+          aria-label={t("forward.open")}
+          onClick={toggleForward}
+        >
+          <ForwardIcon />
+        </button>
+        <button
+          className="icon-btn"
+          title={t("settings.open")}
+          aria-label={t("settings.open")}
+          onClick={() => setSettingsOpen(true)}
+        >
+          <GearIcon />
+        </button>
       </header>
-      <ConnectForm />
+      <HostTree />
+      <details id="quick-connect">
+        <summary>{t("connect.quick")}</summary>
+        <ConnectForm />
+      </details>
       <SessionList />
+      {settingsOpen && (
+        <SettingsDialog onClose={() => setSettingsOpen(false)} />
+      )}
     </aside>
   );
 }

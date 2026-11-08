@@ -1,11 +1,14 @@
 //! Loopback SSH fixture for automated and manual client verification.
 //! Binds 127.0.0.1:2222 only; disposable account test / ferriterm-test.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use russh::keys::PrivateKey;
 use russh::server::{Auth, ChannelOpenHandle, Config, Handler, Msg, Server, Session};
 use russh::{Channel, ChannelId, MethodKind, MethodSet, Pty, SshId};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::process::{ChildStdin, Command};
 
 const USER: &str = "test";
 const PASSWORD: &str = "ferriterm-test";
@@ -20,12 +23,16 @@ impl Server for TestServer {
 
     fn new_client(&mut self, peer: Option<std::net::SocketAddr>) -> Self::Handler {
         println!("loopback: client {peer:?}");
-        TestHandler { line: Vec::new() }
+        TestHandler {
+            line: Vec::new(),
+            sftp: HashMap::new(),
+        }
     }
 }
 
 struct TestHandler {
     line: Vec<u8>,
+    sftp: HashMap<ChannelId, ChildStdin>,
 }
 
 impl TestHandler {
@@ -101,12 +108,73 @@ impl Handler for TestHandler {
         Ok(())
     }
 
+    async fn subsystem_request(
+        &mut self,
+        channel: ChannelId,
+        name: &str,
+        session: &mut Session,
+    ) -> Result<(), Self::Error> {
+        if name != "sftp" {
+            session.channel_failure(channel)?;
+            return Ok(());
+        }
+        let root = sftp_root();
+        std::fs::create_dir_all(&root)?;
+        let readme = root.join("README.md");
+        if !readme.exists() {
+            std::fs::write(&readme, "# Ferriterm loopback SFTP\n")?;
+        }
+        let mut child = Command::new(sftp_server_path()?)
+            .current_dir(&root)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .spawn()?;
+        let stdin = child.stdin.take().expect("piped stdin");
+        let mut stdout = child.stdout.take().expect("piped stdout");
+        self.sftp.insert(channel, stdin);
+        let handle = session.handle();
+        tokio::spawn(async move {
+            let mut buffer = vec![0u8; 32 * 1024];
+            loop {
+                match stdout.read(&mut buffer).await {
+                    Ok(0) | Err(_) => break,
+                    Ok(read) => {
+                        if handle.data(channel, buffer[..read].to_vec()).await.is_err() {
+                            break;
+                        }
+                    }
+                }
+            }
+            let _ = handle.eof(channel).await;
+        });
+        session.channel_success(channel)?;
+        Ok(())
+    }
+
+    async fn channel_close(
+        &mut self,
+        channel: ChannelId,
+        _session: &mut Session,
+    ) -> Result<(), Self::Error> {
+        self.sftp.remove(&channel);
+        Ok(())
+    }
+
     async fn data(
         &mut self,
         channel: ChannelId,
         data: &[u8],
         session: &mut Session,
     ) -> Result<(), Self::Error> {
+        if let Some(stdin) = self.sftp.get_mut(&channel) {
+            if stdin.write_all(data).await.is_err() {
+                self.sftp.remove(&channel);
+            } else {
+                let _ = stdin.flush().await;
+            }
+            return Ok(());
+        }
         for &byte in data {
             match byte {
                 b'\r' | b'\n' => {
@@ -137,6 +205,23 @@ impl Handler for TestHandler {
         }
         Ok(())
     }
+}
+
+fn sftp_server_path() -> Result<std::path::PathBuf, std::io::Error> {
+    let candidates = [
+        "/usr/libexec/sftp-server",
+        "/usr/lib/openssh/sftp-server",
+        "/usr/lib/ssh/sftp-server",
+    ];
+    candidates
+        .iter()
+        .map(std::path::PathBuf::from)
+        .find(|path| path.exists())
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "sftp-server not found"))
+}
+
+fn sftp_root() -> std::path::PathBuf {
+    std::env::temp_dir().join("ferriterm-sftp-fixture")
 }
 
 #[tokio::main(flavor = "current_thread")]

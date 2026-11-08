@@ -9,3 +9,4 @@ rust-version.workspace = true
 tokio.workspace = true
 russh.workspace = true
 portable-pty.workspace = true
+serde_json.workspace = true

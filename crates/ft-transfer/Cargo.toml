@@ -1,0 +1,12 @@
+[package]
+name = "ft-transfer"
+description = "Transfer queue and directory sync over any VFS"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+ft-vfs.workspace = true
+tokio = { workspace = true, features = ["rt", "time", "sync"] }
+serde.workspace = true
+serde_json.workspace = true

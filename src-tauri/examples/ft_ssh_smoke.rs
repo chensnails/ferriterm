@@ -1,15 +1,32 @@
 //! Drives the refactored ft-ssh crate against the loopback testenv server.
 //! Run loopback_sshd first, then: cargo run --example ft_ssh_smoke
 
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use ft_core::{SessionRegistry, TerminalSink};
+use ft_core::{ServerKeyVerifier, SessionRegistry, TerminalSink};
+use russh::keys::PublicKey;
 
 struct CollectSink {
     buf: Arc<Mutex<Vec<u8>>>,
     closed: Arc<AtomicBool>,
+}
+
+/// Loopback testenv accepts whatever key the throwaway server presents.
+struct TrustLocalServer;
+
+impl ServerKeyVerifier for TrustLocalServer {
+    fn verify<'a>(
+        &'a self,
+        _host: &'a str,
+        _port: u16,
+        _key: &'a PublicKey,
+    ) -> Pin<Box<dyn Future<Output = bool> + Send + 'a>> {
+        Box::pin(async { true })
+    }
 }
 
 impl TerminalSink for CollectSink {
@@ -49,10 +66,19 @@ async fn run() -> Result<(), String> {
             host: "127.0.0.1".into(),
             port: 2222,
             username: "test".into(),
-            password: "ferriterm-test".into(),
+            password: Some("ferriterm-test".into()),
+            private_key: None,
+            key_passphrase: None,
+            keyboard_interactive: false,
+            agent: false,
+            x11: false,
+            jump: Vec::new(),
+            keepalive: None,
+            host_id: None,
             cols: 80,
             rows: 24,
         },
+        ft_ssh::ConnectContext::new(Arc::new(TrustLocalServer)),
     )
     .await?;
 

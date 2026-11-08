@@ -1,0 +1,155 @@
+use std::future::Future;
+use std::pin::Pin;
+
+use serde::{Deserialize, Serialize};
+
+mod local;
+mod sftp;
+
+pub use local::LocalFs;
+pub use sftp::{SftpConnection, SftpRegistry, SftpVfs};
+
+pub type VfsFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T, String>> + Send + 'a>>;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileEntry {
+    pub name: String,
+    pub path: String,
+    pub size: u64,
+    pub mode: u32,
+    pub uid: u32,
+    pub gid: u32,
+    pub mtime: u64,
+    pub is_dir: bool,
+    pub is_symlink: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenMode {
+    Read,
+    Write { truncate: bool },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextFile {
+    pub content: String,
+    pub mtime: u64,
+    pub size: u64,
+    pub truncated: bool,
+}
+
+pub trait VfsFile: Send {
+    fn read<'a>(&'a mut self, offset: u64, len: u32) -> VfsFuture<'a, Vec<u8>>;
+    fn write<'a>(&'a mut self, offset: u64, data: &'a [u8]) -> VfsFuture<'a, ()>;
+    fn close<'a>(&'a mut self) -> VfsFuture<'a, ()>;
+}
+
+pub trait Vfs: Send + Sync {
+    fn list<'a>(&'a self, path: &'a str, show_hidden: bool) -> VfsFuture<'a, Vec<FileEntry>>;
+    fn stat<'a>(&'a self, path: &'a str) -> VfsFuture<'a, FileEntry>;
+    fn home<'a>(&'a self) -> VfsFuture<'a, String>;
+    fn mkdir<'a>(&'a self, path: &'a str) -> VfsFuture<'a, ()>;
+    fn remove_file<'a>(&'a self, path: &'a str) -> VfsFuture<'a, ()>;
+    fn remove_dir_all<'a>(&'a self, path: &'a str) -> VfsFuture<'a, ()>;
+    fn rename<'a>(&'a self, from: &'a str, to: &'a str) -> VfsFuture<'a, ()>;
+    fn chmod<'a>(&'a self, path: &'a str, mode: u32) -> VfsFuture<'a, ()>;
+    fn open<'a>(&'a self, path: &'a str, mode: OpenMode) -> VfsFuture<'a, Box<dyn VfsFile + Send>>;
+}
+
+pub fn join_path(base: &str, name: &str) -> String {
+    if base.is_empty() {
+        return name.to_string();
+    }
+    if name.is_empty() {
+        return base.to_string();
+    }
+    if base.ends_with('/') {
+        format!("{base}{name}")
+    } else {
+        format!("{base}/{name}")
+    }
+}
+
+pub fn parent_path(path: &str) -> Option<String> {
+    let trimmed = path.trim_end_matches('/');
+    if trimmed.is_empty() {
+        return None;
+    }
+    match trimmed.rfind('/') {
+        Some(0) => Some("/".to_string()),
+        Some(index) => Some(trimmed[..index].to_string()),
+        None => None,
+    }
+}
+
+pub async fn read_text(vfs: &dyn Vfs, path: &str, max_bytes: u64) -> Result<TextFile, String> {
+    let entry = vfs.stat(path).await?;
+    let mut file = vfs.open(path, OpenMode::Read).await?;
+    let mut buffer = Vec::new();
+    let mut offset = 0u64;
+    let mut truncated = false;
+    loop {
+        let chunk = file.read(offset, 64 * 1024).await?;
+        if chunk.is_empty() {
+            break;
+        }
+        if buffer.len() as u64 + chunk.len() as u64 > max_bytes {
+            let remaining = max_bytes.saturating_sub(buffer.len() as u64) as usize;
+            buffer.extend_from_slice(&chunk[..remaining]);
+            truncated = true;
+            break;
+        }
+        offset += chunk.len() as u64;
+        buffer.extend_from_slice(&chunk);
+    }
+    let _ = file.close().await;
+    Ok(TextFile {
+        content: String::from_utf8_lossy(&buffer).into_owned(),
+        mtime: entry.mtime,
+        size: entry.size,
+        truncated,
+    })
+}
+
+pub async fn write_text(
+    vfs: &dyn Vfs,
+    path: &str,
+    content: &str,
+    expected_mtime: Option<u64>,
+) -> Result<u64, String> {
+    if let Some(expected) = expected_mtime {
+        if let Ok(current) = vfs.stat(path).await {
+            if current.mtime != expected {
+                return Err(
+                    "the remote file changed since it was opened; reload before saving".to_string(),
+                );
+            }
+        }
+    }
+    let mut file = vfs.open(path, OpenMode::Write { truncate: true }).await?;
+    file.write(0, content.as_bytes()).await?;
+    file.close().await?;
+    Ok(vfs.stat(path).await?.mtime)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn joins_paths() {
+        assert_eq!(join_path("/tmp", "a"), "/tmp/a");
+        assert_eq!(join_path("/tmp/", "a"), "/tmp/a");
+        assert_eq!(join_path("", "a"), "a");
+    }
+
+    #[test]
+    fn finds_parent() {
+        assert_eq!(parent_path("/tmp/a"), Some("/tmp".to_string()));
+        assert_eq!(parent_path("/tmp"), Some("/".to_string()));
+        assert_eq!(parent_path("/"), None);
+        assert_eq!(parent_path("a"), None);
+    }
+}

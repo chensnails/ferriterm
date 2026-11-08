@@ -1,8 +1,19 @@
 [package]
 name = "ft-security"
-description = "Reserved security interfaces: audit log, permission engine, host-key verification"
+description = "Credential vault plus reserved security interfaces: audit log, permission engine, host-key verification"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+ring = "0.17"
+serde_json.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", default-features = false, features = ["apple-native"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3", default-features = false, features = ["windows-native"] }
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+keyring = { version = "3", default-features = false, features = ["sync-secret-service"] }

@@ -8,7 +8,14 @@ import zhCN from "./zh-CN.json";
 // Strings are ICU MessageFormat, so interpolate with {name} (not {{name}}) and
 // pluralize with {count, plural, ...}. Missing keys fall back to en.
 export const SUPPORTED_LANGUAGES = ["en", "zh-CN"] as const;
-export type Language = (typeof SUPPORTED_LANGUAGES)[number];
+export type Language = string;
+
+export function registerLanguagePack(
+  locale: string,
+  strings: Record<string, string>,
+) {
+  i18n.addResourceBundle(locale, "translation", strings, true, true);
+}
 
 export function detectLanguage(): Language {
   const nav = typeof navigator !== "undefined" ? navigator.language : "en";
@@ -25,7 +32,7 @@ void i18n
     },
     lng: detectLanguage(),
     fallbackLng: "en",
-    supportedLngs: SUPPORTED_LANGUAGES as unknown as string[],
+    supportedLngs: false,
     interpolation: { escapeValue: false },
     returnNull: false,
   });

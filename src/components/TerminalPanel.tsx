@@ -4,12 +4,16 @@ import { api } from "../api";
 import i18n from "../i18n";
 import { useAppStore, type SessionMeta } from "../store";
 
-export function TerminalPanel({ session }: { session: SessionMeta }) {
+export function TerminalPanel({
+  session,
+  pane,
+}: {
+  session: SessionMeta;
+  pane: "primary" | "secondary" | null;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<TerminalView | null>(null);
-  const activeId = useAppStore((s) => s.activeId);
   const theme = useAppStore((s) => s.theme);
-  const isActive = activeId === session.id;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -47,13 +51,13 @@ export function TerminalPanel({ session }: { session: SessionMeta }) {
   }, [session.id, session.kind]);
 
   useEffect(() => {
-    if (!isActive) return;
+    if (!pane) return;
     const raf = requestAnimationFrame(() => {
       viewRef.current?.fitNow();
-      viewRef.current?.focus();
+      if (pane === "primary") viewRef.current?.focus();
     });
     return () => cancelAnimationFrame(raf);
-  }, [isActive]);
+  }, [pane]);
 
   useEffect(() => {
     viewRef.current?.refreshTheme();
@@ -62,7 +66,7 @@ export function TerminalPanel({ session }: { session: SessionMeta }) {
   return (
     <div
       ref={containerRef}
-      className={isActive ? "terminal-panel active" : "terminal-panel"}
+      className={`terminal-panel${pane ? ` pane-${pane}` : ""}`}
     />
   );
 }
