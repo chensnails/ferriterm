@@ -280,6 +280,7 @@
   },
   "transfer": {
     "title": "文件传输",
+    "open": "文件传输",
     "local": "本地",
     "remote": "远程",
     "toRemote": "上传",

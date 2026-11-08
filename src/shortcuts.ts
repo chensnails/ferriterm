@@ -5,8 +5,8 @@ import { useAppStore } from "./store";
 const FORM_ALLOWED: ShortcutAction[] = ["palette", "search", "help"];
 
 function isFormField(target: EventTarget | null): boolean {
-  const element = target as HTMLElement | null;
-  if (!element) return false;
+  if (!(target instanceof HTMLElement)) return false;
+  const element = target;
   if (element.closest(".xterm")) return false;
   const tag = element.tagName;
   return tag === "INPUT" || tag === "TEXTAREA" || element.isContentEditable;

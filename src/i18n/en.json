@@ -280,6 +280,7 @@
   },
   "transfer": {
     "title": "File transfer",
+    "open": "File transfer",
     "local": "Local",
     "remote": "Remote",
     "toRemote": "Upload",
