@@ -1,66 +1,12 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ferriterm</title>
   </head>
   <body>
-    <div id="app">
-      <aside id="sidebar">
-        <header class="brand">
-          <span class="brand-mark">&gt;_</span>
-          <span class="brand-name">Ferriterm</span>
-          <button id="theme-toggle" class="icon-btn" title="切换主题">◐</button>
-        </header>
-
-        <form id="conn-form" autocomplete="off">
-          <h2>新建 SSH 连接</h2>
-          <label>
-            主机
-            <input name="host" placeholder="192.168.1.10" required />
-          </label>
-          <div class="row">
-            <label class="grow">
-              端口
-              <input name="port" type="number" value="22" min="1" max="65535" />
-            </label>
-            <label class="grow">
-              用户名
-              <input name="username" placeholder="root" required />
-            </label>
-          </div>
-          <label>
-            密码
-            <input name="password" type="password" placeholder="密码（脚手架暂不支持密钥登录）" />
-          </label>
-          <div class="actions">
-            <button type="submit" class="primary">连接 SSH</button>
-            <button type="button" id="local-btn">本地终端</button>
-          </div>
-          <p id="form-status" role="status"></p>
-        </form>
-
-        <div class="session-section">
-          <h2>会话</h2>
-          <ul id="session-list"></ul>
-        </div>
-      </aside>
-
-      <main id="main">
-        <div id="tabbar"></div>
-        <div id="terminal-host">
-          <div id="empty-hint">
-            <p class="hint-mark">&gt;_</p>
-            <p>填写左侧表单连接 SSH，或打开本地终端</p>
-            <p class="hint-sub">Rust + Tauri 2 + xterm.js 脚手架</p>
-          </div>
-        </div>
-      </main>
-    </div>
-    <div id="browser-banner" hidden>
-      当前为浏览器预览模式，终端功能不可用。请运行 <code>npm run tauri:dev</code> 启动桌面应用。
-    </div>
-    <script type="module" src="/src/main.ts"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

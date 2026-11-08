@@ -1,9 +1,9 @@
 [package]
 name = "ferriterm"
-version = "0.1.0"
-description = "Cross-platform SSH terminal client scaffold (Rust + Tauri + xterm.js)"
-edition = "2021"
-rust-version = "1.85"
+description = "Cross-platform SSH terminal client (Rust + Tauri + xterm.js)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 
 [lib]
 name = "ferriterm_lib"
@@ -14,13 +14,14 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-tokio = { version = "1", features = ["rt", "sync", "time", "macros"] }
-russh = { version = "0.65", default-features = false, features = ["ring", "flate2", "rsa"] }
-portable-pty = "0.9"
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+ft-core.workspace = true
+ft-ssh.workspace = true
+ft-pty.workspace = true
+ft-store.workspace = true
+ft-security.workspace = true
 
-[profile.release]
-strip = true
-lto = true
-codegen-units = 1
+[dev-dependencies]
+russh.workspace = true

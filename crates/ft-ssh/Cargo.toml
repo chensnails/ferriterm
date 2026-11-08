@@ -1,0 +1,12 @@
+[package]
+name = "ft-ssh"
+description = "SSH transport: connect, authenticate, shell channel, write/resize/close"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+ft-core.workspace = true
+russh.workspace = true
+tokio.workspace = true
+serde.workspace = true

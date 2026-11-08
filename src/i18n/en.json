@@ -1,0 +1,44 @@
+{
+  "app": {
+    "name": "Ferriterm"
+  },
+  "theme": {
+    "toggle": "Toggle theme"
+  },
+  "language": {
+    "toggle": "Switch language"
+  },
+  "connect": {
+    "title": "New SSH connection",
+    "host": "Host",
+    "hostPlaceholder": "192.168.1.10",
+    "port": "Port",
+    "username": "Username",
+    "usernamePlaceholder": "root",
+    "password": "Password",
+    "passwordPlaceholder": "Password (key auth not yet supported)",
+    "submit": "Connect SSH",
+    "local": "Local terminal",
+    "connecting": "Connecting…"
+  },
+  "session": {
+    "localTitle": "Local terminal"
+  },
+  "sessions": {
+    "title": "Sessions",
+    "count": "{count, plural, =0 {No active sessions} one {# active session} other {# active sessions}}",
+    "closed": "disconnected",
+    "closeTab": "Close session"
+  },
+  "terminal": {
+    "disconnected": "[session disconnected]",
+    "connectFailed": "Connect failed: {error}"
+  },
+  "empty": {
+    "hint": "Fill the form to connect SSH, or open a local terminal",
+    "sub": "Rust + Tauri 2 + xterm.js scaffold"
+  },
+  "browser": {
+    "banner": "Browser preview mode: terminal features are unavailable. Run {command} to start the desktop app."
+  }
+}

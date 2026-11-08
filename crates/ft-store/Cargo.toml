@@ -1,0 +1,10 @@
+[package]
+name = "ft-store"
+description = "SQLite persistence: hosts, tags, credential references, settings"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+rusqlite.workspace = true
+serde.workspace = true

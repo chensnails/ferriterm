@@ -1,0 +1,10 @@
+[package]
+name = "ft-pty"
+description = "Local pseudo-terminal: spawn shell, write/resize/kill"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+ft-core.workspace = true
+portable-pty.workspace = true

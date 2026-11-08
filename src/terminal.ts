@@ -4,13 +4,18 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { api, onClosed, onOutput, type SessionKind } from "./api";
+import { terminalTheme } from "./theme";
+import i18n from "./i18n";
 
 export class TerminalView {
   readonly term: Terminal;
+  readonly ready: Promise<void>;
   private fit = new FitAddon();
   private unlisten: UnlistenFn[] = [];
   private observer: ResizeObserver;
   private disposed = false;
+  // Rust 侧并发执行 IPC command，互斥锁只保证串行不保证到达顺序；链式写入保 keystroke 顺序
+  private writeChain: Promise<void> = Promise.resolve();
 
   constructor(
     readonly id: string,
@@ -23,12 +28,7 @@ export class TerminalView {
       fontSize: 14,
       fontFamily:
         '"JetBrains Mono", "Cascadia Code", Menlo, Consolas, "Courier New", monospace',
-      theme: {
-        background: "#0f1117",
-        foreground: "#d4d4d8",
-        cursor: "#7dd3fc",
-        selectionBackground: "#33415588",
-      },
+      theme: terminalTheme(),
     });
     this.term.loadAddon(this.fit);
     this.term.loadAddon(new WebLinksAddon());
@@ -36,20 +36,22 @@ export class TerminalView {
     this.fit.fit();
 
     this.term.onData((data) => {
-      api.write(this.kind, this.id, data).catch(console.error);
+      this.writeChain = this.writeChain.then(() =>
+        api.write(this.kind, this.id, data).catch(console.error),
+      );
     });
     this.term.onResize(({ cols, rows }) => {
       api.resize(this.kind, this.id, cols, rows).catch(() => {});
     });
 
     // 先注册事件监听，再发起连接，避免丢失服务端首批输出
-    Promise.all([
+    this.ready = Promise.all([
       onOutput(this.id, (bytes) => {
         if (!this.disposed) this.term.write(bytes);
       }),
       onClosed(this.id, () => {
         if (this.disposed) return;
-        this.term.writeln("\r\n\x1b[90m[会话已断开]\x1b[0m");
+        this.term.writeln(`\r\n\x1b[90m${i18n.t("terminal.disconnected")}\x1b[0m`);
         onSessionClosed();
       }),
     ]).then((fns) => {
@@ -61,6 +63,10 @@ export class TerminalView {
       if (!this.disposed) this.fit.fit();
     });
     this.observer.observe(container);
+  }
+
+  refreshTheme() {
+    this.term.options.theme = terminalTheme();
   }
 
   focus() {

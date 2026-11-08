@@ -1,0 +1,8 @@
+[package]
+name = "ft-security"
+description = "Reserved security interfaces: audit log, permission engine, host-key verification"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]

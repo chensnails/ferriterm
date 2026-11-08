@@ -1,0 +1,44 @@
+{
+  "app": {
+    "name": "Ferriterm"
+  },
+  "theme": {
+    "toggle": "切换主题"
+  },
+  "language": {
+    "toggle": "切换语言"
+  },
+  "connect": {
+    "title": "新建 SSH 连接",
+    "host": "主机",
+    "hostPlaceholder": "192.168.1.10",
+    "port": "端口",
+    "username": "用户名",
+    "usernamePlaceholder": "root",
+    "password": "密码",
+    "passwordPlaceholder": "密码（暂不支持密钥登录）",
+    "submit": "连接 SSH",
+    "local": "本地终端",
+    "connecting": "正在连接…"
+  },
+  "session": {
+    "localTitle": "本地终端"
+  },
+  "sessions": {
+    "title": "会话",
+    "count": "{count, plural, =0 {暂无活动会话} other {# 个活动会话}}",
+    "closed": "已断开",
+    "closeTab": "关闭会话"
+  },
+  "terminal": {
+    "disconnected": "[会话已断开]",
+    "connectFailed": "连接失败：{error}"
+  },
+  "empty": {
+    "hint": "填写表单连接 SSH，或打开本地终端",
+    "sub": "Rust + Tauri 2 + xterm.js 脚手架"
+  },
+  "browser": {
+    "banner": "当前为浏览器预览模式，终端功能不可用。运行 {command} 启动桌面应用。"
+  }
+}
