@@ -496,6 +496,37 @@ pub fn plugin_import_commands(
     Ok(imported)
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WasmRunResult {
+    output: String,
+    logs: Vec<String>,
+    fuel_used: u64,
+}
+
+#[tauri::command]
+pub async fn plugin_run_wasm(
+    plugins: State<'_, ft_plugin::PluginRegistry>,
+    id: String,
+    payload: String,
+) -> Result<WasmRunResult, String> {
+    let (_, bytes) = plugins.load_wasm(&id)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        ft_plugin::run_wasm(
+            &bytes,
+            payload.as_bytes(),
+            &ft_plugin::WasmLimits::default(),
+        )
+    })
+    .await
+    .map_err(|err| err.to_string())?
+    .map(|run| WasmRunResult {
+        output: run.output,
+        logs: run.logs,
+        fuel_used: run.fuel_used,
+    })
+}
+
 #[tauri::command]
 pub fn export_backup(
     backups: State<'_, ft_sync::BackupStore>,

@@ -425,6 +425,9 @@
     "refreshed": "已重新扫描插件目录。",
     "imported": "已导入 {count} 条命令。",
     "importCommands": "导入命令",
+    "run": "运行",
+    "ran": "插件输出：{output}",
+    "noOutput": "插件已结束，无输出。",
     "errors": "{count} 个插件错误",
     "kinds": {
       "language": "语言",

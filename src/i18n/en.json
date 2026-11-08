@@ -425,6 +425,9 @@
     "refreshed": "Plugin folder rescanned.",
     "imported": "Imported {count} commands.",
     "importCommands": "Import commands",
+    "run": "Run",
+    "ran": "Plugin output: {output}",
+    "noOutput": "Plugin finished without output.",
     "errors": "{count} plugin errors",
     "kinds": {
       "language": "Language",

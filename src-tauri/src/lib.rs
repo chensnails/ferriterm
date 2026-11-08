@@ -64,6 +64,7 @@ pub fn run() {
             commands::plugin_scan,
             commands::plugin_open_dir,
             commands::plugin_import_commands,
+            commands::plugin_run_wasm,
             commands::save_credential,
             commands::get_credential,
             commands::delete_credential,

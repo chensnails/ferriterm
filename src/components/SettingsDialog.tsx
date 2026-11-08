@@ -84,6 +84,18 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const runPlugin = async (id: string) => {
+    try {
+      const result = await api.pluginRunWasm(id, "");
+      const text = result.output || result.logs.join("\n");
+      setPluginMessage(
+        text ? t("plugins.ran", { output: text }) : t("plugins.noOutput"),
+      );
+    } catch (err) {
+      setPluginMessage(String(err));
+    }
+  };
+
   return (
     <Modal
       title={t("settings.title")}
@@ -216,6 +228,15 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     })}
                     {plugin.version ? ` · ${plugin.version}` : ""}
                   </span>
+                  {plugin.kind === "wasm" && (
+                    <button
+                      type="button"
+                      className="link-btn"
+                      onClick={() => void runPlugin(plugin.id)}
+                    >
+                      {t("plugins.run")}
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

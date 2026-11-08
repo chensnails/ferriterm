@@ -188,6 +188,12 @@ export interface PluginScan {
   errors: string[];
 }
 
+export interface WasmRunResult {
+  output: string;
+  logs: string[];
+  fuelUsed: number;
+}
+
 export interface HostKeyChallenge {
   requestId: number;
   sessionId: string;
@@ -462,6 +468,8 @@ export const api = {
   pluginOpenDir: () => invoke<void>("plugin_open_dir"),
   pluginImportCommands: (packId: string) =>
     invoke<number>("plugin_import_commands", { packId }),
+  pluginRunWasm: (id: string, payload: string) =>
+    invoke<WasmRunResult>("plugin_run_wasm", { id, payload }),
 
   listHosts: () => invoke<HostEntry[]>("list_hosts"),
   createHost: (input: HostInput) => invoke<void>("create_host", { input }),

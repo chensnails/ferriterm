@@ -223,10 +223,14 @@ fn parse_system_profiler(raw: &str) -> Vec<GpuInfo> {
                 .map(str::trim)
                 .filter(|name| !name.is_empty())?
                 .to_string();
-            let memory_total = ["spdisplays_vram", "spdisplays_vram_shared", "spdisplays_vram_dynamic"]
-                .iter()
-                .find_map(|key| entry.get(*key).and_then(|v| v.as_str()))
-                .and_then(parse_memory_label);
+            let memory_total = [
+                "spdisplays_vram",
+                "spdisplays_vram_shared",
+                "spdisplays_vram_dynamic",
+            ]
+            .iter()
+            .find_map(|key| entry.get(*key).and_then(|v| v.as_str()))
+            .and_then(parse_memory_label);
             Some(GpuInfo {
                 name,
                 utilization: None,
@@ -248,14 +252,8 @@ fn parse_nvidia_smi(raw: &str) -> Vec<GpuInfo> {
             Some(GpuInfo {
                 name: fields[0].to_string(),
                 utilization: fields[1].parse::<f32>().ok(),
-                memory_used: fields[2]
-                    .parse::<u64>()
-                    .ok()
-                    .map(|mib| mib * 1024 * 1024),
-                memory_total: fields[3]
-                    .parse::<u64>()
-                    .ok()
-                    .map(|mib| mib * 1024 * 1024),
+                memory_used: fields[2].parse::<u64>().ok().map(|mib| mib * 1024 * 1024),
+                memory_total: fields[3].parse::<u64>().ok().map(|mib| mib * 1024 * 1024),
             })
         })
         .collect()
@@ -264,9 +262,7 @@ fn parse_nvidia_smi(raw: &str) -> Vec<GpuInfo> {
 #[cfg(any(test, target_os = "linux"))]
 fn parse_lspci(raw: &str) -> Vec<GpuInfo> {
     raw.lines()
-        .filter(|line| {
-            line.contains("VGA compatible controller") || line.contains("3D controller")
-        })
+        .filter(|line| line.contains("VGA compatible controller") || line.contains("3D controller"))
         .filter_map(|line| {
             let rest = line
                 .split_once("controller: ")

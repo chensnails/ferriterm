@@ -8,6 +8,10 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+pub mod wasm;
+
+pub use wasm::{run as run_wasm, WasmLimits, WasmRun};
+
 pub const API_VERSION: u32 = 1;
 const MAX_STRING_LEN: usize = 8 * 1024;
 const PERMISSIONS: &[&str] = &["network", "filesystem", "clipboard"];
