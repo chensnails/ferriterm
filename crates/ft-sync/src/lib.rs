@@ -1,4 +1,12 @@
-//! Passphrase-sealed backup bundles: PBKDF2-HMAC-SHA256 + ChaCha20-Poly1305.
+//! Passphrase-sealed backup bundles: PBKDF2-HMAC-SHA256 + ChaCha20-Poly1305,
+//! plus remote transports (GitHub Gist, WebDAV) for the sealed bundles.
+
+pub mod remote;
+
+pub use remote::{
+    gist_download, gist_test, gist_upload, webdav_download, webdav_test, webdav_upload, GistConfig,
+    RemoteError, RemoteUpload, WebdavConfig,
+};
 
 use std::fmt;
 use std::fs;

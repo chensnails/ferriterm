@@ -133,6 +133,22 @@ export interface ImportStats {
   tagsAdded: number;
 }
 
+export type RemoteConfig =
+  | { kind: "gist"; token: string; gistId: string; filename: string }
+  | {
+      kind: "webdav";
+      url: string;
+      username: string;
+      password: string;
+      filename: string;
+    };
+
+export interface RemoteUpload {
+  location: string;
+  bytes: number;
+  id: string;
+}
+
 export interface LanguagePack {
   id: string;
   name: string;
@@ -462,6 +478,12 @@ export const api = {
     invoke<string>("export_backup", { passphrase }),
   importBackup: (payload: string, passphrase: string) =>
     invoke<ImportStats>("import_backup", { payload, passphrase }),
+  syncRemoteTest: (config: RemoteConfig) =>
+    invoke<string>("sync_remote_test", { config }),
+  syncRemoteUpload: (config: RemoteConfig, passphrase: string) =>
+    invoke<RemoteUpload>("sync_remote_upload", { config, passphrase }),
+  syncRemoteDownload: (config: RemoteConfig, passphrase: string) =>
+    invoke<ImportStats>("sync_remote_download", { config, passphrase }),
 
   listLanguagePacks: () => invoke<PluginScan>("list_language_packs"),
   pluginScan: () => invoke<PluginScan>("plugin_scan"),

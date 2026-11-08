@@ -533,23 +533,27 @@ pub fn export_backup(
     store: State<'_, Arc<ft_store::Store>>,
     passphrase: String,
 ) -> Result<String, String> {
+    let payload = backup_payload(&store)?;
+    backups
+        .export(&passphrase, &payload)
+        .map(|path| path.display().to_string())
+        .map_err(|e| e.to_string())
+}
+
+fn backup_payload(store: &ft_store::Store) -> Result<Vec<u8>, String> {
     let hosts = store.list_hosts().map_err(|e| e.to_string())?;
     let tags = store.list_tags().map_err(|e| e.to_string())?;
     let exported_at = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    let payload = serde_json::to_vec(&serde_json::json!({
+    serde_json::to_vec(&serde_json::json!({
         "version": 1,
         "exportedAt": exported_at,
         "tags": tags,
         "hosts": hosts,
     }))
-    .map_err(|e| e.to_string())?;
-    backups
-        .export(&passphrase, &payload)
-        .map(|path| path.display().to_string())
-        .map_err(|e| e.to_string())
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -559,6 +563,125 @@ pub fn import_backup(
     passphrase: String,
 ) -> Result<ft_store::ImportStats, String> {
     let plain = ft_sync::open(&passphrase, &payload).map_err(|e| e.to_string())?;
+    let parsed: BackupPayload =
+        serde_json::from_slice(&plain).map_err(|e| format!("invalid backup payload: {e}"))?;
+    store
+        .import_snapshot(&parsed.hosts, &parsed.tags)
+        .map_err(|e| e.to_string())
+}
+
+#[derive(serde::Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum RemoteConfig {
+    #[serde(rename_all = "camelCase")]
+    Gist {
+        token: String,
+        #[serde(default)]
+        gist_id: String,
+        #[serde(default)]
+        filename: String,
+    },
+    #[serde(rename_all = "camelCase")]
+    Webdav {
+        url: String,
+        #[serde(default)]
+        username: String,
+        #[serde(default)]
+        password: String,
+        #[serde(default)]
+        filename: String,
+    },
+}
+
+impl RemoteConfig {
+    fn gist(&self) -> Option<ft_sync::GistConfig> {
+        match self {
+            RemoteConfig::Gist {
+                token,
+                gist_id,
+                filename,
+            } => {
+                let mut config = ft_sync::GistConfig::new(token, gist_id);
+                if !filename.trim().is_empty() {
+                    config.filename = filename.trim().to_string();
+                }
+                Some(config)
+            }
+            RemoteConfig::Webdav { .. } => None,
+        }
+    }
+
+    fn webdav(&self) -> Option<ft_sync::WebdavConfig> {
+        match self {
+            RemoteConfig::Webdav {
+                url,
+                username,
+                password,
+                filename,
+            } => {
+                let mut config = ft_sync::WebdavConfig::new(url, username, password);
+                if !filename.trim().is_empty() {
+                    config.filename = filename.trim().to_string();
+                }
+                Some(config)
+            }
+            RemoteConfig::Gist { .. } => None,
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn sync_remote_test(config: RemoteConfig) -> Result<String, String> {
+    if let Some(gist) = config.gist() {
+        ft_sync::gist_test(&gist)
+            .await
+            .map(|login| format!("GitHub user {login}"))
+            .map_err(|e| e.to_string())
+    } else if let Some(webdav) = config.webdav() {
+        ft_sync::webdav_test(&webdav)
+            .await
+            .map_err(|e| e.to_string())
+    } else {
+        Err("unsupported sync provider".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn sync_remote_upload(
+    store: State<'_, Arc<ft_store::Store>>,
+    config: RemoteConfig,
+    passphrase: String,
+) -> Result<ft_sync::RemoteUpload, String> {
+    let payload = backup_payload(&store)?;
+    let sealed = ft_sync::seal(&passphrase, &payload).map_err(|e| e.to_string())?;
+    if let Some(gist) = config.gist() {
+        ft_sync::gist_upload(&gist, &sealed)
+            .await
+            .map_err(|e| e.to_string())
+    } else if let Some(webdav) = config.webdav() {
+        ft_sync::webdav_upload(&webdav, &sealed)
+            .await
+            .map_err(|e| e.to_string())
+    } else {
+        Err("unsupported sync provider".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn sync_remote_download(
+    store: State<'_, Arc<ft_store::Store>>,
+    config: RemoteConfig,
+    passphrase: String,
+) -> Result<ft_store::ImportStats, String> {
+    let sealed = if let Some(gist) = config.gist() {
+        ft_sync::gist_download(&gist).await
+    } else if let Some(webdav) = config.webdav() {
+        ft_sync::webdav_download(&webdav).await
+    } else {
+        return Err("unsupported sync provider".to_string());
+    }
+    .map_err(|e| e.to_string())?;
+    let plain = ft_sync::open(&passphrase, &sealed).map_err(|e| e.to_string())?;
     let parsed: BackupPayload =
         serde_json::from_slice(&plain).map_err(|e| format!("invalid backup payload: {e}"))?;
     store

@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api } from "../api";
+import { api, isTauri, type RemoteConfig } from "../api";
 import { useAppStore } from "../store";
 import { Modal } from "./Modal";
 
@@ -22,7 +22,106 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const [pluginMessage, setPluginMessage] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [remoteKind, setRemoteKind] = useState<"gist" | "webdav">("gist");
+  const [gistToken, setGistToken] = useState("");
+  const [gistId, setGistId] = useState("");
+  const [gistFile, setGistFile] = useState("ferriterm-backup.ftbak");
+  const [davUrl, setDavUrl] = useState("");
+  const [davUser, setDavUser] = useState("");
+  const [davPass, setDavPass] = useState("");
+  const [davFile, setDavFile] = useState("ferriterm-backup.ftbak");
+  const [remoteMessage, setRemoteMessage] = useState("");
+  const [remoteBusy, setRemoteBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isTauri) return;
+    void (async () => {
+      try {
+        const settings = await api.getSettings();
+        setRemoteKind(settings["sync:provider"] === "webdav" ? "webdav" : "gist");
+        setGistId(settings["sync:gist-id"] ?? "");
+        setGistFile(settings["sync:gist-file"] || "ferriterm-backup.ftbak");
+        setDavUrl(settings["sync:webdav-url"] ?? "");
+        setDavUser(settings["sync:webdav-user"] ?? "");
+        setDavFile(settings["sync:webdav-file"] || "ferriterm-backup.ftbak");
+        const [token, password] = await Promise.all([
+          api.getCredential("sync:gist-token"),
+          api.getCredential("sync:webdav-password"),
+        ]);
+        setGistToken(token ?? "");
+        setDavPass(password ?? "");
+      } catch (err) {
+        setRemoteMessage(String(err));
+      }
+    })();
+  }, []);
+
+  const remoteConfig = (): RemoteConfig =>
+    remoteKind === "gist"
+      ? { kind: "gist", token: gistToken, gistId, filename: gistFile }
+      : {
+          kind: "webdav",
+          url: davUrl,
+          username: davUser,
+          password: davPass,
+          filename: davFile,
+        };
+
+  const persistRemote = async () => {
+    await Promise.all([
+      api.setSetting("sync:provider", remoteKind),
+      api.setSetting("sync:gist-id", gistId),
+      api.setSetting("sync:gist-file", gistFile),
+      api.setSetting("sync:webdav-url", davUrl),
+      api.setSetting("sync:webdav-user", davUser),
+      api.setSetting("sync:webdav-file", davFile),
+      api.saveCredential("sync:gist-token", gistToken),
+      api.saveCredential("sync:webdav-password", davPass),
+    ]);
+  };
+
+  const runRemote = async (action: "test" | "upload" | "download") => {
+    if (!isTauri) {
+      setRemoteMessage(t("sync.desktopOnly"));
+      return;
+    }
+    if (action !== "test" && !passphrase) {
+      setRemoteMessage(t("sync.passphraseRequired"));
+      return;
+    }
+    setRemoteBusy(true);
+    setRemoteMessage("");
+    try {
+      await persistRemote();
+      if (action === "test") {
+        const detail = await api.syncRemoteTest(remoteConfig());
+        setRemoteMessage(t("sync.testOk", { detail }));
+      } else if (action === "upload") {
+        const result = await api.syncRemoteUpload(remoteConfig(), passphrase);
+        if (remoteKind === "gist" && result.id && result.id !== gistId) {
+          setGistId(result.id);
+          await api.setSetting("sync:gist-id", result.id);
+        }
+        setRemoteMessage(
+          t("sync.uploaded", { location: result.location, bytes: result.bytes }),
+        );
+      } else {
+        const stats = await api.syncRemoteDownload(remoteConfig(), passphrase);
+        await Promise.all([loadHosts(), loadTags()]);
+        setRemoteMessage(
+          t("sync.downloaded", {
+            added: stats.hostsAdded,
+            skipped: stats.hostsSkipped,
+          }),
+        );
+      }
+    } catch (err) {
+      setRemoteMessage(t("sync.failed", { error: String(err) }));
+    } finally {
+      setRemoteBusy(false);
+    }
+  };
 
   const exportBackup = async () => {
     if (!passphrase) return;
@@ -201,6 +300,108 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             />
           </div>
           {message && <p className="hint sync-message">{message}</p>}
+        </fieldset>
+
+        <fieldset className="settings-group">
+          <legend>{t("sync.remoteTitle")}</legend>
+          <p className="hint">{t("sync.remoteHint")}</p>
+          <label className="field">
+            <span>{t("sync.provider")}</span>
+            <select
+              value={remoteKind}
+              onChange={(e) => setRemoteKind(e.target.value as "gist" | "webdav")}
+            >
+              <option value="gist">{t("sync.providerGist")}</option>
+              <option value="webdav">{t("sync.providerWebdav")}</option>
+            </select>
+          </label>
+          {remoteKind === "gist" ? (
+            <>
+              <label className="field">
+                <span>{t("sync.gistToken")}</span>
+                <input
+                  type="password"
+                  value={gistToken}
+                  onChange={(e) => setGistToken(e.target.value)}
+                />
+              </label>
+              <label className="field">
+                <span>{t("sync.gistId")}</span>
+                <input
+                  value={gistId}
+                  onChange={(e) => setGistId(e.target.value)}
+                  placeholder={t("sync.gistIdPlaceholder")}
+                />
+                <span className="hint">{t("sync.gistIdHint")}</span>
+              </label>
+              <label className="field">
+                <span>{t("sync.fileName")}</span>
+                <input
+                  value={gistFile}
+                  onChange={(e) => setGistFile(e.target.value)}
+                />
+              </label>
+            </>
+          ) : (
+            <>
+              <label className="field">
+                <span>{t("sync.webdavUrl")}</span>
+                <input
+                  value={davUrl}
+                  onChange={(e) => setDavUrl(e.target.value)}
+                  placeholder="https://dav.example.com/backups"
+                />
+              </label>
+              <label className="field">
+                <span>{t("sync.webdavUser")}</span>
+                <input
+                  value={davUser}
+                  onChange={(e) => setDavUser(e.target.value)}
+                />
+              </label>
+              <label className="field">
+                <span>{t("sync.webdavPassword")}</span>
+                <input
+                  type="password"
+                  value={davPass}
+                  onChange={(e) => setDavPass(e.target.value)}
+                />
+              </label>
+              <label className="field">
+                <span>{t("sync.fileName")}</span>
+                <input
+                  value={davFile}
+                  onChange={(e) => setDavFile(e.target.value)}
+                />
+              </label>
+            </>
+          )}
+          <div className="sync-actions">
+            <button
+              type="button"
+              onClick={() => void runRemote("test")}
+              disabled={remoteBusy}
+            >
+              {t("sync.test")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void runRemote("upload")}
+              disabled={remoteBusy || !passphrase}
+            >
+              {t("sync.upload")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void runRemote("download")}
+              disabled={remoteBusy || !passphrase}
+            >
+              {t("sync.download")}
+            </button>
+          </div>
+          {remoteMessage && (
+            <p className="hint sync-message">{remoteMessage}</p>
+          )}
         </fieldset>
 
         <fieldset className="settings-group">
