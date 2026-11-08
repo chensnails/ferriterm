@@ -7,6 +7,7 @@ import {
   type SessionKind,
   type SshConnectArgs,
   type Tag,
+  type PluginScan,
   type TransferJob,
 } from "./api";
 import { buildConnectArgs } from "./connect";
@@ -103,6 +104,9 @@ interface AppState {
   theme: Theme;
   language: Language;
   languagePacks: LanguageOption[];
+  pluginScan: PluginScan | null;
+  commandLibraryVersion: number;
+  bumpCommandLibrary: () => void;
   status: Status;
   hosts: HostEntry[];
   tags: Tag[];
@@ -231,6 +235,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   theme: "dark",
   language: detectLanguage(),
   languagePacks: [],
+  pluginScan: null,
+  commandLibraryVersion: 0,
   status: { text: "", isError: false },
   hosts: [],
   tags: [],
@@ -628,9 +634,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   loadLanguagePacks: async () => {
     if (!isTauri) return;
-    const scan = await api.listLanguagePacks();
+    const scan = await api.pluginScan();
     scan.packs.forEach((pack) => registerLanguagePack(pack.locale, pack.strings));
     set({
+      pluginScan: scan,
       languagePacks: scan.packs.map(({ id, name, locale }) => ({
         id,
         name,
@@ -638,6 +645,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       })),
     });
   },
+
+  bumpCommandLibrary: () =>
+    set((s) => ({ commandLibraryVersion: s.commandLibraryVersion + 1 })),
 
   setStatus: (text, isError = false) => set({ status: { text, isError } }),
 

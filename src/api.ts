@@ -142,8 +142,49 @@ export interface LanguagePack {
   strings: Record<string, string>;
 }
 
+export interface ThemePack {
+  id: string;
+  name: string;
+  version: string;
+  kind: string;
+  base: string;
+  tokens: Record<string, string>;
+}
+
+export interface CommandPackCommand {
+  name: string;
+  template: string;
+}
+
+export interface CommandPackGroup {
+  name: string;
+  commands: CommandPackCommand[];
+}
+
+export interface CommandPack {
+  id: string;
+  name: string;
+  version: string;
+  kind: string;
+  groups: CommandPackGroup[];
+}
+
+export interface PluginManifest {
+  id: string;
+  name: string;
+  version: string;
+  kind: string;
+  apiVersion: number;
+  description: string;
+  permissions: string[];
+  entry: string;
+}
+
 export interface PluginScan {
+  plugins: PluginManifest[];
   packs: LanguagePack[];
+  themes: ThemePack[];
+  commandPacks: CommandPack[];
   errors: string[];
 }
 
@@ -417,6 +458,10 @@ export const api = {
     invoke<ImportStats>("import_backup", { payload, passphrase }),
 
   listLanguagePacks: () => invoke<PluginScan>("list_language_packs"),
+  pluginScan: () => invoke<PluginScan>("plugin_scan"),
+  pluginOpenDir: () => invoke<void>("plugin_open_dir"),
+  pluginImportCommands: (packId: string) =>
+    invoke<number>("plugin_import_commands", { packId }),
 
   listHosts: () => invoke<HostEntry[]>("list_hosts"),
   createHost: (input: HostInput) => invoke<void>("create_host", { input }),

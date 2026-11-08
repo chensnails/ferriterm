@@ -2498,3 +2498,47 @@ mark {
 .broadcast-ack {
   margin-top: var(--space-2);
 }
+
+.plugin-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.plugin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plugin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  font-size: 12px;
+}
+
+.plugin-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plugin-kind {
+  flex-shrink: 0;
+  color: var(--fg-muted);
+}
+
+.plugin-errors {
+  margin-top: var(--space-2);
+  color: var(--danger, var(--fg-muted));
+  font-size: 12px;
+}

@@ -13,6 +13,7 @@ export function CommandRail() {
   const focusedSessionId = useAppStore((s) => s.focusedSessionId);
   const commandHistory = useAppStore((s) => s.commandHistory);
   const clearCommandHistory = useAppStore((s) => s.clearCommandHistory);
+  const commandLibraryVersion = useAppStore((s) => s.commandLibraryVersion);
   const toggleCommands = useAppStore((s) => s.toggleCommands);
   const setStatus = useAppStore((s) => s.setStatus);
   const [groups, setGroups] = useState<CommandGroup[]>([]);
@@ -36,7 +37,7 @@ export function CommandRail() {
 
   useEffect(() => {
     void reload();
-  }, []);
+  }, [commandLibraryVersion]);
 
   useEffect(() => {
     if (!groupId && groups.length > 0) setGroupId(groups[0].id);

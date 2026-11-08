@@ -416,5 +416,21 @@
     "empty": "执行命令后会记录在这里。",
     "clear": "清空",
     "broadcastStarted": "向 {count} 个会话广播输入"
+  },
+  "plugins": {
+    "title": "插件",
+    "hint": "将插件包放入插件目录：语言包、主题、命令包或带 manifest.json 的 WASM 包。",
+    "refresh": "重新扫描",
+    "openFolder": "打开目录",
+    "refreshed": "已重新扫描插件目录。",
+    "imported": "已导入 {count} 条命令。",
+    "importCommands": "导入命令",
+    "errors": "{count} 个插件错误",
+    "kinds": {
+      "language": "语言",
+      "theme": "主题",
+      "command-pack": "命令包",
+      "wasm": "WASM"
+    }
   }
 }

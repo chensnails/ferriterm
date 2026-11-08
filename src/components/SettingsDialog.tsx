@@ -9,6 +9,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const theme = useAppStore((s) => s.theme);
   const language = useAppStore((s) => s.language);
   const languagePacks = useAppStore((s) => s.languagePacks);
+  const pluginScan = useAppStore((s) => s.pluginScan);
+  const loadLanguagePacks = useAppStore((s) => s.loadLanguagePacks);
+  const bumpCommandLibrary = useAppStore((s) => s.bumpCommandLibrary);
   const keepaliveSecs = useAppStore((s) => s.keepaliveSecs);
   const setTheme = useAppStore((s) => s.setTheme);
   const setLanguage = useAppStore((s) => s.setLanguage);
@@ -16,6 +19,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const loadHosts = useAppStore((s) => s.loadHosts);
   const loadTags = useAppStore((s) => s.loadTags);
   const [passphrase, setPassphrase] = useState("");
+  const [pluginMessage, setPluginMessage] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -50,6 +54,33 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const refreshPlugins = async () => {
+    try {
+      await loadLanguagePacks();
+      setPluginMessage(t("plugins.refreshed"));
+    } catch (err) {
+      setPluginMessage(String(err));
+    }
+  };
+
+  const openPluginDir = async () => {
+    try {
+      await api.pluginOpenDir();
+    } catch (err) {
+      setPluginMessage(String(err));
+    }
+  };
+
+  const importPack = async (packId: string) => {
+    try {
+      const count = await api.pluginImportCommands(packId);
+      bumpCommandLibrary();
+      setPluginMessage(t("plugins.imported", { count }));
+    } catch (err) {
+      setPluginMessage(String(err));
     }
   };
 
@@ -158,6 +189,65 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             />
           </div>
           {message && <p className="hint sync-message">{message}</p>}
+        </fieldset>
+
+        <fieldset className="settings-group">
+          <legend>{t("plugins.title")}</legend>
+          <p className="hint">{t("plugins.hint")}</p>
+          <div className="plugin-actions">
+            <button type="button" onClick={() => void refreshPlugins()}>
+              {t("plugins.refresh")}
+            </button>
+            <button type="button" onClick={() => void openPluginDir()}>
+              {t("plugins.openFolder")}
+            </button>
+          </div>
+          {pluginMessage && (
+            <p className="hint sync-message">{pluginMessage}</p>
+          )}
+          {pluginScan && pluginScan.plugins.length > 0 && (
+            <ul className="plugin-list">
+              {pluginScan.plugins.map((plugin) => (
+                <li key={plugin.id} className="plugin-row">
+                  <span className="plugin-name">{plugin.name}</span>
+                  <span className="plugin-kind">
+                    {t(`plugins.kinds.${plugin.kind}`, {
+                      defaultValue: plugin.kind,
+                    })}
+                    {plugin.version ? ` · ${plugin.version}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {pluginScan && pluginScan.commandPacks.length > 0 && (
+            <ul className="plugin-list">
+              {pluginScan.commandPacks.map((pack) => (
+                <li key={pack.id} className="plugin-row">
+                  <span className="plugin-name">{pack.name}</span>
+                  <button
+                    type="button"
+                    className="link-btn"
+                    onClick={() => void importPack(pack.id)}
+                  >
+                    {t("plugins.importCommands")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {pluginScan && pluginScan.errors.length > 0 && (
+            <details className="plugin-errors">
+              <summary>
+                {t("plugins.errors", { count: pluginScan.errors.length })}
+              </summary>
+              <ul>
+                {pluginScan.errors.map((error) => (
+                  <li key={error}>{error}</li>
+                ))}
+              </ul>
+            </details>
+          )}
         </fieldset>
 
         <fieldset className="settings-group">

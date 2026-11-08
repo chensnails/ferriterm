@@ -416,5 +416,21 @@
     "empty": "Run a command to see it logged here.",
     "clear": "Clear",
     "broadcastStarted": "Broadcast input to {count} sessions"
+  },
+  "plugins": {
+    "title": "Plugins",
+    "hint": "Drop plugin packages into the plugins folder: language packs, themes, command packs, or WASM bundles with a manifest.json.",
+    "refresh": "Rescan",
+    "openFolder": "Open folder",
+    "refreshed": "Plugin folder rescanned.",
+    "imported": "Imported {count} commands.",
+    "importCommands": "Import commands",
+    "errors": "{count} plugin errors",
+    "kinds": {
+      "language": "Language",
+      "theme": "Theme",
+      "command-pack": "Command pack",
+      "wasm": "WASM"
+    }
   }
 }

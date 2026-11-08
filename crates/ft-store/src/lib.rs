@@ -465,6 +465,31 @@ impl Store {
             .collect())
     }
 
+    pub fn import_command_group(
+        &self,
+        group_id: &str,
+        name: &str,
+        commands: &[(String, String, String)],
+    ) -> Result<usize, StoreError> {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction()?;
+        tx.execute(
+            "INSERT OR IGNORE INTO command_groups(id, name, sort_order)
+             SELECT ?1, ?2, COALESCE(MAX(sort_order), -1) + 1 FROM command_groups",
+            params![group_id, name],
+        )?;
+        let mut inserted = 0;
+        for (index, (id, command_name, template)) in commands.iter().enumerate() {
+            inserted += tx.execute(
+                "INSERT OR IGNORE INTO commands(id, group_id, name, template, sort_order)
+                 VALUES(?1, ?2, ?3, ?4, ?5)",
+                params![id, group_id, command_name, template, index as i64],
+            )?;
+        }
+        tx.commit()?;
+        Ok(inserted)
+    }
+
     pub fn create_command_group(&self, id: &str, name: &str) -> rusqlite::Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
@@ -740,10 +765,32 @@ mod tests {
 
         store.delete_command("c1").unwrap();
         store.delete_command_group("g2").unwrap();
+
+        let imported = store
+            .import_command_group(
+                "plugin-ops",
+                "Plugin",
+                &[("cmd-1".into(), "Uptime".into(), "uptime".into())],
+            )
+            .unwrap();
+        assert_eq!(imported, 1);
+        let again = store
+            .import_command_group(
+                "plugin-ops",
+                "Plugin",
+                &[("cmd-1".into(), "Uptime".into(), "uptime".into())],
+            )
+            .unwrap();
+        assert_eq!(again, 0);
         let groups = store.list_command_groups().unwrap();
-        assert_eq!(groups.len(), 1);
+        assert_eq!(groups.len(), 2);
         assert_eq!(groups[0].commands.len(), 1);
         assert_eq!(groups[0].commands[0].name, "Memory");
+        let plugin_group = groups
+            .iter()
+            .find(|group| group.id == "plugin-ops")
+            .expect("imported group");
+        assert_eq!(plugin_group.commands[0].name, "Uptime");
     }
 
     #[test]

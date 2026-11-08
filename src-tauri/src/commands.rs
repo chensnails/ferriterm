@@ -437,6 +437,66 @@ pub fn list_language_packs(plugins: State<'_, ft_plugin::PluginRegistry>) -> ft_
 }
 
 #[tauri::command]
+pub fn plugin_scan(plugins: State<'_, ft_plugin::PluginRegistry>) -> ft_plugin::PluginScan {
+    plugins.scan()
+}
+
+#[tauri::command]
+pub fn plugin_open_dir(plugins: State<'_, ft_plugin::PluginRegistry>) -> Result<(), String> {
+    let dir = plugins.dir().to_path_buf();
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    open_in_file_manager(&dir)
+}
+
+fn open_in_file_manager(path: &std::path::Path) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    let status = std::process::Command::new("open").arg(path).status();
+    #[cfg(target_os = "windows")]
+    let status = std::process::Command::new("explorer").arg(path).status();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let status = std::process::Command::new("xdg-open").arg(path).status();
+    match status {
+        Ok(status) if status.success() => Ok(()),
+        Ok(status) => Err(format!("file manager exited with {status}")),
+        Err(err) => Err(err.to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn plugin_import_commands(
+    plugins: State<'_, ft_plugin::PluginRegistry>,
+    store: State<'_, Arc<ft_store::Store>>,
+    pack_id: String,
+) -> Result<usize, String> {
+    let pack = plugins
+        .scan()
+        .command_packs
+        .into_iter()
+        .find(|pack| pack.id == pack_id)
+        .ok_or_else(|| format!("command pack {pack_id} not found"))?;
+    let mut imported = 0;
+    for (group_index, group) in pack.groups.iter().enumerate() {
+        let group_id = format!("{}-g{group_index}", pack.id);
+        let commands: Vec<(String, String, String)> = group
+            .commands
+            .iter()
+            .enumerate()
+            .map(|(command_index, command)| {
+                (
+                    format!("{group_id}-c{command_index}"),
+                    command.name.clone(),
+                    command.template.clone(),
+                )
+            })
+            .collect();
+        imported += store
+            .import_command_group(&group_id, &group.name, &commands)
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(imported)
+}
+
+#[tauri::command]
 pub fn export_backup(
     backups: State<'_, ft_sync::BackupStore>,
     store: State<'_, Arc<ft_store::Store>>,
