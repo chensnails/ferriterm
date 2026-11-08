@@ -1,0 +1,16 @@
+[source.crates-io]
+replace-with = "rsproxy-sparse"
+
+[source.rsproxy-sparse]
+registry = "sparse+https://rsproxy.cn/index/"
+
+[registries.rsproxy]
+index = "https://rsproxy.cn/crates.io-index"
+
+[net]
+git-fetch-with-cli = true
+
+# macOS 系统代理可能指向未运行的本地端口；直连 rsproxy 即可。
+# 需要走代理时用环境变量 CARGO_HTTP_PROXY 覆盖。
+[http]
+proxy = ""
