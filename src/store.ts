@@ -12,6 +12,13 @@ import {
 } from "./api";
 import { buildConnectArgs } from "./connect";
 import { isSensitiveCommand } from "./commands";
+import {
+  normalizeCombo,
+  parseShortcuts,
+  SHORTCUT_DEFAULTS,
+  type ShortcutAction,
+  type ShortcutBindings,
+} from "./keybindings";
 import { applyTheme, applyThemePack, type Theme } from "./theme";
 import i18n, {
   detectLanguage,
@@ -129,6 +136,9 @@ interface AppState {
   setTransfers: (jobs: TransferJob[]) => void;
   keepaliveSecs: number;
   setKeepalive: (seconds: number) => void;
+  shortcuts: ShortcutBindings;
+  setShortcut: (action: ShortcutAction, combo: string) => void;
+  resetShortcuts: () => void;
   commandsOpen: boolean;
   toggleCommands: () => void;
   paletteOpen: boolean;
@@ -250,6 +260,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   transferSessionId: null,
   transfers: [],
   keepaliveSecs: 30,
+  shortcuts: { ...SHORTCUT_DEFAULTS },
   commandsOpen: true,
   paletteOpen: false,
   searchOpen: false,
@@ -284,6 +295,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     const value = Math.max(0, Math.round(seconds));
     set({ keepaliveSecs: value });
     if (isTauri) api.setSetting("keepalive", String(value)).catch(() => {});
+  },
+  setShortcut: (action, combo) => {
+    const value = combo ? normalizeCombo(combo) : "";
+    if (value === null) return;
+    const shortcuts = { ...get().shortcuts, [action]: value };
+    set({ shortcuts });
+    if (isTauri) {
+      api.setSetting("shortcuts", JSON.stringify(shortcuts)).catch(() => {});
+    }
+  },
+  resetShortcuts: () => {
+    const shortcuts = { ...SHORTCUT_DEFAULTS };
+    set({ shortcuts });
+    if (isTauri) {
+      api.setSetting("shortcuts", JSON.stringify(shortcuts)).catch(() => {});
+    }
   },
   toggleCommands: () => set((s) => ({ commandsOpen: !s.commandsOpen })),
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
@@ -631,6 +658,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       language,
       keepaliveSecs: Number.isFinite(keepalive) ? keepalive : get().keepaliveSecs,
       commandHistory: parseHistory(settings.commandHistory),
+      shortcuts: parseShortcuts(settings.shortcuts),
     });
   },
 

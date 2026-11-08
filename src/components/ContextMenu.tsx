@@ -5,12 +5,15 @@ export interface MenuItem {
   onSelect?: () => void;
   danger?: boolean;
   checked?: boolean;
+  disabled?: boolean;
   children?: MenuItem[];
 }
 
 function moveIn(container: HTMLElement, delta: number) {
   const buttons = Array.from(
-    container.querySelectorAll(":scope > button, :scope > .menu-sub > button"),
+    container.querySelectorAll(
+      ":scope > button:not(:disabled), :scope > .menu-sub > button:not(:disabled)",
+    ),
   );
   if (buttons.length === 0) return;
   const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
@@ -40,10 +43,11 @@ function MenuEntry({
 
   useEffect(() => {
     if (!open) return;
-    submenuRef.current?.querySelector("button")?.focus();
+    submenuRef.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
   }, [open]);
 
   const activate = () => {
+    if (item.disabled) return;
     if (hasChildren) {
       onOpen();
       return;
@@ -70,6 +74,8 @@ function MenuEntry({
         aria-checked={item.checked}
         aria-haspopup={hasChildren ? "menu" : undefined}
         aria-expanded={hasChildren ? open : undefined}
+        aria-disabled={item.disabled || undefined}
+        disabled={item.disabled}
         className={itemClass}
         onClick={activate}
         onKeyDown={(e) => {
@@ -148,7 +154,7 @@ export function ContextMenu({
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   useEffect(() => {
-    ref.current?.querySelector("button")?.focus();
+    ref.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
   }, []);
 
   useEffect(() => {

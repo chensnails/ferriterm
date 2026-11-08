@@ -1,8 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { TerminalView } from "../terminal";
 import { api } from "../api";
 import i18n from "../i18n";
 import { useAppStore, type SessionMeta } from "../store";
+import { ContextMenu, type MenuItem } from "./ContextMenu";
 
 export function TerminalPanel({
   session,
@@ -11,9 +13,11 @@ export function TerminalPanel({
   session: SessionMeta;
   pane: "primary" | "secondary" | null;
 }) {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<TerminalView | null>(null);
   const theme = useAppStore((s) => s.theme);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -63,13 +67,94 @@ export function TerminalPanel({
     viewRef.current?.refreshTheme();
   }, [theme]);
 
+  const menuItems = (): MenuItem[] => {
+    const view = viewRef.current;
+    const selection = view?.term.getSelection() ?? "";
+    return [
+      {
+        label: t("terminal.copy"),
+        disabled: !selection,
+        onSelect: () => {
+          if (!selection) return;
+          navigator.clipboard.writeText(selection).catch((err) => {
+            useAppStore.getState().setStatus(String(err), true);
+          });
+        },
+      },
+      {
+        label: t("terminal.paste"),
+        onSelect: () => {
+          navigator.clipboard
+            .readText()
+            .then((text) => {
+              if (text) viewRef.current?.insert(text);
+            })
+            .catch((err) => {
+              useAppStore.getState().setStatus(String(err), true);
+            });
+        },
+      },
+      {
+        label: t("terminal.selectAll"),
+        onSelect: () => {
+          viewRef.current?.term.selectAll();
+          viewRef.current?.focus();
+        },
+      },
+      {
+        label: t("terminal.clear"),
+        onSelect: () => {
+          viewRef.current?.term.clear();
+          viewRef.current?.focus();
+        },
+      },
+      {
+        label: t("terminal.search"),
+        onSelect: () => {
+          useAppStore.getState().setFocusedSession(session.id);
+          useAppStore.getState().openSearch();
+        },
+      },
+      {
+        label: t("terminal.split"),
+        onSelect: () => {
+          const store = useAppStore.getState();
+          store.activate(session.id);
+          store.splitActive();
+        },
+      },
+      {
+        label: t("terminal.newTab"),
+        onSelect: () =>
+          useAppStore
+            .getState()
+            .openSession("pty", i18n.t("session.localTitle"), { type: "pty" }),
+      },
+    ];
+  };
+
   return (
-    <div
-      ref={containerRef}
-      className={`terminal-panel${pane ? ` pane-${pane}` : ""}`}
-      onPointerDown={() =>
-        useAppStore.getState().setFocusedSession(session.id)
-      }
-    />
+    <>
+      <div
+        ref={containerRef}
+        className={`terminal-panel${pane ? ` pane-${pane}` : ""}`}
+        onPointerDown={() =>
+          useAppStore.getState().setFocusedSession(session.id)
+        }
+        onContextMenu={(event) => {
+          event.preventDefault();
+          useAppStore.getState().setFocusedSession(session.id);
+          setMenu({ x: event.clientX, y: event.clientY });
+        }}
+      />
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={menuItems()}
+          onClose={() => setMenu(null)}
+        />
+      )}
+    </>
   );
 }

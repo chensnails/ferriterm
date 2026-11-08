@@ -20,17 +20,6 @@ export function CommandPalette() {
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        useAppStore.getState().togglePalette();
-      }
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, []);
-
-  useEffect(() => {
     if (!open) return;
     setQuery("");
     setActive(0);

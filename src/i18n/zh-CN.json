@@ -399,11 +399,21 @@
     "search": "在终端中查找",
     "newTab": "新建本地终端",
     "closeTab": "关闭当前会话",
-    "nextTab": "下一个 / 上一个会话",
+    "nextTab": "下一个会话",
+    "prevTab": "上一个会话",
     "split": "切换分屏",
     "settings": "打开设置",
     "help": "显示快捷键",
-    "log": "执行日志"
+    "log": "执行日志",
+    "edit": "修改",
+    "reset": "恢复默认",
+    "resetAll": "全部恢复默认",
+    "pressKeys": "请按下快捷键…",
+    "save": "保存",
+    "cancelEdit": "取消",
+    "disabled": "已禁用",
+    "conflict": "已被“{action}”占用。",
+    "editHint": "点击“修改”后按下新的组合键。退格键可禁用该快捷键，Esc 取消。"
   },
   "session": {
     "localTitle": "本地终端"
@@ -421,7 +431,14 @@
   },
   "terminal": {
     "disconnected": "[会话已断开]",
-    "connectFailed": "连接失败：{error}"
+    "connectFailed": "连接失败：{error}",
+    "copy": "复制",
+    "paste": "粘贴",
+    "selectAll": "全选",
+    "clear": "清屏",
+    "search": "在终端中查找",
+    "split": "分屏",
+    "newTab": "新建本地终端"
   },
   "search": {
     "placeholder": "在终端中查找",

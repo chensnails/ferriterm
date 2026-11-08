@@ -399,11 +399,21 @@
     "search": "Find in terminal",
     "newTab": "New local terminal",
     "closeTab": "Close active session",
-    "nextTab": "Next / previous session",
+    "nextTab": "Next session",
+    "prevTab": "Previous session",
     "split": "Toggle split",
     "settings": "Open settings",
     "help": "Show shortcuts",
-    "log": "Execution log"
+    "log": "Execution log",
+    "edit": "Change",
+    "reset": "Reset",
+    "resetAll": "Reset all",
+    "pressKeys": "Press shortcut…",
+    "save": "Save",
+    "cancelEdit": "Cancel",
+    "disabled": "Disabled",
+    "conflict": "Already used by \"{action}\".",
+    "editHint": "Click Change, then press the new key combination. Backspace disables the shortcut; Escape cancels."
   },
   "session": {
     "localTitle": "Local terminal"
@@ -421,7 +431,14 @@
   },
   "terminal": {
     "disconnected": "[session disconnected]",
-    "connectFailed": "Connect failed: {error}"
+    "connectFailed": "Connect failed: {error}",
+    "copy": "Copy",
+    "paste": "Paste",
+    "selectAll": "Select all",
+    "clear": "Clear screen",
+    "search": "Find in terminal",
+    "split": "Split terminal",
+    "newTab": "New local terminal"
   },
   "search": {
     "placeholder": "Find in terminal",

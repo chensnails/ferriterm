@@ -1440,7 +1440,8 @@ mark {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
 }
 
 .shortcut-row dt {
@@ -1448,6 +1449,32 @@ mark {
 }
 
 .shortcut-row dd {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.shortcut-editor {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.shortcut-capture {
+  min-width: 10em;
+  padding: 2px var(--space-2);
+  border: 1px dashed var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+}
+
+.shortcut-error {
+  width: 100%;
   margin: 0;
 }
 
