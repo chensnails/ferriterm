@@ -10,6 +10,8 @@ use std::path::PathBuf;
 use ring::aead;
 use ring::rand::{SecureRandom, SystemRandom};
 
+pub mod update;
+
 const SERVICE: &str = "dev.ferriterm.credentials";
 const KEY_FILE: &str = "credentials.key";
 const VAULT_FILE: &str = "credentials.vault.json";

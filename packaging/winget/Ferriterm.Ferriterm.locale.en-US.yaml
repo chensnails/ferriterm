@@ -1,0 +1,16 @@
+PackageIdentifier: Ferriterm.Ferriterm
+PackageVersion: 0.1.0
+PackageLocale: en-US
+Publisher: Ferriterm
+PublisherUrl: https://github.com/chensnails/ferriterm
+PackageName: Ferriterm
+PackageUrl: https://github.com/chensnails/ferriterm
+License: Proprietary
+ShortDescription: Cross-platform SSH terminal client built with Rust and Tauri.
+Tags:
+  - ssh
+  - terminal
+  - sftp
+  - remote
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

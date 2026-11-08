@@ -1,0 +1,174 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version without the leading v (bump tauri.conf first)"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Bundle ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-14
+            target: aarch64-apple-darwin
+            bundles: app,dmg
+          - platform: macos-13
+            target: x86_64-apple-darwin
+            bundles: app,dmg
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundles: appimage,deb
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: nsis,msi
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev patchelf libssl-dev
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Import Apple signing certificate
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          if [ -z "${APPLE_CERTIFICATE:-}" ]; then
+            echo "No Apple certificate configured; building unsigned."
+            exit 0
+          fi
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security list-keychains -d user -s build.keychain "$(security default-keychain -d user)"
+          security default-keychain -s build.keychain
+          rm -f certificate.p12
+
+      - name: Import Windows signing certificate
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not $env:WINDOWS_CERTIFICATE) {
+            Write-Host "No Windows certificate configured; building unsigned."
+            exit 0
+          }
+          $bytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)
+          [IO.File]::WriteAllBytes("certificate.pfx", $bytes)
+          $password = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText
+          $cert = Import-PfxCertificate -FilePath certificate.pfx `
+            -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          @{
+            bundle = @{
+              windows = @{
+                certificateThumbprint = $cert.Thumbprint
+                digestAlgorithm = "sha256"
+                timestampUrl = "http://timestamp.digicert.com"
+              }
+            }
+          } | ConvertTo-Json -Depth 6 | Set-Content src-tauri/tauri.windows.conf.json
+          Remove-Item certificate.pfx
+
+      - name: Build and publish draft release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: "Ferriterm v__VERSION__"
+          releaseBody: "See the assets below to download and install Ferriterm."
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: false
+          args: >-
+            --target ${{ matrix.target }}
+            --bundles ${{ matrix.bundles }}
+            --config src-tauri/tauri.release.conf.json
+
+  manifest:
+    name: Latest manifest (SHA-256)
+    needs: build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve release tag
+        id: release
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download draft assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p artifacts
+          gh release download "${{ steps.release.outputs.tag }}" --dir artifacts
+
+      - name: Write latest.json with SHA-256 digests
+        run: |
+          python3 scripts/release_manifest.py \
+            --dir artifacts \
+            --version "${{ steps.release.outputs.version }}" \
+            --base-url "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}" \
+            --output artifacts/latest.json
+
+      - name: Upload latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ steps.release.outputs.tag }}" artifacts/latest.json --clobber
