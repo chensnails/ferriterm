@@ -207,7 +207,14 @@
     "addGroup": "创建",
     "deleteCommand": "删除指令",
     "deleteGroup": "删除分组",
-    "noSession": "请先打开一个终端会话。"
+    "noSession": "请先打开一个终端会话。",
+    "history": "历史",
+    "historyEmpty": "执行过的命令会显示在这里。",
+    "historyLocal": "本地",
+    "clearHistory": "清空历史",
+    "variablesTitle": "执行 {name}",
+    "variablesHint": "填写模板变量后，将命令插入当前焦点终端。",
+    "insert": "插入"
   },
   "sync": {
     "title": "加密备份",

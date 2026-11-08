@@ -207,7 +207,14 @@
     "addGroup": "Create",
     "deleteCommand": "Delete command",
     "deleteGroup": "Delete group",
-    "noSession": "Open a terminal session first."
+    "noSession": "Open a terminal session first.",
+    "history": "History",
+    "historyEmpty": "Commands you run will appear here.",
+    "historyLocal": "Local",
+    "clearHistory": "Clear history",
+    "variablesTitle": "Run {name}",
+    "variablesHint": "Fill in the template variables, then insert the command into the focused terminal.",
+    "insert": "Insert"
   },
   "sync": {
     "title": "Encrypted backup",

@@ -10,6 +10,7 @@ import {
   type TransferJob,
 } from "./api";
 import { buildConnectArgs } from "./connect";
+import { isSensitiveCommand } from "./commands";
 import { applyTheme, type Theme } from "./theme";
 import i18n, {
   detectLanguage,
@@ -21,6 +22,14 @@ export interface LanguageOption {
   id: string;
   name: string;
   locale: string;
+}
+
+export interface HistoryEntry {
+  id: string;
+  sessionId: string;
+  sessionTitle: string;
+  text: string;
+  at: number;
 }
 
 export type PendingConnect =
@@ -62,6 +71,11 @@ interface AppState {
   splitRatio: number;
   layoutRestored: boolean;
   splitActive: () => void;
+  focusedSessionId: string | null;
+  setFocusedSession: (id: string | null) => void;
+  commandHistory: HistoryEntry[];
+  recordCommand: (sessionId: string, text: string) => void;
+  clearCommandHistory: () => void;
   broadcastTargets: string[];
   broadcastRequested: boolean;
   sendInput: (kind: SessionKind, id: string, data: string) => void;
@@ -155,6 +169,39 @@ interface AppState {
   clearNewWindowHost: () => void;
 }
 
+function parseHistory(raw: string | undefined): HistoryEntry[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (entry): entry is HistoryEntry =>
+          Boolean(entry) &&
+          typeof entry.id === "string" &&
+          typeof entry.sessionId === "string" &&
+          typeof entry.sessionTitle === "string" &&
+          typeof entry.text === "string" &&
+          typeof entry.at === "number" &&
+          !isSensitiveCommand(entry.text),
+      )
+      .slice(0, 200);
+  } catch {
+    return [];
+  }
+}
+
+let historySaveTimer: number | undefined;
+
+function scheduleHistorySave() {
+  if (!isTauri) return;
+  window.clearTimeout(historySaveTimer);
+  historySaveTimer = window.setTimeout(() => {
+    const entries = useAppStore.getState().commandHistory;
+    api.setSetting("commandHistory", JSON.stringify(entries)).catch(() => {});
+  }, 600);
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   sessions: [],
   activeId: null,
@@ -163,6 +210,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   splitRatio: 0.5,
   broadcastTargets: [],
   broadcastRequested: false,
+  focusedSessionId: null,
+  commandHistory: [],
   layoutRestored: false,
   theme: "dark",
   language: detectLanguage(),
@@ -345,6 +394,30 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   closeSplit: () => set({ splitId: null }),
 
+  setFocusedSession: (id) => set({ focusedSessionId: id }),
+
+  recordCommand: (sessionId, text) => {
+    const line = text.trim();
+    if (!line || isSensitiveCommand(line)) return;
+    const session = get().sessions.find((entry) => entry.id === sessionId);
+    const entry: HistoryEntry = {
+      id: crypto.randomUUID(),
+      sessionId,
+      sessionTitle: session?.title ?? "",
+      text: line,
+      at: Date.now(),
+    };
+    set((s) => ({
+      commandHistory: [entry, ...s.commandHistory].slice(0, 200),
+    }));
+    scheduleHistorySave();
+  },
+
+  clearCommandHistory: () => {
+    set({ commandHistory: [] });
+    if (isTauri) api.setSetting("commandHistory", "[]").catch(() => {});
+  },
+
   requestBroadcast: () => set({ broadcastRequested: true }),
   cancelBroadcast: () => set({ broadcastRequested: false }),
   startBroadcast: (ids) =>
@@ -391,6 +464,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         broadcastTargets: s.broadcastTargets.filter(
           (targetId) => targetId !== id,
         ),
+        focusedSessionId: s.focusedSessionId === id ? null : s.focusedSessionId,
       };
     });
   },
@@ -505,6 +579,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       theme,
       language,
       keepaliveSecs: Number.isFinite(keepalive) ? keepalive : get().keepaliveSecs,
+      commandHistory: parseHistory(settings.commandHistory),
     });
   },
 

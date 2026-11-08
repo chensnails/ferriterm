@@ -1,13 +1,18 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri, type CommandGroup } from "../api";
+import { templateVariables } from "../commands";
 import { useAppStore } from "../store";
 import { terminalView } from "../terminal";
+import { CommandVarsDialog } from "./CommandVarsDialog";
 
 export function CommandRail() {
   const { t } = useTranslation();
   const open = useAppStore((s) => s.commandsOpen);
   const activeId = useAppStore((s) => s.activeId);
+  const focusedSessionId = useAppStore((s) => s.focusedSessionId);
+  const commandHistory = useAppStore((s) => s.commandHistory);
+  const clearCommandHistory = useAppStore((s) => s.clearCommandHistory);
   const toggleCommands = useAppStore((s) => s.toggleCommands);
   const setStatus = useAppStore((s) => s.setStatus);
   const [groups, setGroups] = useState<CommandGroup[]>([]);
@@ -15,6 +20,10 @@ export function CommandRail() {
   const [name, setName] = useState("");
   const [template, setTemplate] = useState("");
   const [groupId, setGroupId] = useState("");
+  const [pending, setPending] = useState<{
+    name: string;
+    template: string;
+  } | null>(null);
 
   const reload = async () => {
     if (!isTauri) return;
@@ -87,12 +96,21 @@ export function CommandRail() {
   };
 
   const insert = (text: string) => {
-    const view = activeId ? terminalView(activeId) : null;
+    const target = focusedSessionId ?? activeId;
+    const view = target ? terminalView(target) : null;
     if (!view) {
       setStatus(t("commands.noSession"), true);
       return;
     }
     view.insert(text);
+  };
+
+  const runCommand = (name: string, template: string) => {
+    if (templateVariables(template).length > 0) {
+      setPending({ name, template });
+      return;
+    }
+    insert(template);
   };
 
   return (
@@ -109,6 +127,42 @@ export function CommandRail() {
       </header>
 
       <div className="rail-body">
+        <section className="command-group command-history">
+          <header className="command-group-head">
+            <span>{t("commands.history")}</span>
+            {commandHistory.length > 0 && (
+              <button
+                className="rail-mini"
+                title={t("commands.clearHistory")}
+                aria-label={t("commands.clearHistory")}
+                onClick={clearCommandHistory}
+              >
+                ⌫
+              </button>
+            )}
+          </header>
+          {commandHistory.length === 0 ? (
+            <p className="hint command-history-empty">
+              {t("commands.historyEmpty")}
+            </p>
+          ) : (
+            commandHistory.slice(0, 12).map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                className="command-history-item"
+                title={entry.text}
+                onClick={() => insert(entry.text)}
+              >
+                <span className="command-history-text">{entry.text}</span>
+                <span className="command-history-meta">
+                  {entry.sessionTitle || t("commands.historyLocal")} ·{" "}
+                  {new Date(entry.at).toLocaleTimeString()}
+                </span>
+              </button>
+            ))
+          )}
+        </section>
         {groups.length === 0 && <p className="hint">{t("commands.empty")}</p>}
         {groups.map((group) => (
           <section key={group.id} className="command-group">
@@ -128,7 +182,7 @@ export function CommandRail() {
                 <button
                   className="command-insert"
                   title={item.template}
-                  onClick={() => insert(item.template)}
+                  onClick={() => runCommand(item.name, item.template)}
                 >
                   {item.name}
                 </button>
@@ -188,6 +242,17 @@ export function CommandRail() {
           </button>
         </form>
       </footer>
+      {pending && (
+        <CommandVarsDialog
+          name={pending.name}
+          template={pending.template}
+          onCancel={() => setPending(null)}
+          onInsert={(command) => {
+            setPending(null);
+            insert(command);
+          }}
+        />
+      )}
     </aside>
   );
 }

@@ -40,6 +40,8 @@ export class TerminalView {
   private searchHits: SearchHit[] = [];
   private searchIndex = -1;
   private searchRegex = false;
+  private inputBuffer = "";
+  private escapeState = 0;
 
   constructor(
     readonly id: string,
@@ -61,9 +63,13 @@ export class TerminalView {
     views.set(id, this);
 
     this.term.onData((data) => {
+      this.trackInput(data);
       this.writeChain = this.writeChain.then(() => {
         useAppStore.getState().sendInput(this.kind, this.id, data);
       });
+    });
+    this.term.textarea?.addEventListener("focus", () => {
+      useAppStore.getState().setFocusedSession(this.id);
     });
     this.term.onResize(({ cols, rows }) => {
       api.resize(this.kind, this.id, cols, rows).catch(() => {});
@@ -99,10 +105,44 @@ export class TerminalView {
   }
 
   insert(text: string) {
+    useAppStore.getState().setFocusedSession(this.id);
     this.writeChain = this.writeChain.then(() => {
       useAppStore.getState().sendInput(this.kind, this.id, text);
     });
     this.focus();
+  }
+
+  // Reconstruct the line the user is typing from raw terminal input so history
+  // and the execution log do not need shell integration.
+  private trackInput(data: string) {
+    for (const ch of data) {
+      if (this.escapeState === 2) {
+        if (ch >= "@" && ch <= "~") this.escapeState = 0;
+        continue;
+      }
+      if (this.escapeState === 1) {
+        this.escapeState = ch === "[" || ch === "O" ? 2 : 0;
+        continue;
+      }
+      if (ch === "\x1b") {
+        this.escapeState = 1;
+        continue;
+      }
+      if (ch === "\r" || ch === "\n") {
+        const line = this.inputBuffer.trim();
+        this.inputBuffer = "";
+        if (line) useAppStore.getState().recordCommand(this.id, line);
+      } else if (ch === "\x7f" || ch === "\b") {
+        this.inputBuffer = this.inputBuffer.slice(0, -1);
+      } else if (ch === "\x03" || ch === "\x15") {
+        this.inputBuffer = "";
+      } else if (ch >= " ") {
+        this.inputBuffer += ch;
+      }
+      if (this.inputBuffer.length > 2000) {
+        this.inputBuffer = this.inputBuffer.slice(-2000);
+      }
+    }
   }
 
   fitNow() {
@@ -191,6 +231,9 @@ export class TerminalView {
 
   dispose() {
     this.disposed = true;
+    if (useAppStore.getState().focusedSessionId === this.id) {
+      useAppStore.getState().setFocusedSession(null);
+    }
     if (views.get(this.id) === this) views.delete(this.id);
     this.observer.disconnect();
     this.unlisten.forEach((fn) => fn());
