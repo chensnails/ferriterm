@@ -8,7 +8,7 @@
 
 Single main window:
 
-- **Top tab bar** (height `--tab-h`): Home tab (house glyph, original artwork) + session tabs + "new session" button; right-aligned tool icon row (split, SFTP, monitor, commands, forwarding, search, settings). Active tab uses `--bg-elevated` + accent underline; closed tabs keep a muted style until dismissed.
+- **Top tab bar** (height `--tab-h`): Home tab (house glyph, original artwork) + session tabs + "new session" button; right-aligned tool icon row (split, SFTP, monitor, commands, forwarding, search, settings). Active tab uses `--bg-elevated` + accent top rule; closed tabs keep a muted style until dismissed.
 - **Home tab content**: centered original logo, search field, host tree below. No permanent left sidebar in session view.
 - **Session view**: terminal fills the content area; splits divide it with draggable gutters (`--split-gutter`).
 - **Floating panels**: SFTP and system info open as movable, resizable panels above the terminal (`--shadow-panel`), remembered position/size per host; they never replace the main view.
@@ -50,7 +50,7 @@ Single main window:
 |---|---|
 | `--bg-base` | `#f5f6f8` |
 | `--bg-panel` | `#ffffff` |
-| `--bg-elevated` | `#ffffff` |
+| `--bg-elevated` | `#eef1f5` |
 | `--border` | `#d7dce3` |
 | `--fg-primary` | `#1f2430` |
 | `--fg-muted` | `#6b7280` |
@@ -62,6 +62,7 @@ Single main window:
 | `--success` | `#16a34a` |
 | `--selection` | `#bfdbfe88` |
 | `--overlay` | `rgb(0 0 0 / 0.45)` |
+| `--shadow-panel` | `0 12px 32px rgb(15 23 42 / 0.16)` |
 | `--tag-blue` | `#4f8cff` |
 | `--tag-green` | `#22c55e` |
 | `--tag-amber` | `#f59e0b` |
@@ -86,11 +87,16 @@ Single main window:
 | `--button-h` | `32px` | buttons |
 | `--row-h` | `32px` | tree/table rows |
 | `--tab-h` | `36px` | tab bar |
-| `--sidebar-w` | `280px` (resizable 220–400) | Home tree pane |
+| `--tab-max-w` | `220px` | maximum width of a session tab |
+| `--sidebar-w` | `300px` | Home tree pane |
 | `--dialog-w` | `440px` | dialog width cap |
 | `--split-gutter` | `4px` | split drag handle |
+| `--focus-width` / `--focus-offset` | `2px` / `2px` | keyboard focus ring |
+| `--scrollbar-w` / `--scrollbar-pad` | `10px` / `2px` | thin scrollbar geometry |
+| `--backdrop-blur` | `2px` | modal backdrop blur |
 | `--shadow-panel` | `0 8px 24px rgb(0 0 0 / .35)` | floating panels |
 | `--motion-fast` | `120ms ease-out` | hover/open transitions; disabled by reduce-motion setting |
+| `--motion-panel` | `160ms ease-out` | dialog entrance; disabled by reduce-motion setting |
 
 ## 3. Component inventory
 
@@ -155,7 +161,8 @@ Acceptance = perform each path in Ferriterm and in the reference install; record
 - [ ] Settings categories navigable by keyboard; search jumps to matching field.
 - [ ] Language switch en ↔ zh-CN applies without restart; missing keys fall back to en.
 - [ ] Theme switch updates all tokens live; terminal palette follows.
-- [ ] Reduce-motion setting disables transitions.
+- [ ] Keyboard focus is visible on buttons, summaries and menu items.
+- [ ] Reduce-motion setting disables transitions and entrance animations.
 
 ## 5. Phase maintenance rule
 

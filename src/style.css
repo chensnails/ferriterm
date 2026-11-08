@@ -47,17 +47,27 @@
   --button-h: 32px;
   --row-h: 32px;
   --tab-h: 36px;
-  --sidebar-w: 280px;
+  --tab-max-w: 220px;
+  --sidebar-w: 300px;
   --dialog-w: 440px;
   --split-gutter: 4px;
+  --focus-width: 2px;
+  --focus-offset: 2px;
+  --tab-accent-w: 2px;
+  --scrollbar-w: 10px;
+  --scrollbar-pad: 2px;
+  --backdrop-blur: 2px;
   --shadow-panel: 0 8px 24px rgb(0 0 0 / 0.35);
   --motion-fast: 120ms ease-out;
+  --motion-panel: 160ms ease-out;
+
+  color-scheme: dark;
 }
 
 :root[data-theme="light"] {
   --bg-base: #f5f6f8;
   --bg-panel: #ffffff;
-  --bg-elevated: #ffffff;
+  --bg-elevated: #eef1f5;
   --border: #d7dce3;
   --fg-primary: #1f2430;
   --fg-muted: #6b7280;
@@ -69,6 +79,9 @@
   --success: #16a34a;
   --selection: #bfdbfe88;
   --overlay: rgb(0 0 0 / 0.45);
+  --shadow-panel: 0 12px 32px rgb(15 23 42 / 0.16);
+
+  color-scheme: light;
 }
 
 :root[data-theme="nord"] {
@@ -120,10 +133,71 @@
   --success: #859900;
   --selection: #b3d4e088;
   --overlay: rgb(0 0 0 / 0.45);
+  --shadow-panel: 0 12px 32px rgb(88 110 117 / 0.18);
+
+  color-scheme: light;
 }
 
 * {
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+::-webkit-scrollbar {
+  width: var(--scrollbar-w);
+  height: var(--scrollbar-w);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border: var(--scrollbar-pad) solid transparent;
+  border-radius: var(--radius-lg);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-muted);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::selection {
+  background: var(--selection);
+}
+
+::placeholder {
+  color: var(--fg-muted);
+  opacity: 0.8;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+input,
+select,
+textarea {
+  accent-color: var(--accent);
+}
+
+button:focus-visible,
+summary:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
 }
 
 html,
@@ -139,6 +213,8 @@ body {
   color: var(--fg-primary);
   background: var(--bg-base);
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #app {
@@ -161,7 +237,7 @@ body {
 .brand {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .brand-mark {
@@ -178,12 +254,17 @@ body {
   font-size: var(--font-title);
   font-weight: 600;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   background: transparent;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -402,6 +483,7 @@ body {
   align-items: center;
   gap: var(--space-2);
   height: var(--tab-h);
+  max-width: var(--tab-max-w);
   padding: 0 var(--space-3);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   background: var(--bg-panel);
@@ -409,12 +491,13 @@ body {
   border-bottom: none;
   color: var(--fg-muted);
   cursor: pointer;
-  transition: background var(--motion-fast);
+  transition: background var(--motion-fast), color var(--motion-fast);
 }
 
 .tab.active {
   color: var(--fg-primary);
   background: var(--bg-elevated);
+  box-shadow: inset 0 var(--tab-accent-w) 0 var(--accent);
 }
 
 .tab.closed .tab-label {
@@ -436,6 +519,14 @@ body {
   font-size: var(--font-ui);
   padding: 0 var(--space-1);
   border-radius: var(--radius-sm);
+  opacity: 0.55;
+  transition: opacity var(--motion-fast);
+}
+
+.tab:hover .tab-close,
+.tab:focus-within .tab-close,
+.tab.active .tab-close {
+  opacity: 1;
 }
 
 .tab-close:hover {
@@ -1177,6 +1268,9 @@ mark {
   justify-content: center;
   padding: var(--space-4);
   background: var(--overlay);
+  -webkit-backdrop-filter: blur(var(--backdrop-blur));
+  backdrop-filter: blur(var(--backdrop-blur));
+  animation: overlay-in var(--motion-fast);
 }
 
 .modal {
@@ -1188,6 +1282,20 @@ mark {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-panel);
+  animation: dialog-in var(--motion-panel);
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-1)) scale(0.98);
+  }
 }
 
 .modal-head {
@@ -1232,6 +1340,10 @@ mark {
   border-color: transparent;
   color: var(--fg-on-accent);
   font-weight: 600;
+}
+
+.modal-foot button:hover:not(:disabled):not(.primary):not(.danger) {
+  background: var(--bg-elevated);
 }
 
 .modal-foot button.primary:hover:not(:disabled) {
@@ -2444,8 +2556,11 @@ mark {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  *::before,
+  *::after {
     transition: none !important;
+    animation: none !important;
   }
 }
 .command-history {
