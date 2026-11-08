@@ -59,6 +59,12 @@ export function installShortcuts(): () => void {
       return;
     }
 
+    if (event.key === "`") {
+      event.preventDefault();
+      store.toggleExecLog();
+      return;
+    }
+
     if (event.key === "Tab") {
       if (store.sessions.length < 2) return;
       event.preventDefault();

@@ -3,6 +3,7 @@ import { Sidebar } from "./components/Sidebar";
 import { TabBar } from "./components/TabBar";
 import { TerminalArea } from "./components/TerminalArea";
 import { BrowserBanner } from "./components/BrowserBanner";
+import { ExecutionLog } from "./components/ExecutionLog";
 import { BroadcastDialog } from "./components/BroadcastDialog";
 import { CommandPalette } from "./components/CommandPalette";
 import { CommandRail } from "./components/CommandRail";
@@ -99,6 +100,7 @@ export default function App() {
             <TerminalArea />
             <CommandRail />
           </div>
+          <ExecutionLog />
         </main>
       </div>
       <BrowserBanner />

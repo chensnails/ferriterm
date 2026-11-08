@@ -1,7 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
 import { terminalView } from "../terminal";
-import { ListIcon, BroadcastIcon, SplitIcon, FilesIcon } from "./icons";
+import {
+  ListIcon,
+  BroadcastIcon,
+  SplitIcon,
+  FilesIcon,
+  LogIcon,
+} from "./icons";
 
 export function TabBar() {
   const { t } = useTranslation();
@@ -21,6 +27,8 @@ export function TabBar() {
   const requestBroadcast = useAppStore((s) => s.requestBroadcast);
   const stopBroadcast = useAppStore((s) => s.stopBroadcast);
   const openTransfer = useAppStore((s) => s.openTransfer);
+  const execLogOpen = useAppStore((s) => s.execLogOpen);
+  const toggleExecLog = useAppStore((s) => s.toggleExecLog);
 
   if (sessions.length === 0) return null;
 
@@ -127,6 +135,15 @@ export function TabBar() {
         onClick={() => openTransfer(activeId)}
       >
         <FilesIcon />
+      </button>
+      <button
+        className={execLogOpen ? "icon-btn active" : "icon-btn"}
+        title={t("log.toggle")}
+        aria-label={t("log.toggle")}
+        aria-pressed={execLogOpen}
+        onClick={toggleExecLog}
+      >
+        <LogIcon />
       </button>
       <button
         className="icon-btn tab-commands"

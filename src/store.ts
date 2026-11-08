@@ -32,6 +32,14 @@ export interface HistoryEntry {
   at: number;
 }
 
+export interface ExecLogEntry {
+  id: string;
+  at: number;
+  kind: "command" | "event";
+  sessionTitle: string;
+  text: string;
+}
+
 export type PendingConnect =
   | { type: "ssh"; args: Omit<SshConnectArgs, "cols" | "rows"> }
   | { type: "pty" };
@@ -76,6 +84,11 @@ interface AppState {
   commandHistory: HistoryEntry[];
   recordCommand: (sessionId: string, text: string) => void;
   clearCommandHistory: () => void;
+  execLog: ExecLogEntry[];
+  execLogOpen: boolean;
+  toggleExecLog: () => void;
+  clearExecLog: () => void;
+  logEvent: (text: string) => void;
   broadcastTargets: string[];
   broadcastRequested: boolean;
   sendInput: (kind: SessionKind, id: string, data: string) => void;
@@ -212,6 +225,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   broadcastRequested: false,
   focusedSessionId: null,
   commandHistory: [],
+  execLog: [],
+  execLogOpen: false,
   layoutRestored: false,
   theme: "dark",
   language: detectLanguage(),
@@ -409,6 +424,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
     set((s) => ({
       commandHistory: [entry, ...s.commandHistory].slice(0, 200),
+      execLog: [
+        {
+          id: entry.id,
+          at: entry.at,
+          kind: "command" as const,
+          sessionTitle: entry.sessionTitle,
+          text: entry.text,
+        },
+        ...s.execLog,
+      ].slice(0, 500),
     }));
     scheduleHistorySave();
   },
@@ -417,6 +442,24 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ commandHistory: [] });
     if (isTauri) api.setSetting("commandHistory", "[]").catch(() => {});
   },
+
+  toggleExecLog: () => set((s) => ({ execLogOpen: !s.execLogOpen })),
+
+  clearExecLog: () => set({ execLog: [] }),
+
+  logEvent: (text) =>
+    set((s) => ({
+      execLog: [
+        {
+          id: crypto.randomUUID(),
+          at: Date.now(),
+          kind: "event" as const,
+          sessionTitle: "",
+          text,
+        },
+        ...s.execLog,
+      ].slice(0, 500),
+    })),
 
   requestBroadcast: () => set({ broadcastRequested: true }),
   cancelBroadcast: () => set({ broadcastRequested: false }),

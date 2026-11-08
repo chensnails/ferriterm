@@ -9,16 +9,20 @@ export function BroadcastDialog() {
   const active = useAppStore((s) => s.broadcastTargets);
   const startBroadcast = useAppStore((s) => s.startBroadcast);
   const cancelBroadcast = useAppStore((s) => s.cancelBroadcast);
+  const logEvent = useAppStore((s) => s.logEvent);
 
   const openSessions = sessions.filter((session) => !session.closed);
   const [selected, setSelected] = useState<string[]>(() =>
     active.length > 0 ? active : openSessions.map((session) => session.id),
   );
+  const [acknowledged, setAcknowledged] = useState(false);
 
-  const toggle = (id: string) =>
+  const toggle = (id: string) => {
+    setAcknowledged(false);
     setSelected((ids) =>
       ids.includes(id) ? ids.filter((value) => value !== id) : [...ids, id],
     );
+  };
 
   const productionCount = sessions.filter(
     (session) => session.production && selected.includes(session.id),
@@ -36,8 +40,14 @@ export function BroadcastDialog() {
           <button
             type="button"
             className="primary"
-            disabled={selected.length === 0}
-            onClick={() => startBroadcast(selected)}
+            disabled={
+              selected.length === 0 ||
+              (productionCount > 0 && !acknowledged)
+            }
+            onClick={() => {
+              logEvent(t("log.broadcastStarted", { count: selected.length }));
+              startBroadcast(selected);
+            }}
           >
             {t("broadcast.start", { count: selected.length })}
           </button>
@@ -47,9 +57,19 @@ export function BroadcastDialog() {
       <div className="broadcast-body">
         <p className="hint">{t("broadcast.hint")}</p>
         {productionCount > 0 && (
-          <p className="error-text" role="alert">
-            {t("broadcast.productionWarning", { count: productionCount })}
-          </p>
+          <>
+            <p className="error-text" role="alert">
+              {t("broadcast.productionWarning", { count: productionCount })}
+            </p>
+            <label className="checkbox broadcast-ack">
+              <input
+                type="checkbox"
+                checked={acknowledged}
+                onChange={(event) => setAcknowledged(event.target.checked)}
+              />
+              <span>{t("broadcast.confirmProduction")}</span>
+            </label>
+          </>
         )}
         {openSessions.length === 0 ? (
           <p className="hint">{t("broadcast.none")}</p>

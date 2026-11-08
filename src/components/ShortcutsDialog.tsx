@@ -11,6 +11,7 @@ const rows: { key: string; combo: string }[] = [
   { key: "split", combo: "Ctrl/⌘ Shift D" },
   { key: "settings", combo: "Ctrl/⌘ ," },
   { key: "help", combo: "Ctrl/⌘ /" },
+  { key: "log", combo: "Ctrl/⌘ `" },
 ];
 
 export function ShortcutsDialog() {

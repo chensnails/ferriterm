@@ -118,6 +118,11 @@ export function CommandPalette() {
         label: t("palette.files"),
         run: () => store.openTransfer(),
       },
+      {
+        id: "log",
+        label: t("palette.log"),
+        run: () => store.toggleExecLog(),
+      },
     ];
   }, [hosts, t]);
 

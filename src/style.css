@@ -2422,3 +2422,79 @@ mark {
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+.exec-log {
+  flex: 0 0 176px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.exec-log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.exec-log-head h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.exec-log-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.exec-log-list {
+  flex: 1;
+  margin: 0;
+  padding: var(--space-1) 0;
+  overflow: auto;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.exec-log-row {
+  display: flex;
+  gap: var(--space-2);
+  padding: 1px var(--space-3);
+}
+
+.exec-log-row.kind-event {
+  color: var(--accent);
+}
+
+.exec-log-time {
+  flex-shrink: 0;
+  color: var(--fg-muted);
+}
+
+.exec-log-session {
+  flex-shrink: 0;
+  max-width: 140px;
+  overflow: hidden;
+  color: var(--fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exec-log-text {
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.exec-log-empty {
+  padding: var(--space-2) var(--space-3);
+}
+
+.broadcast-ack {
+  margin-top: var(--space-2);
+}

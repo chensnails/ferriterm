@@ -327,7 +327,8 @@
     "split": "Split terminal",
     "splitDirection": "Toggle split direction",
     "shortcuts": "Keyboard shortcuts",
-    "empty": "No matching commands"
+    "empty": "No matching commands",
+    "log": "Toggle execution log"
   },
   "split": {
     "start": "Split terminal",
@@ -343,7 +344,8 @@
     "nextTab": "Next / previous session",
     "split": "Toggle split",
     "settings": "Open settings",
-    "help": "Show shortcuts"
+    "help": "Show shortcuts",
+    "log": "Execution log"
   },
   "session": {
     "localTitle": "Local terminal"
@@ -385,7 +387,8 @@
     "productionWarning": "{count} selected session(s) are production hosts. Commands will run there as well.",
     "none": "No open sessions.",
     "start": "Start broadcast ({count})",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "confirmProduction": "I understand: Broadcast input may run commands on production hosts."
   },
   "keyboardAuth": {
     "title": "Authentication required",
@@ -406,5 +409,12 @@
   },
   "browser": {
     "banner": "Browser preview mode: terminal features are unavailable. Run {command} to start the desktop app."
+  },
+  "log": {
+    "title": "Execution log",
+    "toggle": "Toggle execution log",
+    "empty": "Run a command to see it logged here.",
+    "clear": "Clear",
+    "broadcastStarted": "Broadcast input to {count} sessions"
   }
 }

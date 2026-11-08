@@ -327,7 +327,8 @@
     "split": "分屏",
     "splitDirection": "切换分屏方向",
     "shortcuts": "快捷键",
-    "empty": "没有匹配的命令"
+    "empty": "没有匹配的命令",
+    "log": "切换执行日志"
   },
   "split": {
     "start": "分屏",
@@ -343,7 +344,8 @@
     "nextTab": "下一个 / 上一个会话",
     "split": "切换分屏",
     "settings": "打开设置",
-    "help": "显示快捷键"
+    "help": "显示快捷键",
+    "log": "执行日志"
   },
   "session": {
     "localTitle": "本地终端"
@@ -385,7 +387,8 @@
     "productionWarning": "已勾选 {count} 个生产主机，命令也会在这些主机上执行。",
     "none": "没有打开的会话。",
     "start": "开始广播（{count}）",
-    "cancel": "取消"
+    "cancel": "取消",
+    "confirmProduction": "我已了解：广播输入可能会在生产主机上执行命令。"
   },
   "keyboardAuth": {
     "title": "需要身份验证",
@@ -406,5 +409,12 @@
   },
   "browser": {
     "banner": "当前为浏览器预览模式，终端功能不可用。运行 {command} 启动桌面应用。"
+  },
+  "log": {
+    "title": "执行日志",
+    "toggle": "显示或隐藏执行日志",
+    "empty": "执行命令后会记录在这里。",
+    "clear": "清空",
+    "broadcastStarted": "向 {count} 个会话广播输入"
   }
 }

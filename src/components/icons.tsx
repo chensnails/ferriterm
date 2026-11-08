@@ -9,6 +9,14 @@ const base = (size: number) => ({
   strokeLinejoin: "round" as const,
   "aria-hidden": true,
 });
+export function LogIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <rect x="2.5" y="2" width="11" height="12" rx="1.5" />
+      <path d="M5 5.5h6M5 8h6M5 10.5h4" />
+    </svg>
+  );
+}
 
 export function PlusIcon({ size = 14 }: { size?: number }) {
   return (
