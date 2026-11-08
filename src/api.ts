@@ -149,6 +149,24 @@ export interface RemoteUpload {
   id: string;
 }
 
+export interface RemoteMountInfo {
+  id: string;
+  label: string;
+  kind: string;
+}
+
+export type RemoteMountConfig =
+  | { kind: "webdav"; url: string; username: string; password: string }
+  | {
+      kind: "s3";
+      endpoint: string;
+      region: string;
+      bucket: string;
+      accessKey: string;
+      secretKey: string;
+      prefix: string;
+    };
+
 export interface LanguagePack {
   id: string;
   name: string;
@@ -484,6 +502,12 @@ export const api = {
     invoke<RemoteUpload>("sync_remote_upload", { config, passphrase }),
   syncRemoteDownload: (config: RemoteConfig, passphrase: string) =>
     invoke<ImportStats>("sync_remote_download", { config, passphrase }),
+
+  remoteMountAdd: (id: string, label: string, config: RemoteMountConfig) =>
+    invoke<void>("remote_mount_add", { id, label, config }),
+  remoteMountRemove: (id: string) =>
+    invoke<boolean>("remote_mount_remove", { id }),
+  remoteMountList: () => invoke<RemoteMountInfo[]>("remote_mount_list"),
 
   listLanguagePacks: () => invoke<PluginScan>("list_language_packs"),
   pluginScan: () => invoke<PluginScan>("plugin_scan"),

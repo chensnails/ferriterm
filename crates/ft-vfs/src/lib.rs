@@ -4,10 +4,18 @@ use std::pin::Pin;
 use serde::{Deserialize, Serialize};
 
 mod local;
+mod registry;
+mod s3;
 mod sftp;
+mod timeutil;
+mod util;
+mod webdav;
 
 pub use local::LocalFs;
+pub use registry::{RemoteMountInfo, RemoteMounts};
+pub use s3::S3Vfs;
 pub use sftp::{SftpConnection, SftpRegistry, SftpVfs};
+pub use webdav::WebdavVfs;
 
 pub type VfsFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T, String>> + Send + 'a>>;
 

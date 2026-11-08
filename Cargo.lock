@@ -1458,6 +1458,10 @@ name = "ft-vfs"
 version = "0.1.0"
 dependencies = [
  "ft-core",
+ "percent-encoding",
+ "quick-xml",
+ "reqwest",
+ "ring",
  "russh",
  "serde",
  "serde_json",

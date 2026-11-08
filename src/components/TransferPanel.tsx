@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, isTauri, type VfsEntry } from "../api";
+import { api, isTauri, type RemoteMountInfo, type VfsEntry } from "../api";
 import { useAppStore } from "../store";
 import { FileEditor } from "./FileEditor";
 import { FilePane } from "./FilePane";
+import { MountDialog } from "./MountDialog";
 import { PermissionsDialog } from "./PermissionsDialog";
 import { SyncDialog, type SyncDirection } from "./SyncDialog";
 import { TransferQueue } from "./TransferQueue";
@@ -39,12 +40,21 @@ export function TransferPanel() {
     () => sessions.filter((session) => session.kind === "ssh" && !session.closed),
     [sessions],
   );
+  const [mounts, setMounts] = useState<RemoteMountInfo[]>([]);
+  const mountTargets = useMemo(
+    () => mounts.map((mount) => ({ id: `@${mount.id}`, title: mount.label })),
+    [mounts],
+  );
+  const knownTargets = useMemo(() => {
+    const ids = new Set(sshSessions.map((session) => session.id));
+    for (const target of mountTargets) ids.add(target.id);
+    return ids;
+  }, [sshSessions, mountTargets]);
   const sessionId =
-    (boundSession && sshSessions.some((s) => s.id === boundSession)
-      ? boundSession
-      : null) ??
+    (boundSession && knownTargets.has(boundSession) ? boundSession : null) ??
     sshSessions.find((s) => s.id === activeId)?.id ??
     sshSessions[0]?.id ??
+    mountTargets[0]?.id ??
     "";
 
   const [localPath, setLocalPath] = useState("");
@@ -64,6 +74,20 @@ export function TransferPanel() {
     sessionId: string | null;
     entry: VfsEntry;
   } | null>(null);
+  const [mountOpen, setMountOpen] = useState(false);
+
+  const loadMounts = useCallback(async () => {
+    if (!isTauri) return;
+    try {
+      setMounts(await api.remoteMountList());
+    } catch (err) {
+      setError(String(err));
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadMounts();
+  }, [loadMounts]);
 
   useEffect(() => {
     setRemotePath("");
@@ -183,15 +207,31 @@ export function TransferPanel() {
                 setRemotePath("");
               }}
             >
-              {sshSessions.length === 0 && (
+              {sshSessions.length === 0 && mountTargets.length === 0 && (
                 <option value="">{t("transfer.noSession")}</option>
               )}
-              {sshSessions.map((session) => (
-                <option key={session.id} value={session.id}>
-                  {session.title}
-                </option>
-              ))}
+              {sshSessions.length > 0 && (
+                <optgroup label={t("transfer.sshSessions")}>
+                  {sshSessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {session.title}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {mountTargets.length > 0 && (
+                <optgroup label={t("transfer.mounts")}>
+                  {mountTargets.map((target) => (
+                    <option key={target.id} value={target.id}>
+                      {target.title}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
+            <button type="button" onClick={() => setMountOpen(true)}>
+              + {t("transfer.addMount")}
+            </button>
             <button
               type="button"
               disabled={!canSync}
@@ -281,6 +321,13 @@ export function TransferPanel() {
           onClose={() => setPermissionTarget(null)}
           onSaved={refresh}
           onError={setError}
+        />
+      )}
+      {mountOpen && (
+        <MountDialog
+          mounts={mounts}
+          onClose={() => setMountOpen(false)}
+          onChanged={loadMounts}
         />
       )}
       {syncDirection && (

@@ -857,10 +857,98 @@ async fn resolve_vfs(
     match session_id {
         None | Some("") => Ok(Arc::new(ft_vfs::LocalFs)),
         Some(id) => {
+            if let Some(mount) = id.strip_prefix('@') {
+                return remote_mounts()
+                    .get(mount)
+                    .ok_or_else(|| format!("remote mount {mount} is not connected"));
+            }
             let connection = runtime.sftp.get(sessions, id).await?;
             Ok(Arc::new(ft_vfs::SftpVfs::new(connection)))
         }
     }
+}
+
+fn remote_mounts() -> &'static ft_vfs::RemoteMounts {
+    static MOUNTS: std::sync::OnceLock<ft_vfs::RemoteMounts> = std::sync::OnceLock::new();
+    MOUNTS.get_or_init(ft_vfs::RemoteMounts::default)
+}
+
+#[derive(serde::Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum RemoteMountConfig {
+    #[serde(rename_all = "camelCase")]
+    Webdav {
+        url: String,
+        #[serde(default)]
+        username: String,
+        #[serde(default)]
+        password: String,
+    },
+    #[serde(rename = "s3", rename_all = "camelCase")]
+    S3 {
+        endpoint: String,
+        #[serde(default)]
+        region: String,
+        bucket: String,
+        access_key: String,
+        secret_key: String,
+        #[serde(default)]
+        prefix: String,
+    },
+}
+
+#[tauri::command]
+pub fn remote_mount_add(
+    id: String,
+    label: String,
+    config: RemoteMountConfig,
+) -> Result<(), String> {
+    let (kind, vfs): (String, Arc<dyn ft_vfs::Vfs>) = match config {
+        RemoteMountConfig::Webdav {
+            url,
+            username,
+            password,
+        } => (
+            "webdav".to_string(),
+            Arc::new(ft_vfs::WebdavVfs::new(&url, &username, &password)?),
+        ),
+        RemoteMountConfig::S3 {
+            endpoint,
+            region,
+            bucket,
+            access_key,
+            secret_key,
+            prefix,
+        } => (
+            "s3".to_string(),
+            Arc::new(ft_vfs::S3Vfs::new(
+                &endpoint,
+                &region,
+                &bucket,
+                &access_key,
+                &secret_key,
+                &prefix,
+            )?),
+        ),
+    };
+    remote_mounts().add(
+        ft_vfs::RemoteMountInfo {
+            id: id.clone(),
+            label: if label.trim().is_empty() { id } else { label },
+            kind,
+        },
+        vfs,
+    )
+}
+
+#[tauri::command]
+pub fn remote_mount_remove(id: String) -> bool {
+    remote_mounts().remove(&id)
+}
+
+#[tauri::command]
+pub fn remote_mount_list() -> Vec<ft_vfs::RemoteMountInfo> {
+    remote_mounts().list()
 }
 
 #[tauri::command]

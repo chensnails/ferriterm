@@ -11,3 +11,7 @@ russh.workspace = true
 tokio = { workspace = true, features = ["net", "io-util", "fs", "time"] }
 serde.workspace = true
 serde_json.workspace = true
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
+quick-xml = "0.42"
+ring = "0.17"
+percent-encoding = "2"
