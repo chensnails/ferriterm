@@ -147,6 +147,8 @@ interface AppState {
   resetShortcuts: () => void;
   commandsOpen: boolean;
   toggleCommands: () => void;
+  sidebarOpen: boolean;
+  toggleSidebar: () => void;
   paletteOpen: boolean;
   togglePalette: () => void;
   closePalette: () => void;
@@ -275,6 +277,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   keepaliveSecs: 30,
   shortcuts: { ...SHORTCUT_DEFAULTS },
   commandsOpen: true,
+  sidebarOpen: true,
   paletteOpen: false,
   searchOpen: false,
   settingsOpen: false,
@@ -338,6 +341,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
   toggleCommands: () => set((s) => ({ commandsOpen: !s.commandsOpen })),
+  toggleSidebar: () =>
+    set((s) => {
+      const open = !s.sidebarOpen;
+      if (isTauri) api.setSetting("sidebarOpen", open ? "1" : "0").catch(() => {});
+      return { sidebarOpen: open };
+    }),
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
   closePalette: () => set({ paletteOpen: false }),
   openSearch: () => set({ searchOpen: true }),
@@ -689,6 +698,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       keepaliveSecs: Number.isFinite(keepalive) ? keepalive : get().keepaliveSecs,
       commandHistory: parseHistory(settings.commandHistory),
       shortcuts: parseShortcuts(settings.shortcuts),
+      sidebarOpen: (settings.sidebarOpen ?? "1") !== "0",
     });
   },
 

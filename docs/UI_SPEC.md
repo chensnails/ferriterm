@@ -8,8 +8,9 @@
 
 Single main window:
 
-- **Top tab bar** (height `--tab-h`): a scrolling tab strip (Home tab with house glyph + session tabs + Transfer tab + "new tab" button) and a right-aligned, non-scrolling tool icon row (split, broadcast, SFTP, exec log, commands, monitor, forwarding, search, theme, language, settings). Active tab uses `--bg-elevated` + accent top rule; closed tabs keep a muted style until dismissed.
-- **Home tab content**: centered original logo, search field with new-host/new-folder buttons, host tree below. No permanent left sidebar in any view.
+- **Top tab bar** (height `--tab-h`): a leftmost host-sidebar toggle button, a scrolling tab strip (Home tab with house glyph + session tabs + Transfer tab + "new tab" button) and a right-aligned, non-scrolling tool icon row (split, broadcast, SFTP, exec log, commands, monitor, forwarding, search, theme, language, settings). Active tab uses `--bg-elevated` + accent top rule; closed tabs keep a muted style until dismissed.
+- **Host sidebar**: persistent, collapsible left pane (`--sidebar-w`, `#host-sidebar`) shared by all views; holds the host tree with search, new-host/new-folder/tag actions, `user@host` subtitles on host rows and host counts on folders/header. Toggle state persists via settings (`sidebarOpen`).
+- **Home tab content**: centered original logo, tagline and quick-action buttons (quick connect, new host, new folder). The host tree lives in the sidebar, not in Home.
 - **Session view**: terminal fills the content area; splits divide it with draggable gutters (`--split-gutter`).
 - **Keep-alive views**: Home, Transfer and the terminal workspace stay mounted and are toggled with `hidden`, so xterm sessions survive tab switches.
 - **Floating panels**: system info opens as a floating panel above the content (`--shadow-panel`); it never replaces the main view.
@@ -91,7 +92,7 @@ Single main window:
 | `--tab-max-w` | `220px` | maximum width of a session tab |
 | `--home-w` | `720px` | Home content column max width |
 | `--font-logo` | `28px` | Home logo mark |
-| `--sidebar-w` | `300px` | settings category pane |
+| `--sidebar-w` | `300px` | host sidebar + settings category pane |
 | `--dialog-w` | `440px` | dialog width cap |
 | `--split-gutter` | `4px` | split drag handle |
 | `--focus-width` / `--focus-offset` | `2px` / `2px` | keyboard focus ring |
@@ -125,10 +126,12 @@ Single main window:
 
 Acceptance = perform each path in Ferriterm and in the reference install; record pass/fail in the phase review. Paths describe interactions, not copied artwork.
 
-### 4.1 Home
+### 4.1 Home + host sidebar
 
-- [ ] Logo centered above search field; host tree fills remaining height.
-- [ ] Typing in search filters tree and highlights matched substring.
+- [ ] Home shows centered logo, tagline and quick-connect/new-host/new-folder actions.
+- [ ] Sidebar toggle in tab bar shows/hides the host sidebar across all views; state persists.
+- [ ] Sidebar header shows host count; folders show child host counts; host rows show `user@host`.
+- [ ] Typing in sidebar search filters tree and highlights matched substring.
 - [ ] Double-click host opens a session tab; Enter on selected node does the same.
 - [ ] Right-click host menu contains: Connect, Connect with jump…, Open in new window, Tags ▸ (including Manage tags…), Import…, Properties.
 - [ ] Right-click folder menu contains: New host, New folder, Rename, Delete (confirm).

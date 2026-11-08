@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { TabBar } from "./components/TabBar";
 import { HomeView } from "./components/HomeView";
+import { HostTree } from "./components/HostTree";
 import { TerminalArea } from "./components/TerminalArea";
 import { BrowserBanner } from "./components/BrowserBanner";
 import { ExecutionLog } from "./components/ExecutionLog";
@@ -51,6 +52,7 @@ export default function App() {
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen);
   const quickConnectOpen = useAppStore((s) => s.quickConnectOpen);
   const setQuickConnectOpen = useAppStore((s) => s.setQuickConnectOpen);
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
 
   const isTerminalView = activeId !== HOME_TAB && activeId !== TRANSFER_TAB;
 
@@ -124,18 +126,23 @@ export default function App() {
     <>
       <div id="app">
         <TabBar />
-        <div id="content">
-          {activeId === HOME_TAB && <HomeView />}
-          {transferOpen && (
-            <div className="view-transfer" hidden={activeId !== TRANSFER_TAB}>
-              <Suspense fallback={null}>
-                <TransferPanel />
-              </Suspense>
+        <div id="body">
+          <aside id="host-sidebar" hidden={!sidebarOpen}>
+            <HostTree />
+          </aside>
+          <div id="content">
+            {activeId === HOME_TAB && <HomeView />}
+            {transferOpen && (
+              <div className="view-transfer" hidden={activeId !== TRANSFER_TAB}>
+                <Suspense fallback={null}>
+                  <TransferPanel />
+                </Suspense>
+              </div>
+            )}
+            <div id="workspace" hidden={!isTerminalView}>
+              <TerminalArea />
+              <CommandRail />
             </div>
-          )}
-          <div id="workspace" hidden={!isTerminalView}>
-            <TerminalArea />
-            <CommandRail />
           </div>
         </div>
         <ExecutionLog />

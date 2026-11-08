@@ -2,6 +2,12 @@
   "app": {
     "name": "Ferriterm"
   },
+  "sidebar": {
+    "toggle": "切换主机侧栏"
+  },
+  "home": {
+    "tagline": "跨平台 SSH 终端与文件传输"
+  },
   "tab": {
     "home": "主页",
     "new": "新建标签",

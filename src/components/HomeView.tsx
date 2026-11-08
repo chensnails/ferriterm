@@ -1,15 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { isTauri } from "../api";
 import { useAppStore } from "../store";
-import { HostTree } from "./HostTree";
-import { FolderPlusIcon, PlusIcon, SearchIcon } from "./icons";
+import { FolderPlusIcon, PlusIcon, TerminalIcon } from "./icons";
 
 export function HomeView() {
   const { t } = useTranslation();
-  const hostFilter = useAppStore((s) => s.hostFilter);
-  const setHostFilter = useAppStore((s) => s.setHostFilter);
   const requestNewHost = useAppStore((s) => s.requestNewHost);
   const requestNewFolder = useAppStore((s) => s.requestNewFolder);
+  const setQuickConnectOpen = useAppStore((s) => s.setQuickConnectOpen);
 
   return (
     <div className="home-view">
@@ -20,38 +18,32 @@ export function HomeView() {
           </span>
           <span className="home-logo-name">{t("app.name")}</span>
         </div>
-        <div className="home-search">
-          <label className="search-field home-search-field">
-            <SearchIcon />
-            <input
-              value={hostFilter}
-              onChange={(e) => setHostFilter(e.target.value)}
-              placeholder={t("hosts.searchPlaceholder")}
-              aria-label={t("hosts.searchPlaceholder")}
-              autoComplete="off"
-              spellCheck={false}
-            />
-          </label>
+        <p className="home-tagline">{t("home.tagline")}</p>
+        <div className="home-actions">
           <button
-            className="icon-btn"
-            title={t("hosts.newHost")}
-            aria-label={t("hosts.newHost")}
+            className="home-action"
+            onClick={() => setQuickConnectOpen(true)}
+          >
+            <TerminalIcon />
+            {t("connect.quick")}
+          </button>
+          <button
+            className="home-action"
             disabled={!isTauri}
             onClick={requestNewHost}
           >
             <PlusIcon />
+            {t("hosts.newHost")}
           </button>
           <button
-            className="icon-btn"
-            title={t("hosts.newFolder")}
-            aria-label={t("hosts.newFolder")}
+            className="home-action"
             disabled={!isTauri}
             onClick={requestNewFolder}
           >
             <FolderPlusIcon />
+            {t("hosts.newFolder")}
           </button>
         </div>
-        <HostTree chromeless />
       </div>
     </div>
   );

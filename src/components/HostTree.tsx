@@ -16,6 +16,7 @@ import {
   PlusIcon,
   SearchIcon,
   TagIcon,
+  TerminalIcon,
 } from "./icons";
 
 interface DialogState {
@@ -62,7 +63,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
   );
 }
 
-export function HostTree({ chromeless = false }: { chromeless?: boolean }) {
+export function HostTree() {
   const { t } = useTranslation();
   const hosts = useAppStore((s) => s.hosts);
   const tags = useAppStore((s) => s.tags);
@@ -166,6 +167,16 @@ export function HostTree({ chromeless = false }: { chromeless?: boolean }) {
     }
     return map;
   }, [hosts]);
+
+  const hostCount = useMemo(() => hosts.filter((h) => !h.isFolder).length, [hosts]);
+
+  const countHosts = (parentId: string | null): number => {
+    let total = 0;
+    for (const child of byParent.get(parentId) ?? []) {
+      total += child.isFolder ? countHosts(child.id) : 1;
+    }
+    return total;
+  };
 
   const matches = (host: HostEntry) =>
     !query ||
@@ -441,7 +452,7 @@ export function HostTree({ chromeless = false }: { chromeless?: boolean }) {
               {node.isFolder ? (
                 <FolderIcon />
               ) : (
-                <span className="tree-icon-spacer" />
+                <TerminalIcon />
               )}
               {node.production && !node.isFolder && (
                 <span className="prod-dot" title={t("hosts.production")} />
@@ -449,6 +460,13 @@ export function HostTree({ chromeless = false }: { chromeless?: boolean }) {
               <span className="tree-name">
                 <Highlight text={node.name} query={query} />
               </span>
+              {node.isFolder ? (
+                <span className="tree-count">({countHosts(node.id)})</span>
+              ) : (
+                <span className="tree-sub">
+                  {node.username}@{node.host}
+                </span>
+              )}
               <span className="tree-tags">
                 {node.tags.map((tag) => (
                   <TagChip key={tag.id} tag={tag} small />
@@ -463,55 +481,54 @@ export function HostTree({ chromeless = false }: { chromeless?: boolean }) {
   const noMatches = visible !== null && hosts.length > 0 && ![...visible.values()].some(Boolean);
 
   return (
-    <section className={chromeless ? "host-section chromeless" : "host-section"}>
-      {!chromeless && (
-        <>
-          <header className="section-head">
-            <h2>{t("hosts.title")}</h2>
-            <div className="section-actions">
-              <button
-                className="icon-btn"
-                title={t("hosts.newHost")}
-                aria-label={t("hosts.newHost")}
-                disabled={!isTauri}
-                onClick={() => setDialog({ kind: "host", parentId: null })}
-              >
-                <PlusIcon />
-              </button>
-              <button
-                className="icon-btn"
-                title={t("hosts.newFolder")}
-                aria-label={t("hosts.newFolder")}
-                disabled={!isTauri}
-                onClick={() => setDialog({ kind: "folder", parentId: null })}
-              >
-                <FolderPlusIcon />
-              </button>
-              <button
-                className="icon-btn"
-                title={t("hosts.manageTags")}
-                aria-label={t("hosts.manageTags")}
-                disabled={!isTauri}
-                onClick={() => setTagManagerOpen(true)}
-              >
-                <TagIcon />
-              </button>
-            </div>
-          </header>
+    <section className="host-section">
+      <header className="section-head">
+        <h2>
+          {t("hosts.title")}
+          {hostCount > 0 && <span className="head-count"> ({hostCount})</span>}
+        </h2>
+        <div className="section-actions">
+          <button
+            className="icon-btn"
+            title={t("hosts.newHost")}
+            aria-label={t("hosts.newHost")}
+            disabled={!isTauri}
+            onClick={() => setDialog({ kind: "host", parentId: null })}
+          >
+            <PlusIcon />
+          </button>
+          <button
+            className="icon-btn"
+            title={t("hosts.newFolder")}
+            aria-label={t("hosts.newFolder")}
+            disabled={!isTauri}
+            onClick={() => setDialog({ kind: "folder", parentId: null })}
+          >
+            <FolderPlusIcon />
+          </button>
+          <button
+            className="icon-btn"
+            title={t("hosts.manageTags")}
+            aria-label={t("hosts.manageTags")}
+            disabled={!isTauri}
+            onClick={() => setTagManagerOpen(true)}
+          >
+            <TagIcon />
+          </button>
+        </div>
+      </header>
 
-          <label className="search-field">
-            <SearchIcon />
-            <input
-              value={hostFilter}
-              onChange={(e) => setHostFilter(e.target.value)}
-              placeholder={t("hosts.searchPlaceholder")}
-              aria-label={t("hosts.searchPlaceholder")}
-              autoComplete="off"
-              spellCheck={false}
-            />
-          </label>
-        </>
-      )}
+      <label className="search-field">
+        <SearchIcon />
+        <input
+          value={hostFilter}
+          onChange={(e) => setHostFilter(e.target.value)}
+          placeholder={t("hosts.searchPlaceholder")}
+          aria-label={t("hosts.searchPlaceholder")}
+          autoComplete="off"
+          spellCheck={false}
+        />
+      </label>
 
       <div
         className={`tree-scroll${dropTarget === "__root__" ? " drop-root" : ""}`}

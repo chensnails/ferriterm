@@ -15,6 +15,7 @@ import {
   PlusIcon,
   PulseIcon,
   SearchIcon,
+  SidebarIcon,
   SplitIcon,
   TerminalIcon,
 } from "./icons";
@@ -34,6 +35,8 @@ export function TabBar() {
   const closeSplit = useAppStore((s) => s.closeSplit);
   const commandsOpen = useAppStore((s) => s.commandsOpen);
   const toggleCommands = useAppStore((s) => s.toggleCommands);
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const broadcastTargets = useAppStore((s) => s.broadcastTargets);
   const requestBroadcast = useAppStore((s) => s.requestBroadcast);
   const stopBroadcast = useAppStore((s) => s.stopBroadcast);
@@ -74,6 +77,15 @@ export function TabBar() {
 
   return (
     <div id="tabbar">
+      <button
+        className={sidebarOpen ? "icon-btn tab-sidebar active" : "icon-btn tab-sidebar"}
+        title={t("sidebar.toggle")}
+        aria-label={t("sidebar.toggle")}
+        aria-pressed={sidebarOpen}
+        onClick={toggleSidebar}
+      >
+        <SidebarIcon />
+      </button>
       <div className="tab-strip" role="tablist">
         <div
           className={activeId === HOME_TAB ? "tab tab-home active" : "tab tab-home"}

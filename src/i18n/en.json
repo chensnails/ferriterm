@@ -2,6 +2,12 @@
   "app": {
     "name": "Ferriterm"
   },
+  "sidebar": {
+    "toggle": "Toggle host sidebar"
+  },
+  "home": {
+    "tagline": "Cross-platform SSH terminal and file transfer"
+  },
   "tab": {
     "home": "Home",
     "new": "New tab",

@@ -26,6 +26,15 @@ export function PlusIcon({ size = 14 }: { size?: number }) {
   );
 }
 
+export function SidebarIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <rect x="2" y="2.5" width="12" height="11" rx="1.5" />
+      <path d="M6 2.5v11" />
+    </svg>
+  );
+}
+
 export function FolderPlusIcon({ size = 14 }: { size?: number }) {
   return (
     <svg {...base(size)}>
