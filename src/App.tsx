@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { TabBar } from "./components/TabBar";
 import { TerminalArea } from "./components/TerminalArea";
@@ -7,20 +7,34 @@ import { ExecutionLog } from "./components/ExecutionLog";
 import { BroadcastDialog } from "./components/BroadcastDialog";
 import { CommandPalette } from "./components/CommandPalette";
 import { CommandRail } from "./components/CommandRail";
-import { ForwardDialog } from "./components/ForwardDialog";
 import { HostKeyPrompt } from "./components/HostKeyPrompt";
 import { KeyboardInteractivePrompt } from "./components/KeyboardInteractivePrompt";
-import { MonitorPanel } from "./components/MonitorPanel";
 import { ShortcutsDialog } from "./components/ShortcutsDialog";
-import { TransferPanel } from "./components/TransferPanel";
 import { api, isTauri, onTransferUpdate } from "./api";
 import { installShortcuts } from "./shortcuts";
 import { useAppStore } from "./store";
+
+const MonitorPanel = lazy(() =>
+  import("./components/MonitorPanel").then((module) => ({
+    default: module.MonitorPanel,
+  })),
+);
+const ForwardDialog = lazy(() =>
+  import("./components/ForwardDialog").then((module) => ({
+    default: module.ForwardDialog,
+  })),
+);
+const TransferPanel = lazy(() =>
+  import("./components/TransferPanel").then((module) => ({
+    default: module.TransferPanel,
+  })),
+);
 
 const initialConnect = new URLSearchParams(window.location.search).get("connect");
 
 export default function App() {
   const broadcastRequested = useAppStore((s) => s.broadcastRequested);
+  const monitorOpen = useAppStore((s) => s.monitorOpen);
   const forwardOpen = useAppStore((s) => s.forwardOpen);
   const transferOpen = useAppStore((s) => s.transferOpen);
 
@@ -104,13 +118,13 @@ export default function App() {
         </main>
       </div>
       <BrowserBanner />
-      <MonitorPanel />
+      <Suspense fallback={null}>{monitorOpen && <MonitorPanel />}</Suspense>
       <CommandPalette />
-      {forwardOpen && <ForwardDialog />}
+      <Suspense fallback={null}>{forwardOpen && <ForwardDialog />}</Suspense>
       <HostKeyPrompt />
       <KeyboardInteractivePrompt />
       {broadcastRequested && <BroadcastDialog />}
-      {transferOpen && <TransferPanel />}
+      <Suspense fallback={null}>{transferOpen && <TransferPanel />}</Suspense>
       <ShortcutsDialog />
     </>
   );

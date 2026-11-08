@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { api, isTauri, type CommandGroup } from "../api";
 import { templateVariables } from "../commands";
 import { useAppStore } from "../store";
-import { terminalView } from "../terminal";
+import { terminalHandle } from "../terminal-registry";
 import { CommandVarsDialog } from "./CommandVarsDialog";
 
 export function CommandRail() {
@@ -98,7 +98,7 @@ export function CommandRail() {
 
   const insert = (text: string) => {
     const target = focusedSessionId ?? activeId;
-    const view = target ? terminalView(target) : null;
+    const view = target ? terminalHandle(target) : null;
     if (!view) {
       setStatus(t("commands.noSession"), true);
       return;

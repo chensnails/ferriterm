@@ -4,11 +4,15 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { api, onClosed, onOutput, type SessionKind } from "./api";
+import {
+  registerTerminal,
+  unregisterTerminal,
+  type SearchResult,
+  type TerminalHandle,
+} from "./terminal-registry";
 import { terminalTheme } from "./theme";
 import i18n from "./i18n";
 import { useAppStore } from "./store";
-
-const views = new Map<string, TerminalView>();
 
 interface SearchHit {
   row: number;
@@ -16,18 +20,7 @@ interface SearchHit {
   length: number;
 }
 
-export interface SearchResult {
-  index: number;
-  count: number;
-  error?: boolean;
-}
-
-
-export function terminalView(id: string): TerminalView | null {
-  return views.get(id) ?? null;
-}
-
-export class TerminalView {
+export class TerminalView implements TerminalHandle {
   readonly term: Terminal;
   readonly ready: Promise<void>;
   private fit = new FitAddon();
@@ -60,7 +53,7 @@ export class TerminalView {
     this.term.loadAddon(new WebLinksAddon());
     this.term.open(container);
     this.fit.fit();
-    views.set(id, this);
+    registerTerminal(id, this);
 
     this.term.onData((data) => {
       this.trackInput(data);
@@ -234,7 +227,7 @@ export class TerminalView {
     if (useAppStore.getState().focusedSessionId === this.id) {
       useAppStore.getState().setFocusedSession(null);
     }
-    if (views.get(this.id) === this) views.delete(this.id);
+    unregisterTerminal(this.id, this);
     this.observer.disconnect();
     this.unlisten.forEach((fn) => fn());
     this.term.dispose();

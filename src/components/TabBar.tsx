@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
-import { terminalView } from "../terminal";
+import { terminalHandle } from "../terminal-registry";
 import {
   ListIcon,
   BroadcastIcon,
@@ -76,7 +76,7 @@ export function TabBar() {
                 if (s.recording) {
                   void stopRecording(s.id);
                 } else {
-                  const view = terminalView(s.id);
+                  const view = terminalHandle(s.id);
                   void startRecording(
                     s.id,
                     view?.term.cols ?? 80,

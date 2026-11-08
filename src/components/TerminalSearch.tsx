@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { terminalView, type SearchResult } from "../terminal";
+import { terminalHandle, type SearchResult } from "../terminal-registry";
 import { useAppStore } from "../store";
 
 export function TerminalSearch() {
@@ -26,12 +26,12 @@ export function TerminalSearch() {
     setQuery("");
     setRegex(false);
     setResult({ index: -1, count: 0 });
-    if (activeId) terminalView(activeId)?.resetSearch();
+    if (activeId) terminalHandle(activeId)?.resetSearch();
   }, [activeId]);
 
   if (!searchOpen) return null;
 
-  const view = activeId ? terminalView(activeId) : null;
+  const view = activeId ? terminalHandle(activeId) : null;
 
   const run = (value: string, backwards: boolean, useRegex = regex) => {
     if (!view) return;

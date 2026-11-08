@@ -1,8 +1,11 @@
-import { useRef } from "react";
+import { lazy, Suspense, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
-import { TerminalPanel } from "./TerminalPanel";
 import { TerminalSearch } from "./TerminalSearch";
+
+const TerminalPanel = lazy(() =>
+  import("./TerminalPanel").then((module) => ({ default: module.TerminalPanel })),
+);
 
 export function TerminalArea() {
   const { t } = useTranslation();
@@ -101,13 +104,15 @@ export function TerminalArea() {
           </button>
         </div>
       )}
-      {sessions.map((s) => (
-        <TerminalPanel
-          key={s.id}
-          session={s}
-          pane={s.id === activeId ? "primary" : s.id === split ? "secondary" : null}
-        />
-      ))}
+      <Suspense fallback={null}>
+        {sessions.map((s) => (
+          <TerminalPanel
+            key={s.id}
+            session={s}
+            pane={s.id === activeId ? "primary" : s.id === split ? "secondary" : null}
+          />
+        ))}
+      </Suspense>
     </div>
   );
 }

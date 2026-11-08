@@ -1,10 +1,16 @@
+import { lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
 import { ConnectForm } from "./ConnectForm";
 import { HostTree } from "./HostTree";
 import { SessionList } from "./SessionList";
-import { SettingsDialog } from "./SettingsDialog";
 import { ForwardIcon, GearIcon, PulseIcon } from "./icons";
+
+const SettingsDialog = lazy(() =>
+  import("./SettingsDialog").then((module) => ({
+    default: module.SettingsDialog,
+  })),
+);
 
 export function Sidebar() {
   const { t } = useTranslation();
@@ -63,7 +69,9 @@ export function Sidebar() {
       </details>
       <SessionList />
       {settingsOpen && (
-        <SettingsDialog onClose={() => setSettingsOpen(false)} />
+        <Suspense fallback={null}>
+          <SettingsDialog onClose={() => setSettingsOpen(false)} />
+        </Suspense>
       )}
     </aside>
   );
