@@ -153,7 +153,18 @@ export default function App() {
     if (initialConnect) return;
     let timer: number | undefined;
     const unsubscribe = useAppStore.subscribe((state, previous) => {
-      if (state.sessions === previous.sessions) return;
+      // The snapshot covers the tabs, which one is active, the split and the
+      // sidebar, so any of those changing is worth a debounced write.
+      if (
+        state.sessions === previous.sessions &&
+        state.activeId === previous.activeId &&
+        state.splitId === previous.splitId &&
+        state.splitRatio === previous.splitRatio &&
+        state.sidebarOpen === previous.sidebarOpen &&
+        state.sidebarView === previous.sidebarView
+      ) {
+        return;
+      }
       window.clearTimeout(timer);
       timer = window.setTimeout(() => useAppStore.getState().saveLayout(), 400);
     });

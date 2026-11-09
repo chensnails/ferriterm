@@ -135,6 +135,18 @@ interface StoredSession {
   production?: boolean;
 }
 
+/** One restart-to-restart description of the window. Version 1 was a bare
+    array of sessions in the `layout` setting; version 2 is an object in
+    `layout.snapshot` that also remembers the active tab, the split and the
+    sidebar. `parseLayoutSnapshot` upgrades the old shape on read. */
+interface LayoutSnapshot {
+  version: 2;
+  sessions: StoredSession[];
+  activeIndex: number;
+  split: { index: number; direction: SplitDirection; ratio: number } | null;
+  sidebar: { open: boolean; view: SidebarView };
+}
+
 interface Status {
   text: string;
   isError: boolean;
@@ -450,6 +462,63 @@ interface AppState {
   toggleFolder: (id: string) => void;
   selectHost: (id: string | null) => void;
   clearNewWindowHost: () => void;
+}
+
+/** Reads the window description, upgrading the version 1 array on the fly.
+    A malformed snapshot falls back to the old key, and a malformed old key
+    falls back to "start empty" rather than to a crash on launch. */
+function parseLayoutSnapshot(
+  raw: string | undefined,
+  legacy: string | undefined,
+): LayoutSnapshot | null {
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as Partial<LayoutSnapshot>;
+      if (parsed && parsed.version === 2 && Array.isArray(parsed.sessions)) {
+        const split = parsed.split;
+        return {
+          version: 2,
+          sessions: parsed.sessions.slice(0, 20),
+          activeIndex:
+            typeof parsed.activeIndex === "number" ? parsed.activeIndex : -1,
+          split:
+            split && typeof split.index === "number"
+              ? {
+                  index: split.index,
+                  direction:
+                    split.direction === "vertical" ? "vertical" : "horizontal",
+                  ratio:
+                    typeof split.ratio === "number" &&
+                    split.ratio > 0 &&
+                    split.ratio < 1
+                      ? split.ratio
+                      : 0.5,
+                }
+              : null,
+          sidebar: {
+            open: parsed.sidebar?.open !== false,
+            view: parsed.sidebar?.view === "tools" ? "tools" : "hosts",
+          },
+        };
+      }
+    } catch {
+      // fall through to the legacy shape
+    }
+  }
+  if (!legacy) return null;
+  try {
+    const parsed = JSON.parse(legacy);
+    if (!Array.isArray(parsed)) return null;
+    return {
+      version: 2,
+      sessions: parsed.slice(0, 20),
+      activeIndex: 0,
+      split: null,
+      sidebar: { open: true, view: "hosts" },
+    };
+  } catch {
+    return null;
+  }
 }
 
 function parseHistory(raw: string | undefined): HistoryEntry[] {
@@ -772,49 +841,84 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   saveLayout: () => {
     if (!isTauri) return;
-    const entries: StoredSession[] = get()
-      .sessions.filter((session) => !session.closed)
-      .map(({ kind, title, hostId, production }) => ({
+    const state = get();
+    const live = state.sessions.filter((session) => !session.closed);
+    const entries: StoredSession[] = live.map(
+      ({ kind, title, hostId, production }) => ({
         kind,
         title,
         hostId,
         production,
-      }));
-    api.setSetting("layout", JSON.stringify(entries)).catch(() => {});
+      }),
+    );
+    const splitIndex = live.findIndex(
+      (session) => session.id === state.splitId,
+    );
+    const snapshot: LayoutSnapshot = {
+      version: 2,
+      sessions: entries,
+      activeIndex: live.findIndex((session) => session.id === state.activeId),
+      split:
+        splitIndex >= 0
+          ? {
+              index: splitIndex,
+              direction: state.splitDirection,
+              ratio: state.splitRatio,
+            }
+          : null,
+      sidebar: { open: state.sidebarOpen, view: state.sidebarView },
+    };
+    api.setSetting("layout.snapshot", JSON.stringify(snapshot)).catch(() => {});
   },
 
   restoreLayout: async () => {
     if (!isTauri || get().layoutRestored) return;
     set({ layoutRestored: true });
     if (get().sessions.length > 0) return;
-    let raw = "";
+    let settings: Record<string, string | undefined>;
     try {
-      raw = (await api.getSettings()).layout ?? "";
+      settings = await api.getSettings();
     } catch {
       return;
     }
-    if (!raw) return;
-    let entries: StoredSession[];
-    try {
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return;
-      entries = parsed.slice(0, 20);
-    } catch {
-      return;
-    }
+    const snapshot = parseLayoutSnapshot(
+      settings["layout.snapshot"],
+      settings.layout,
+    );
+    if (!snapshot) return;
+
+    // The sidebar is restored before the sessions so the first paint already
+    // shows the right module instead of flashing the default one.
+    set({
+      sidebarOpen: snapshot.sidebar.open,
+      sidebarView: snapshot.sidebar.view,
+    });
+    if (snapshot.sessions.length === 0) return;
+
     const hosts = get().hosts;
-    for (const entry of entries) {
+    // Sessions that fail to come back leave a null behind, so the indices in
+    // the snapshot keep pointing at the right tab.
+    const restored: (string | null)[] = [];
+    for (const entry of snapshot.sessions) {
       if (entry.kind === "pty") {
-        get().openSession(
-          "pty",
-          entry.title || i18n.t("session.localTitle"),
-          { type: "pty" },
+        restored.push(
+          get().openSession(
+            "pty",
+            entry.title || i18n.t("session.localTitle"),
+            { type: "pty" },
+          ),
         );
         continue;
       }
-      if (entry.kind !== "ssh" || !entry.hostId) continue;
+      if (entry.kind !== "ssh" || !entry.hostId) {
+        restored.push(null);
+        continue;
+      }
       const host = hosts.find((item) => item.id === entry.hostId);
-      if (!host) continue;
+      if (!host) {
+        restored.push(null);
+        continue;
+      }
       try {
         const hasPrompt =
           host.authMethod === "keyboard-interactive" ||
@@ -823,7 +927,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         const secret = hasPrompt
           ? null
           : await api.getCredential(host.id).catch(() => null);
-        if (!hasPrompt && !hasKey && !secret) continue;
+        if (!hasPrompt && !hasKey && !secret) {
+          restored.push(null);
+          continue;
+        }
         const args = await buildConnectArgs(
           host,
           hosts,
@@ -834,15 +941,30 @@ export const useAppStore = create<AppState>((set, get) => ({
           },
           get().keepaliveSecs,
         );
-        get().openSession(
-          "ssh",
-          entry.title || host.name || `${host.username}@${host.host}`,
-          { type: "ssh", args },
-          entry.production ?? host.production,
-          host.id,
+        restored.push(
+          get().openSession(
+            "ssh",
+            entry.title || host.name || `${host.username}@${host.host}`,
+            { type: "ssh", args },
+            entry.production ?? host.production,
+            host.id,
+          ),
         );
       } catch {
-        continue;
+        restored.push(null);
+      }
+    }
+
+    const active = restored[snapshot.activeIndex];
+    if (active) set({ activeId: active });
+    if (snapshot.split) {
+      const other = restored[snapshot.split.index];
+      if (other && other !== active) {
+        set({
+          splitId: other,
+          splitDirection: snapshot.split.direction,
+          splitRatio: snapshot.split.ratio,
+        });
       }
     }
   },
