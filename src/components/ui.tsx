@@ -5,6 +5,7 @@ import type {
   ReactNode,
 } from "react";
 import { beginWindowDrag, zoomWindowOnDoubleClick } from "../window-chrome";
+import { CloseIcon } from "./icons";
 
 /**
  * Shared UI primitives for the design baseline. Views should compose these
@@ -435,7 +436,7 @@ export function DialogHeader({
     >
       <h3>{title}</h3>
       <IconButton label={closeLabel} onClick={onClose} size="sm">
-        ×
+        <CloseIcon size={13} />
       </IconButton>
     </header>
   );

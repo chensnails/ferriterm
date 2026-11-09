@@ -9,6 +9,7 @@ import {
 } from "../api";
 import { useAppStore } from "../store";
 import { Modal } from "./Modal";
+import { StopIcon, TrashIcon } from "./icons";
 
 function formatBytes(bytes: number): string {
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -328,7 +329,7 @@ export function ForwardDialog() {
                     aria-label={t("forward.deleteRule")}
                     onClick={() => void deleteRule(rule.id)}
                   >
-                    ×
+                    <TrashIcon size={12} />
                   </button>
                 </div>
               ))}
@@ -367,7 +368,7 @@ export function ForwardDialog() {
                     aria-label={t("forward.stop")}
                     onClick={() => void stop(item.id)}
                   >
-                    ×
+                    <StopIcon size={12} />
                   </button>
                 </div>
               ))}

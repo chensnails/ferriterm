@@ -10,15 +10,20 @@ import { Modal } from "./Modal";
 import { WindowControls } from "./WindowControls";
 import {
   BroadcastIcon,
+  CloseIcon,
   FilesIcon,
   ForwardIcon,
   GearIcon,
   HomeIcon,
   PlayIcon,
   PlusIcon,
+  ReconnectIcon,
+  RecordIcon,
   SearchIcon,
   SplitIcon,
+  StopIcon,
   TerminalIcon,
+  ThemeIcon,
 } from "./icons";
 
 function SessionIcon({ hostId }: { hostId?: string }) {
@@ -205,7 +210,7 @@ export function TabBar() {
                     reconnect(s.id);
                   }}
                 >
-                  ↻
+                  <ReconnectIcon size={12} />
                 </button>
               )}
               {s.kind !== "sftp" && (
@@ -228,7 +233,7 @@ export function TabBar() {
                     }
                   }}
                 >
-                  ●
+                  {s.recording ? <StopIcon size={11} /> : <RecordIcon size={11} />}
                 </button>
               )}
               <button
@@ -241,7 +246,7 @@ export function TabBar() {
                   else requestCloseSession(s.id);
                 }}
               >
-                ×
+                <CloseIcon size={12} />
               </button>
             </div>
           );
@@ -271,7 +276,7 @@ export function TabBar() {
                 closeTransfer();
               }}
             >
-              ×
+              <CloseIcon size={12} />
             </button>
           </div>
         )}
@@ -343,7 +348,7 @@ export function TabBar() {
           aria-label={t("theme.toggle")}
           onClick={toggleTheme}
         >
-          ◐
+          <ThemeIcon />
         </button>
         <button
           className="icon-btn"

@@ -1,6 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { api, type TransferJob } from "../api";
 import { formatBytes, formatEta } from "../format";
+import {
+  CloseIcon,
+  PauseIcon,
+  PlayIcon,
+  ReconnectIcon,
+  TrashIcon,
+} from "./icons";
 
 export function TransferQueue({
   jobs,
@@ -162,7 +169,7 @@ export function TransferQueue({
                           title={t("transfer.pause")}
                           onClick={() => void act(api.transferPause, job.id)}
                         >
-                          ⏸
+                          <PauseIcon size={12} />
                         </button>
                       )}
                       {job.status === "paused" && (
@@ -172,7 +179,7 @@ export function TransferQueue({
                           title={t("transfer.resume")}
                           onClick={() => void act(api.transferResume, job.id)}
                         >
-                          ▶
+                          <PlayIcon size={12} />
                         </button>
                       )}
                       {(job.status === "running" ||
@@ -184,7 +191,7 @@ export function TransferQueue({
                           title={t("transfer.cancel")}
                           onClick={() => void act(api.transferCancel, job.id)}
                         >
-                          ×
+                          <CloseIcon size={12} />
                         </button>
                       )}
                       {(job.status === "failed" ||
@@ -195,7 +202,7 @@ export function TransferQueue({
                           title={t("transfer.retry")}
                           onClick={() => void act(api.transferRetry, job.id)}
                         >
-                          ↻
+                          <ReconnectIcon size={12} />
                         </button>
                       )}
                       {job.status !== "running" && (
@@ -205,7 +212,7 @@ export function TransferQueue({
                           title={t("transfer.remove")}
                           onClick={() => void act(api.transferRemove, job.id)}
                         >
-                          ⌫
+                          <TrashIcon size={12} />
                         </button>
                       )}
                     </td>

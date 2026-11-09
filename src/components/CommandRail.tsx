@@ -5,6 +5,7 @@ import { templateVariables } from "../commands";
 import { useAppStore } from "../store";
 import { terminalHandle } from "../terminal-registry";
 import { CommandVarsDialog } from "./CommandVarsDialog";
+import { TrashIcon } from "./icons";
 
 export function CommandRail() {
   const { t } = useTranslation();
@@ -146,7 +147,7 @@ export function CommandRail() {
                 aria-label={t("commands.clearHistory")}
                 onClick={clearCommandHistory}
               >
-                ⌫
+                <TrashIcon size={11} />
               </button>
             )}
           </header>
@@ -197,7 +198,7 @@ export function CommandRail() {
                   aria-label={t("commands.deleteGroup")}
                   onClick={() => removeGroup(group.id)}
                 >
-                  ×
+                  <TrashIcon size={12} />
                 </button>
               </span>
             </header>
@@ -234,7 +235,7 @@ export function CommandRail() {
                   aria-label={t("commands.deleteCommand")}
                   onClick={() => removeCommand(item.id)}
                 >
-                  ×
+                  <TrashIcon size={12} />
                 </button>
               </div>
             ))}

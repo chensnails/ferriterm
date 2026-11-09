@@ -4,6 +4,13 @@ import { api, isTauri, type RemoteMountInfo, type VfsEntry } from "../api";
 import { joinPath } from "../paths";
 import { useAppStore } from "../store";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
+import {
+  CloseIcon,
+  DownloadIcon,
+  PlusIcon,
+  RefreshIcon,
+  UploadIcon,
+} from "./icons";
 import { FileEditor } from "./FileEditor";
 import { FilePane } from "./FilePane";
 import { MountDialog } from "./MountDialog";
@@ -341,28 +348,32 @@ export function TransferPanel() {
           <h3>{t("transfer.title")}</h3>
           <div className="transfer-head-tools">
             <button type="button" onClick={() => setMountOpen(true)}>
-              + {t("transfer.addMount")}
+              <PlusIcon size={12} />
+              {t("transfer.addMount")}
             </button>
             <button
               type="button"
               disabled={!canSync}
               onClick={() => setSyncDirection("upload")}
             >
-              ↑ {t("transfer.syncUpload")}
+              <UploadIcon size={12} />
+              {t("transfer.syncUpload")}
             </button>
             <button
               type="button"
               disabled={!canSync}
               onClick={() => setSyncDirection("download")}
             >
-              ↓ {t("transfer.syncDownload")}
+              <DownloadIcon size={12} />
+              {t("transfer.syncDownload")}
             </button>
             <button
               type="button"
               disabled={!canSync}
               onClick={() => setSyncDirection("twoway")}
             >
-              ⇅ {t("transfer.syncTwoWay")}
+              <RefreshIcon size={12} />
+              {t("transfer.syncTwoWay")}
             </button>
             <button
               type="button"
@@ -371,7 +382,7 @@ export function TransferPanel() {
               title={t("common.close")}
               onClick={closeTransfer}
             >
-              ×
+              <CloseIcon size={13} />
             </button>
           </div>
         </header>

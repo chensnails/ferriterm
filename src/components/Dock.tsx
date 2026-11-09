@@ -9,6 +9,7 @@ import { useAppStore, type DockCardId } from "../store";
 import { CommandRail } from "./CommandRail";
 import { ExecutionLog } from "./ExecutionLog";
 import { IconButton, Island, PanelHeader } from "./ui";
+import { CloseIcon } from "./icons";
 
 const MonitorPanel = lazy(() =>
   import("./MonitorPanel").then((module) => ({
@@ -145,7 +146,7 @@ export function Dock() {
                     size="sm"
                     onClick={close[id]}
                   >
-                    ×
+                    <CloseIcon size={12} />
                   </IconButton>
                 </>
               }

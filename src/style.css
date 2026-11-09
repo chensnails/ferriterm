@@ -2068,6 +2068,22 @@ mark {
   cursor: pointer;
 }
 
+/* Icon + label toolbars: keep the glyph centred against the text. */
+.sync-actions button,
+.plugin-actions button,
+.transfer-head-tools button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.sync-actions svg,
+.plugin-actions svg,
+.transfer-head-tools svg {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
 .sync-actions button:hover:not(:disabled) {
   border-color: var(--accent);
 }

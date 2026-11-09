@@ -1,3 +1,5 @@
+import { CloseIcon, PlusIcon } from "./icons";
+
 interface TransferTabsProps {
   tabs: string[];
   activeId: string;
@@ -61,7 +63,7 @@ export function TransferTabs({
                 aria-label={labels.close}
                 onClick={() => onClose(id)}
               >
-                ×
+                <CloseIcon size={11} />
               </button>
             )}
           </div>
@@ -80,7 +82,7 @@ export function TransferTabs({
             onOpenPicker(event.currentTarget.getBoundingClientRect())
           }
         >
-          ＋
+          <PlusIcon size={12} />
         </button>
         {copyTargets.length > 0 && (
           <label className="transfer-copyto">

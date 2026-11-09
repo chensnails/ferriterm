@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { terminalHandle, type SearchResult } from "../terminal-registry";
 import { useAppStore } from "../store";
+import { CloseIcon, Chevron } from "./icons";
 
 export function TerminalSearch() {
   const { t } = useTranslation();
@@ -91,7 +92,7 @@ export function TerminalSearch() {
         onClick={() => run(query, true)}
         disabled={!view || result.count === 0}
       >
-        ↑
+        <Chevron open={false} size={11} />
       </button>
       <button
         className="icon-btn"
@@ -100,7 +101,7 @@ export function TerminalSearch() {
         onClick={() => run(query, false)}
         disabled={!view || result.count === 0}
       >
-        ↓
+        <Chevron open size={11} />
       </button>
       <button
         className="icon-btn"
@@ -108,7 +109,7 @@ export function TerminalSearch() {
         aria-label={t("search.close")}
         onClick={dismiss}
       >
-        ×
+        <CloseIcon size={12} />
       </button>
     </div>
   );

@@ -12,7 +12,9 @@ import { ShortcutEditor } from "./ShortcutEditor";
 import { VersionHistory } from "./VersionHistory";
 import { Chip } from "./ui";
 import {
+  CheckIcon,
   CloudIcon,
+  DownloadIcon,
   EyeIcon,
   FilesIcon,
   GearIcon,
@@ -20,8 +22,10 @@ import {
   KeyboardIcon,
   KeyIcon,
   PuzzleIcon,
+  RefreshIcon,
   SlidersIcon,
   TerminalIcon,
+  UploadIcon,
 } from "./icons";
 
 const SETTINGS_CATEGORIES = [
@@ -918,6 +922,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               onClick={exportBackup}
               disabled={busy || !passphrase}
             >
+              <DownloadIcon size={12} />
               {t("sync.export")}
             </button>
             <button
@@ -925,6 +930,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               onClick={() => fileRef.current?.click()}
               disabled={busy || !passphrase}
             >
+              <UploadIcon size={12} />
               {t("sync.import")}
             </button>
             <input
@@ -1057,6 +1063,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               onClick={() => void runRemote("test")}
               disabled={remoteBusy}
             >
+              <CheckIcon size={12} />
               {t("sync.test")}
             </button>
             <button
@@ -1064,6 +1071,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               onClick={() => void runRemote("upload")}
               disabled={remoteBusy || !passphrase}
             >
+              <UploadIcon size={12} />
               {t("sync.upload")}
             </button>
             <button
@@ -1071,6 +1079,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               onClick={() => void runRemote("download")}
               disabled={remoteBusy || !passphrase}
             >
+              <DownloadIcon size={12} />
               {t("sync.download")}
             </button>
           </div>
@@ -1123,6 +1132,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           <p className="hint">{t("plugins.hint")}</p>
           <div className="plugin-actions">
             <button type="button" onClick={() => void refreshPlugins()}>
+              <RefreshIcon size={12} />
               {t("plugins.refresh")}
             </button>
           </div>

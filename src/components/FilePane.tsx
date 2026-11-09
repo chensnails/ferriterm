@@ -4,6 +4,13 @@ import { api, type VfsEntry } from "../api";
 import { isRootPath, joinPath, parentPath } from "../paths";
 import { useAppStore } from "../store";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
+import {
+  Chevron,
+  EyeIcon,
+  FolderPlusIcon,
+  ForwardIcon,
+  RefreshIcon,
+} from "./icons";
 
 interface FilePaneProps {
   title: string;
@@ -303,7 +310,7 @@ export function FilePane({
         <span className="file-pane-title">{title}</span>
         <div className="file-pane-tools">
           <button type="button" className="icon-btn" title={t("files.up")} onClick={goUp}>
-            ↑
+            <Chevron open={false} size={12} />
           </button>
           <button
             type="button"
@@ -312,7 +319,7 @@ export function FilePane({
             onClick={refresh}
             disabled={loading}
           >
-            ↻
+            <RefreshIcon size={13} />
           </button>
           <button
             type="button"
@@ -321,7 +328,7 @@ export function FilePane({
             aria-pressed={showHidden}
             onClick={onToggleHidden}
           >
-            ◉
+            <EyeIcon size={14} />
           </button>
           <button
             type="button"
@@ -329,7 +336,7 @@ export function FilePane({
             title={t("files.newFolder")}
             onClick={() => void makeFolder()}
           >
-            ＋
+            <FolderPlusIcon size={14} />
           </button>
           {onSend && (
             <button
@@ -339,7 +346,7 @@ export function FilePane({
               disabled={!current}
               onClick={() => current && onSend(current)}
             >
-              ⇄
+              <ForwardIcon size={14} />
             </button>
           )}
         </div>

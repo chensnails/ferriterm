@@ -4,6 +4,7 @@ import type { Tag } from "../api";
 import { useAppStore } from "../store";
 import { Modal } from "./Modal";
 import { TAG_COLORS, TagPalette } from "./TagPalette";
+import { TrashIcon } from "./icons";
 
 function friendlyError(err: unknown, duplicate: string): string {
   const text = String(err);
@@ -88,7 +89,7 @@ function TagRow({ tag, onError }: { tag: Tag; onError: (message: string) => void
         aria-label={t("tags.delete")}
         onClick={() => setConfirming(true)}
       >
-        ×
+        <TrashIcon size={12} />
       </button>
     </li>
   );

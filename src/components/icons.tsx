@@ -251,3 +251,117 @@ export function KeyIcon({ size = 14 }: { size?: number }) {
     </svg>
   );
 }
+
+export function CloseIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M4 4l8 8M12 4l-8 8" />
+    </svg>
+  );
+}
+
+/** Solid dot: the tab bar's session recording toggle. */
+export function RecordIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <circle cx="8" cy="8" r="4.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function StopIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <rect
+        x="4.5"
+        y="4.5"
+        width="7"
+        height="7"
+        rx="1.2"
+        fill="currentColor"
+        stroke="none"
+      />
+    </svg>
+  );
+}
+
+export function PauseIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M6 4v8M10 4v8" strokeWidth={2} />
+    </svg>
+  );
+}
+
+/** Circular arrow: reconnect a dropped session or refresh a listing. */
+export function ReconnectIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M13 8a5 5 0 1 1-1.6-3.7" />
+      <path d="M13.2 2.6v3.1h-3.1" />
+    </svg>
+  );
+}
+
+export function RefreshIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M3 8a5 5 0 0 1 8.6-3.5M13 8a5 5 0 0 1-8.6 3.5" />
+      <path d="M11.8 2.4v2.3H9.5M4.2 13.6v-2.3h2.3" />
+    </svg>
+  );
+}
+
+/** Half-lit disc: switch between the light and dark themes. */
+export function ThemeIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function DownloadIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M8 2.5v7M5.2 7l2.8 2.8L10.8 7M3 12.7h10" />
+    </svg>
+  );
+}
+
+export function UploadIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M8 10V3M5.2 5.8L8 3l2.8 2.8M3 12.7h10" />
+    </svg>
+  );
+}
+
+export function CheckIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M3.2 8.4l3 3 6.5-6.8" />
+    </svg>
+  );
+}
+
+export function CopyIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <rect x="5.5" y="5.5" width="8" height="8" rx="1.4" />
+      <path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2" />
+    </svg>
+  );
+}
+
+export function TrashIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.3 4.5l.6 8.1a1 1 0 0 0 1 .9h4.2a1 1 0 0 0 1-.9l.6-8.1" />
+      <path d="M6.7 7v4M9.3 7v4" />
+    </svg>
+  );
+}
+
+

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
+import { CloseIcon } from "./icons";
 import { TerminalSearch } from "./TerminalSearch";
 
 const TerminalPanel = lazy(() =>
@@ -103,7 +104,7 @@ export function TerminalArea() {
               closeSplit();
             }}
           >
-            ×
+            <CloseIcon size={11} />
           </button>
         </div>
       )}
