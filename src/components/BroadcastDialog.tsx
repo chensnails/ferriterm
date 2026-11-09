@@ -11,7 +11,10 @@ export function BroadcastDialog() {
   const cancelBroadcast = useAppStore((s) => s.cancelBroadcast);
   const logEvent = useAppStore((s) => s.logEvent);
 
-  const openSessions = sessions.filter((session) => !session.closed);
+  // SFTP tabs have no terminal to type into, so they cannot be targets.
+  const openSessions = sessions.filter(
+    (session) => !session.closed && session.kind !== "sftp",
+  );
   const [selected, setSelected] = useState<string[]>(() =>
     active.length > 0 ? active : openSessions.map((session) => session.id),
   );

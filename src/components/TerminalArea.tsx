@@ -6,6 +6,9 @@ import { TerminalSearch } from "./TerminalSearch";
 const TerminalPanel = lazy(() =>
   import("./TerminalPanel").then((module) => ({ default: module.TerminalPanel })),
 );
+const SftpPanel = lazy(() =>
+  import("./SftpPanel").then((module) => ({ default: module.SftpPanel })),
+);
 
 export function TerminalArea() {
   const { t } = useTranslation();
@@ -105,13 +108,19 @@ export function TerminalArea() {
         </div>
       )}
       <Suspense fallback={null}>
-        {sessions.map((s) => (
-          <TerminalPanel
-            key={s.id}
-            session={s}
-            pane={s.id === activeId ? "primary" : s.id === split ? "secondary" : null}
-          />
-        ))}
+        {sessions.map((s) => {
+          const pane =
+            s.id === activeId
+              ? "primary"
+              : s.id === split
+                ? "secondary"
+                : null;
+          return s.kind === "sftp" ? (
+            <SftpPanel key={s.id} session={s} pane={pane} />
+          ) : (
+            <TerminalPanel key={s.id} session={s} pane={pane} />
+          );
+        })}
       </Suspense>
     </div>
   );

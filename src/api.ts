@@ -805,19 +805,19 @@ export const api = {
   deleteTag: (tagId: string) => invoke<void>("delete_tag", { tagId }),
 
   write(kind: SessionKind, id: string, data: string) {
-    if (kind === "ssh") return api.sshWrite(id, data);
+    if (kind === "ssh" || kind === "sftp") return api.sshWrite(id, data);
     if (kind === "serial") return api.serialWrite(id, data);
     if (kind === "telnet") return api.telnetWrite(id, data);
     return api.ptyWrite(id, data);
   },
   resize(kind: SessionKind, id: string, cols: number, rows: number) {
-    if (kind === "ssh") return api.sshResize(id, cols, rows);
+    if (kind === "ssh" || kind === "sftp") return api.sshResize(id, cols, rows);
     if (kind === "telnet") return api.telnetResize(id, cols, rows);
     if (kind === "serial") return Promise.resolve();
     return api.ptyResize(id, cols, rows);
   },
   close(kind: SessionKind, id: string) {
-    if (kind === "ssh") return api.sshDisconnect(id);
+    if (kind === "ssh" || kind === "sftp") return api.sshDisconnect(id);
     if (kind === "telnet") return api.telnetClose(id);
     if (kind === "serial") return api.serialClose(id);
     return api.ptyKill(id);

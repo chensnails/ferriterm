@@ -843,6 +843,35 @@ body {
   inset: 0;
 }
 
+/* An SFTP tab keeps the panel slot its terminal sibling would use, but
+   stretches the file table across the whole tab. */
+.sftp-panel {
+  padding: 0;
+  background: var(--bg-panel);
+}
+
+.sftp-panel.pane-primary,
+.sftp-panel.pane-secondary {
+  display: flex;
+  flex-direction: column;
+}
+
+.sftp-panel .file-pane {
+  flex: 1;
+}
+
+.sftp-error {
+  margin: var(--space-2) var(--space-3) 0;
+}
+
+.sftp-status {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
 .term-suggest {
   position: absolute;
   z-index: 2;

@@ -206,27 +206,29 @@ export function TabBar() {
                   ↻
                 </button>
               )}
-              <button
-                className={s.recording ? "tab-record active" : "tab-record"}
-                title={s.recording ? t("sessions.stopRecord") : t("sessions.record")}
-                aria-label={s.recording ? t("sessions.stopRecord") : t("sessions.record")}
-                aria-pressed={!!s.recording}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (s.recording) {
-                    void stopRecording(s.id);
-                  } else {
-                    const view = terminalHandle(s.id);
-                    void startRecording(
-                      s.id,
-                      view?.term.cols ?? 80,
-                      view?.term.rows ?? 24,
-                    );
-                  }
-                }}
-              >
-                ●
-              </button>
+              {s.kind !== "sftp" && (
+                <button
+                  className={s.recording ? "tab-record active" : "tab-record"}
+                  title={s.recording ? t("sessions.stopRecord") : t("sessions.record")}
+                  aria-label={s.recording ? t("sessions.stopRecord") : t("sessions.record")}
+                  aria-pressed={!!s.recording}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (s.recording) {
+                      void stopRecording(s.id);
+                    } else {
+                      const view = terminalHandle(s.id);
+                      void startRecording(
+                        s.id,
+                        view?.term.cols ?? 80,
+                        view?.term.rows ?? 24,
+                      );
+                    }
+                  }}
+                >
+                  ●
+                </button>
+              )}
               <button
                 className="tab-close"
                 title={t("sessions.closeTab")}

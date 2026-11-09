@@ -15,8 +15,8 @@ interface FilePaneProps {
   bookmarks: string[];
   onAddBookmark: (path: string) => void;
   onRemoveBookmark: (path: string) => void;
-  onSend: (entry: VfsEntry) => void;
-  sendLabel: string;
+  onSend?: (entry: VfsEntry) => void;
+  sendLabel?: string;
   onEdit: (entry: VfsEntry) => void;
   onPermissions: (entry: VfsEntry) => void;
   onError: (message: string) => void;
@@ -245,11 +245,14 @@ export function FilePane({
   const menuItems = useMemo<MenuItem[]>(() => {
     if (!menu) return [];
     const entry = menu.entry;
-    return [
-      {
-        label: sendLabel,
+    const items: MenuItem[] = [];
+    if (onSend) {
+      items.push({
+        label: sendLabel ?? t("files.send", { target: "" }),
         onSelect: () => onSend(entry),
-      },
+      });
+    }
+    items.push(
       {
         label: entry.isDir ? t("files.openFolder") : t("files.edit"),
         onSelect: () => open(entry),
@@ -287,9 +290,10 @@ export function FilePane({
           { label: t("files.newFolder"), onSelect: () => void makeFolder() },
         ],
       },
-    ];
+    );
+    return items;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [menu, sendLabel, t]);
+  }, [menu, sendLabel, onSend, t]);
 
   const current = entries.find((entry) => entry.path === selected);
 
@@ -327,15 +331,17 @@ export function FilePane({
           >
             ＋
           </button>
-          <button
-            type="button"
-            className="icon-btn"
-            title={t("files.send", { target: sendLabel })}
-            disabled={!current}
-            onClick={() => current && onSend(current)}
-          >
-            ⇄
-          </button>
+          {onSend && (
+            <button
+              type="button"
+              className="icon-btn"
+              title={t("files.send", { target: sendLabel ?? "" })}
+              disabled={!current}
+              onClick={() => current && onSend(current)}
+            >
+              ⇄
+            </button>
+          )}
         </div>
       </div>
       <form

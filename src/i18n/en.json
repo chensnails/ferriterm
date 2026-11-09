@@ -993,5 +993,13 @@
     "commentPlaceholder": "user@host",
     "generate": "Generate key",
     "publicKey": "Public key"
+  },
+  "sftp": {
+    "title": "SFTP · {name}",
+    "connecting": "Connecting to {name}…",
+    "connectingHint": "Opening the SFTP channel…",
+    "failedHint": "The SFTP channel is not connected. Use the reconnect button on the tab.",
+    "noLink": "This tab has no saved connection; reopen the host from the sidebar.",
+    "disconnected": "The SSH connection closed. Use the reconnect button on the tab."
   }
 }

@@ -993,5 +993,13 @@
     "commentPlaceholder": "user@host",
     "generate": "生成密钥",
     "publicKey": "公钥"
+  },
+  "sftp": {
+    "title": "SFTP · {name}",
+    "connecting": "正在连接 {name}…",
+    "connectingHint": "正在打开 SFTP 通道…",
+    "failedHint": "SFTP 通道未连接，请使用标签页上的重连按钮。",
+    "noLink": "该标签页没有保存的连接信息，请从侧栏重新打开主机。",
+    "disconnected": "SSH 连接已断开，请使用标签页上的重连按钮。"
   }
 }

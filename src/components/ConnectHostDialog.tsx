@@ -5,10 +5,11 @@ import {
   isTauri,
   type CredentialStatus,
   type HostEntry,
+  type SessionKind,
   type SshKey,
   type VaultStatus,
 } from "../api";
-import { buildConnectArgs } from "../connect";
+import { buildConnectArgs, type PendingConnect } from "../connect";
 import { useAppStore } from "../store";
 import { Modal } from "./Modal";
 
@@ -135,10 +136,14 @@ export function ConnectHostDialog({
         }
       }
       setStatusMessage(t("connect.connecting"));
+      // An SFTP host opens the file browser tab; both share the SSH transport.
+      const kind: SessionKind = host.protocol === "sftp" ? "sftp" : "ssh";
+      const pending: PendingConnect =
+        kind === "sftp" ? { type: "sftp", args } : { type: "ssh", args };
       openSession(
-        "ssh",
+        kind,
         host.name || `${host.username}@${host.host}`,
-        { type: "ssh", args },
+        pending,
         host.production,
         host.id,
       );

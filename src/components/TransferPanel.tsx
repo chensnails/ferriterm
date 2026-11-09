@@ -68,7 +68,12 @@ export function TransferPanel() {
   const setTransfers = useAppStore((s) => s.setTransfers);
 
   const sshSessions = useMemo(
-    () => sessions.filter((session) => session.kind === "ssh" && !session.closed),
+    () =>
+      sessions.filter(
+        (session) =>
+          (session.kind === "ssh" || session.kind === "sftp") &&
+          !session.closed,
+      ),
     [sessions],
   );
   const [mounts, setMounts] = useState<RemoteMountInfo[]>([]);
