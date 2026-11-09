@@ -125,7 +125,11 @@ export function TabBar() {
   };
 
   return (
-    <div id="tabbar" data-chrome={windowChrome}>
+    <div
+      id="tabbar"
+      data-chrome={windowChrome}
+      data-tauri-drag-region={isTauri ? "deep" : undefined}
+    >
       {/* Home doubles as the brand once the OS title bar is gone, so it is a
           square icon slot rather than a labelled tab. */}
       <button
@@ -259,15 +263,10 @@ export function TabBar() {
           </div>
         )}
       </div>
-      {/* Empty header space doubles as the drag handle for the frameless
-          window; it stays an explicit element so no tab or button becomes a
-          drag target by accident. */}
-      <div
-        className="tab-drag"
-        data-tauri-drag-region={
-          windowChrome === "native" ? undefined : "true"
-        }
-      />
+      {/* Spacer that keeps the tool cluster right-aligned. The whole header
+          carries the drag region, so tabs and buttons (which are interactive)
+          are the only parts that keep their own clicks. */}
+      <div className="tab-drag" />
       <div className="tab-tools">
         <button
           className="icon-btn"
