@@ -3,5 +3,13 @@
   "identifier": "default",
   "description": "Default desktop capability for the main and session windows",
   "windows": ["main", "session-*"],
-  "permissions": ["core:default", "core:webview:allow-create-webview-window"]
+  "permissions": [
+    "core:default",
+    "core:webview:allow-create-webview-window",
+    "core:window:allow-set-decorations",
+    "core:window:allow-start-dragging",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close"
+  ]
 }

@@ -27,6 +27,7 @@ import {
   type Theme,
 } from "./theme";
 import { parseStoredThemes, type ImportedTheme } from "./scheme";
+import { initialWindowChrome, type WindowChrome } from "./window-chrome";
 import i18n, {
   detectLanguage,
   registerLanguagePack,
@@ -235,6 +236,9 @@ interface AppState {
   toggleCommands: () => void;
   sidebarOpen: boolean;
   toggleSidebar: () => void;
+  /** Frame shape the header must draw around, resolved once at startup. */
+  windowChrome: WindowChrome;
+  setWindowChrome: (chrome: WindowChrome) => void;
   paletteOpen: boolean;
   togglePalette: () => void;
   closePalette: () => void;
@@ -387,6 +391,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   shortcuts: { ...SHORTCUT_DEFAULTS },
   commandsOpen: true,
   sidebarOpen: true,
+  windowChrome: initialWindowChrome,
   paletteOpen: false,
   searchOpen: false,
   settingsOpen: false,
@@ -519,6 +524,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (isTauri) api.setSetting("sidebarOpen", open ? "1" : "0").catch(() => {});
       return { sidebarOpen: open };
     }),
+  setWindowChrome: (chrome) => set({ windowChrome: chrome }),
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
   closePalette: () => set({ paletteOpen: false }),
   openSearch: () => set({ searchOpen: true }),

@@ -5,6 +5,7 @@ import { HOME_TAB, TRANSFER_TAB, useAppStore } from "../store";
 import { terminalHandle } from "../terminal-registry";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { Modal } from "./Modal";
+import { WindowControls } from "./WindowControls";
 import {
   BroadcastIcon,
   FilesIcon,
@@ -48,6 +49,7 @@ export function TabBar() {
   const setRecordingsOpen = useAppStore((s) => s.setRecordingsOpen);
   const openSearch = useAppStore((s) => s.openSearch);
   const toggleTheme = useAppStore((s) => s.toggleTheme);
+  const windowChrome = useAppStore((s) => s.windowChrome);
   const language = useAppStore((s) => s.language);
   const setLanguage = useAppStore((s) => s.setLanguage);
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen);
@@ -119,26 +121,34 @@ export function TabBar() {
   };
 
   return (
-    <div id="tabbar">
-      {/* The sidebar toggle now lives in the activity rail, so the tab bar
-          starts flush with the first tab and carries no duplicated affordance. */}
+    <div id="tabbar" data-chrome={windowChrome}>
+      {/* Home doubles as the brand once the OS title bar is gone, so it is a
+          square icon slot rather than a labelled tab. */}
+      <button
+        type="button"
+        className={
+          activeId === HOME_TAB ? "tab-home-btn active" : "tab-home-btn"
+        }
+        title={t("app.name")}
+        aria-label={t("app.name")}
+        aria-pressed={activeId === HOME_TAB}
+        onClick={goHome}
+      >
+        <HomeIcon size={16} />
+      </button>
+      <button
+        className="icon-btn tab-new"
+        title={t("tab.new")}
+        aria-label={t("tab.new")}
+        aria-haspopup="menu"
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          setNewMenu({ x: rect.left, y: rect.bottom + 4 });
+        }}
+      >
+        <PlusIcon />
+      </button>
       <div className="tab-strip" role="tablist">
-        <div
-          className={activeId === HOME_TAB ? "tab tab-home active" : "tab tab-home"}
-          role="tab"
-          aria-selected={activeId === HOME_TAB}
-          tabIndex={0}
-          onClick={goHome}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              goHome();
-            }
-          }}
-        >
-          <HomeIcon />
-          <span className="tab-label">{t("app.name")}</span>
-        </div>
         {sessions.map((s, index) => {
           const cls = ["tab"];
           if (s.id === activeId) cls.push("active");
@@ -244,19 +254,16 @@ export function TabBar() {
             </button>
           </div>
         )}
-        <button
-          className="icon-btn tab-new"
-          title={t("tab.new")}
-          aria-label={t("tab.new")}
-          aria-haspopup="menu"
-          onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            setNewMenu({ x: rect.left, y: rect.bottom + 4 });
-          }}
-        >
-          <PlusIcon />
-        </button>
       </div>
+      {/* Empty header space doubles as the drag handle for the frameless
+          window; it stays an explicit element so no tab or button becomes a
+          drag target by accident. */}
+      <div
+        className="tab-drag"
+        data-tauri-drag-region={
+          windowChrome === "native" ? undefined : "true"
+        }
+      />
       <div className="tab-tools">
         <button
           className="icon-btn"
@@ -339,6 +346,7 @@ export function TabBar() {
           <GearIcon />
         </button>
       </div>
+      {windowChrome === "custom" && <WindowControls />}
       {newMenu && (
         <ContextMenu
           x={newMenu.x}

@@ -48,6 +48,7 @@
   --row-h: 32px;
   --tab-h: 36px;
   --tab-max-w: 220px;
+  --title-bar-h: 40px;
   --home-w: 720px;
   --font-logo: 28px;
   --sidebar-w: 300px;
@@ -474,11 +475,6 @@ body {
   padding: 0 var(--space-2);
   font-size: var(--font-ui-sm);
   font-weight: 600;
-}
-
-.tab-home {
-  max-width: none;
-  flex-shrink: 0;
 }
 
 .home-view {
@@ -4129,4 +4125,127 @@ mark {
 .tree-empty-actions button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ---- Merged header ------------------------------------------------------
+   The tab bar doubles as the window's title strip: one flat 40px row holding
+   the home slot, the tab list, the drag handle, the tool buttons and — when
+   the frame was removed at runtime — the caption buttons. */
+#tabbar {
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--title-bar-h);
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--divider);
+  background: var(--bg-panel);
+}
+
+/* macOS keeps its native traffic lights drawn over the header. */
+#tabbar[data-chrome="overlay"] {
+  padding-left: calc(70px + var(--space-2));
+}
+
+.tab-home-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--control-h);
+  height: var(--control-h);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.tab-home-btn:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+.tab-home-btn.active {
+  background: var(--selected-bg);
+  color: var(--accent);
+}
+
+.tab-new {
+  width: 26px;
+  height: 26px;
+}
+
+.tab-strip {
+  flex: 0 1 auto;
+  align-items: center;
+  height: 100%;
+  gap: var(--space-1);
+}
+
+.tab-drag {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: var(--space-3);
+}
+
+/* Flatten the raised tabs into segments that sit inside the strip. */
+#tabbar .tab {
+  height: var(--control-h);
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+}
+
+#tabbar .tab:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+#tabbar .tab.active {
+  background: var(--selected-bg);
+  box-shadow: none;
+  color: var(--fg-primary);
+}
+
+.tab-tools {
+  align-self: center;
+  padding-bottom: 0;
+}
+
+.tab-close:hover,
+.tab-record:hover {
+  background: var(--hover-bg);
+}
+
+/* Caption buttons mirror the Windows sizing so the strip feels native. */
+.win-controls {
+  display: flex;
+  align-self: stretch;
+  margin: 0 calc(-1 * var(--space-2)) 0 var(--space-1);
+}
+
+.win-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.win-btn:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+.win-btn-close:hover {
+  background: #e81123;
+  color: #ffffff;
 }

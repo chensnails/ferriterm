@@ -21,6 +21,7 @@ import { api, isTauri, onForwardError, onTransferUpdate } from "./api";
 import i18n from "./i18n";
 import { installShortcuts } from "./shortcuts";
 import { HOME_TAB, TRANSFER_TAB, useAppStore } from "./store";
+import { resolveWindowChrome } from "./window-chrome";
 
 const MonitorPanel = lazy(() =>
   import("./components/MonitorPanel").then((module) => ({
@@ -70,6 +71,19 @@ export default function App() {
     const uninstall = installShortcuts();
     return uninstall;
   }, []);
+
+  // The frame shape is discovered once: macOS keeps its traffic lights, Windows
+  // drops the OS frame when the build allows it, everything else keeps it.
+  const windowChrome = useAppStore((s) => s.windowChrome);
+  const setWindowChrome = useAppStore((s) => s.setWindowChrome);
+
+  useEffect(() => {
+    void resolveWindowChrome().then(setWindowChrome);
+  }, [setWindowChrome]);
+
+  useEffect(() => {
+    document.documentElement.dataset.chrome = windowChrome;
+  }, [windowChrome]);
 
   useEffect(() => {
     if (!isTauri) return;

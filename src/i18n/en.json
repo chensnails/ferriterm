@@ -653,5 +653,10 @@
     },
     "market": "Marketplace",
     "installed": "Installed"
+  },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "close": "Close window"
   }
 }
