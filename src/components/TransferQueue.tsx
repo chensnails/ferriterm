@@ -141,6 +141,14 @@ export function TransferQueue({
                       </span>
                     </td>
                     <td className="transfer-cell-status">
+                      {job.relay && (
+                        <span
+                          className="transfer-relay"
+                          title={t("transfer.relayHint")}
+                        >
+                          {t("transfer.relay")}
+                        </span>
+                      )}
                       <span
                         className={`transfer-status ${job.status}`}
                         title={job.error ?? undefined}

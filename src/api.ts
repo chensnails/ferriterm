@@ -348,6 +348,8 @@ export interface TransferJob {
   isDirectory: boolean;
   filesDone: number;
   filesTotal: number;
+  /** Both ends are remote: the bytes pass through this machine. */
+  relay: boolean;
 }
 
 export interface TransferRequest {

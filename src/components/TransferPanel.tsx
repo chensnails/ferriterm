@@ -2,12 +2,44 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri, type RemoteMountInfo, type VfsEntry } from "../api";
 import { useAppStore } from "../store";
+import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { FileEditor } from "./FileEditor";
 import { FilePane } from "./FilePane";
 import { MountDialog } from "./MountDialog";
 import { PermissionsDialog } from "./PermissionsDialog";
 import { SyncDialog, type SyncDirection } from "./SyncDialog";
 import { TransferQueue } from "./TransferQueue";
+import { TransferTabs } from "./TransferTabs";
+
+const LOCAL_TARGET = "local";
+
+/**
+ * Two sessions of the same host share a title, so a bare title would give the
+ * user two identical tabs. Number only the labels that actually repeat.
+ */
+function disambiguate(
+  ids: string[],
+  base: (id: string) => string,
+): Map<string, string> {
+  const totals = new Map<string, number>();
+  for (const id of ids) {
+    const key = base(id);
+    totals.set(key, (totals.get(key) ?? 0) + 1);
+  }
+  const seen = new Map<string, number>();
+  const out = new Map<string, string>();
+  for (const id of ids) {
+    const key = base(id);
+    if ((totals.get(key) ?? 0) <= 1) {
+      out.set(id, key);
+      continue;
+    }
+    const index = (seen.get(key) ?? 0) + 1;
+    seen.set(key, index);
+    out.set(id, `${key} (${index})`);
+  }
+  return out;
+}
 
 function joinPath(base: string, name: string): string {
   if (!base) return `/${name}`;
@@ -33,6 +65,9 @@ export function TransferPanel() {
   const activeId = useAppStore((s) => s.activeId);
   const boundSession = useAppStore((s) => s.transferSessionId);
   const setTransferSession = useAppStore((s) => s.setTransferSession);
+  const openTransferTab = useAppStore((s) => s.openTransferTab);
+  const closeTransferTab = useAppStore((s) => s.closeTransferTab);
+  const storedTabs = useAppStore((s) => s.transferTabs);
   const jobs = useAppStore((s) => s.transfers);
   const setTransfers = useAppStore((s) => s.setTransfers);
 
@@ -50,15 +85,49 @@ export function TransferPanel() {
     for (const target of mountTargets) ids.add(target.id);
     return ids;
   }, [sshSessions, mountTargets]);
-  const sessionId =
-    (boundSession && knownTargets.has(boundSession) ? boundSession : null) ??
-    sshSessions.find((s) => s.id === activeId)?.id ??
-    sshSessions[0]?.id ??
-    mountTargets[0]?.id ??
-    "";
+
+  const labels = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const session of sshSessions) map.set(session.id, session.title);
+    for (const target of mountTargets) map.set(target.id, target.title);
+    return map;
+  }, [sshSessions, mountTargets]);
+  const labelOf = useCallback(
+    (id: string) => labels.get(id) ?? id,
+    [labels],
+  );
+
+  const bound =
+    boundSession && knownTargets.has(boundSession) ? boundSession : null;
+  // Tabs are the stored list minus dead targets, plus whatever the caller
+  // bound explicitly, so opening the view with a session always shows a tab.
+  const tabs = useMemo(() => {
+    const open = storedTabs.filter((id) => knownTargets.has(id));
+    if (bound && !open.includes(bound)) open.push(bound);
+    if (open.length === 0) {
+      const fallback =
+        sshSessions.find((session) => session.id === activeId)?.id ??
+        sshSessions[0]?.id ??
+        mountTargets[0]?.id;
+      if (fallback) open.push(fallback);
+    }
+    return open;
+  }, [storedTabs, knownTargets, bound, sshSessions, activeId, mountTargets]);
+
+  const sessionId = bound ?? tabs[0] ?? "";
 
   const [localPath, setLocalPath] = useState("");
-  const [remotePath, setRemotePath] = useState("");
+  /** Each remote tab remembers the folder it was left in. */
+  const [remotePaths, setRemotePaths] = useState<Record<string, string>>({});
+  const remotePath = sessionId ? (remotePaths[sessionId] ?? "") : "";
+  const setRemotePath = useCallback(
+    (next: string) => {
+      if (!sessionId) return;
+      setRemotePaths((current) => ({ ...current, [sessionId]: next }));
+    },
+    [sessionId],
+  );
+  const [copyTo, setCopyTo] = useState<string>(LOCAL_TARGET);
   const [localHidden, setLocalHidden] = useState(
     () => useAppStore.getState().sftpShowHidden,
   );
@@ -79,6 +148,7 @@ export function TransferPanel() {
     entry: VfsEntry;
   } | null>(null);
   const [mountOpen, setMountOpen] = useState(false);
+  const [picker, setPicker] = useState<{ x: number; y: number } | null>(null);
 
   const loadMounts = useCallback(async () => {
     if (!isTauri) return;
@@ -93,9 +163,14 @@ export function TransferPanel() {
     void loadMounts();
   }, [loadMounts]);
 
+  // A destination that collapsed with its tab (or turned into the pane's own
+  // target) would silently copy onto itself.
   useEffect(() => {
-    setRemotePath("");
-  }, [sessionId]);
+    if (copyTo === LOCAL_TARGET) return;
+    if (copyTo === sessionId || !tabs.includes(copyTo)) {
+      setCopyTo(LOCAL_TARGET);
+    }
+  }, [copyTo, sessionId, tabs]);
 
   useEffect(() => {
     if (!isTauri) return;
@@ -166,17 +241,42 @@ export function TransferPanel() {
     });
   };
 
-  const sendToLocal = (entry: VfsEntry) => {
-    if (!sessionId || !localPath) {
+  /** Remote pane → local disk, or remote pane → another remote tab. */
+  const sendFromRemote = async (entry: VfsEntry) => {
+    if (!sessionId) {
       setError(t("transfer.chooseSession"));
       return;
     }
-    void enqueue({
+    if (copyTo === LOCAL_TARGET) {
+      if (!localPath) {
+        setError(t("transfer.chooseSession"));
+        return;
+      }
+      await enqueue({
+        id: crypto.randomUUID(),
+        sourceSession: sessionId,
+        sourcePath: entry.path,
+        targetSession: null,
+        targetPath: joinPath(localPath, entry.name),
+        directory: entry.isDir,
+      });
+      return;
+    }
+    let destination = remotePaths[copyTo] ?? "";
+    if (!destination) {
+      try {
+        destination = await api.vfsHome(copyTo);
+      } catch (err) {
+        setError(String(err));
+        return;
+      }
+    }
+    await enqueue({
       id: crypto.randomUUID(),
       sourceSession: sessionId,
       sourcePath: entry.path,
-      targetSession: null,
-      targetPath: joinPath(localPath, entry.name),
+      targetSession: copyTo,
+      targetPath: joinPath(destination, entry.name),
       directory: entry.isDir,
     });
   };
@@ -188,6 +288,49 @@ export function TransferPanel() {
       .catch((err) => setError(String(err)));
   };
 
+  const availableTargets = useMemo(
+    () => [
+      ...sshSessions.map((session) => ({
+        id: session.id,
+        title: session.title,
+      })),
+      ...mountTargets,
+    ],
+    [sshSessions, mountTargets],
+  );
+
+  const tabLabels = useMemo(
+    () => disambiguate(tabs, labelOf),
+    [tabs, labelOf],
+  );
+  const tabLabelOf = useCallback(
+    (id: string) => tabLabels.get(id) ?? labelOf(id),
+    [tabLabels, labelOf],
+  );
+  const pickerLabels = useMemo(
+    () => disambiguate(availableTargets.map((target) => target.id), labelOf),
+    [availableTargets, labelOf],
+  );
+
+  const pickerItems = useMemo<MenuItem[]>(() => {
+    const rest = availableTargets.filter((target) => !tabs.includes(target.id));
+    if (rest.length === 0) {
+      return [{ label: t("transfer.noOtherTargets"), disabled: true }];
+    }
+    return rest.map((target) => ({
+      label: pickerLabels.get(target.id) ?? target.title,
+      onSelect: () => openTransferTab(target.id),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableTargets, pickerLabels, tabs, t]);
+
+  const otherTabs = tabs.filter((id) => id !== sessionId);
+  const copyLabel =
+    copyTo === LOCAL_TARGET ? t("transfer.local") : tabLabelOf(copyTo);
+  const sendLabel =
+    copyTo === LOCAL_TARGET
+      ? t("transfer.toLocal")
+      : t("transfer.toTarget", { target: copyLabel });
   const canSync = Boolean(sessionId && localPath && remotePath);
 
   return (
@@ -196,35 +339,6 @@ export function TransferPanel() {
         <header className="transfer-head">
           <h3>{t("transfer.title")}</h3>
           <div className="transfer-head-tools">
-            <select
-              value={sessionId}
-              onChange={(e) => {
-                setTransferSession(e.target.value || null);
-                setRemotePath("");
-              }}
-            >
-              {sshSessions.length === 0 && mountTargets.length === 0 && (
-                <option value="">{t("transfer.noSession")}</option>
-              )}
-              {sshSessions.length > 0 && (
-                <optgroup label={t("transfer.sshSessions")}>
-                  {sshSessions.map((session) => (
-                    <option key={session.id} value={session.id}>
-                      {session.title}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              {mountTargets.length > 0 && (
-                <optgroup label={t("transfer.mounts")}>
-                  {mountTargets.map((target) => (
-                    <option key={target.id} value={target.id}>
-                      {target.title}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
             <button type="button" onClick={() => setMountOpen(true)}>
               + {t("transfer.addMount")}
             </button>
@@ -278,30 +392,60 @@ export function TransferPanel() {
             onError={setError}
             refreshToken={refreshToken}
           />
-          <FilePane
-            title={t("transfer.remote")}
-            sessionId={sessionId || null}
-            path={remotePath}
-            onPathChange={setRemotePath}
-            showHidden={remoteHidden}
-            onToggleHidden={() => setRemoteHidden((value) => !value)}
-            bookmarks={remoteBookmarks}
-            onAddBookmark={(path) => addBookmark("remote", path)}
-            onRemoveBookmark={(path) => removeBookmark("remote", path)}
-            onSend={sendToLocal}
-            sendLabel={t("transfer.toLocal")}
-            onEdit={(entry) =>
-              setEditing({ sessionId: sessionId || null, path: entry.path })
-            }
-            onPermissions={(entry) =>
-              setPermissionTarget({ sessionId: sessionId || null, entry })
-            }
-            onError={setError}
-            refreshToken={refreshToken}
-          />
+          <div className="transfer-remote">
+            <TransferTabs
+              tabs={tabs}
+              activeId={sessionId}
+              labelOf={tabLabelOf}
+              onSelect={setTransferSession}
+              onClose={closeTransferTab}
+              onOpenPicker={(rect) =>
+                setPicker({ x: rect.left, y: rect.bottom + 2 })
+              }
+              copyTo={copyTo}
+              copyTargets={otherTabs}
+              onCopyToChange={setCopyTo}
+              labels={{
+                local: t("transfer.local"),
+                copyTo: t("transfer.copyTo"),
+                open: t("transfer.openTab"),
+                close: t("transfer.closeTab"),
+                empty: t("transfer.noSession"),
+              }}
+            />
+            <FilePane
+              title={t("transfer.remote")}
+              sessionId={sessionId || null}
+              path={remotePath}
+              onPathChange={setRemotePath}
+              showHidden={remoteHidden}
+              onToggleHidden={() => setRemoteHidden((value) => !value)}
+              bookmarks={remoteBookmarks}
+              onAddBookmark={(path) => addBookmark("remote", path)}
+              onRemoveBookmark={(path) => removeBookmark("remote", path)}
+              onSend={(entry) => void sendFromRemote(entry)}
+              sendLabel={sendLabel}
+              onEdit={(entry) =>
+                setEditing({ sessionId: sessionId || null, path: entry.path })
+              }
+              onPermissions={(entry) =>
+                setPermissionTarget({ sessionId: sessionId || null, entry })
+              }
+              onError={setError}
+              refreshToken={refreshToken}
+            />
+          </div>
         </div>
         <TransferQueue jobs={jobs} onChanged={applyQueue} onError={setError} />
       </div>
+      {picker && (
+        <ContextMenu
+          x={picker.x}
+          y={picker.y}
+          items={pickerItems}
+          onClose={() => setPicker(null)}
+        />
+      )}
       {editing && (
         <FileEditor
           sessionId={editing.sessionId}

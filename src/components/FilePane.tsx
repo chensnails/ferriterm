@@ -391,7 +391,7 @@ export function FilePane({
                   setMenu({ x: e.clientX, y: e.clientY, entry });
                 }}
               >
-                <td className="file-name">
+                <td className="file-name" title={entry.name}>
                   <span className="file-kind">{entry.isDir ? "▸" : "·"}</span>
                   {entry.name}
                   {entry.isSymlink && <span className="file-link">@</span>}

@@ -156,6 +156,24 @@ export const DOCK_WIDTH_MIN = 252;
 export const DOCK_WIDTH_MAX = 560;
 export const DOCK_CARD_MIN_H = 132;
 
+function parseIdList(raw: string | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistTransferTabs(tabs: string[]) {
+  if (isTauri) {
+    api.setSetting("transferTabs", JSON.stringify(tabs)).catch(() => {});
+  }
+}
+
 export const TRANSFER_CONCURRENCY_MIN = 1;
 export const TRANSFER_CONCURRENCY_MAX = 8;
 
@@ -274,6 +292,10 @@ interface AppState {
   openTransfer: (sessionId?: string | null) => void;
   closeTransfer: () => void;
   setTransferSession: (id: string | null) => void;
+  /** Remote targets kept open as tabs in the transfer view. */
+  transferTabs: string[];
+  openTransferTab: (id: string) => void;
+  closeTransferTab: (id: string) => void;
   goHome: () => void;
   quickConnectOpen: boolean;
   setQuickConnectOpen: (open: boolean) => void;
@@ -458,6 +480,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   forwardOpen: false,
   transferOpen: false,
   transferSessionId: null,
+  transferTabs: [],
   quickConnectOpen: false,
   transfers: [],
   keepaliveSecs: 30,
@@ -502,12 +525,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   setForwardOpen: (open) => set({ forwardOpen: open }),
   toggleForward: () => set((s) => ({ forwardOpen: !s.forwardOpen })),
   openTransfer: (sessionId) =>
-    set((s) => ({
-      transferOpen: true,
-      activeId: TRANSFER_TAB,
-      transferSessionId:
-        sessionId !== undefined ? sessionId : s.transferSessionId,
-    })),
+    set((s) => {
+      const bound =
+        sessionId !== undefined ? sessionId : s.transferSessionId;
+      let tabs = s.transferTabs;
+      if (bound && !tabs.includes(bound)) {
+        tabs = [...tabs, bound];
+        persistTransferTabs(tabs);
+      }
+      return {
+        transferOpen: true,
+        activeId: TRANSFER_TAB,
+        transferSessionId: bound,
+        transferTabs: tabs,
+      };
+    }),
   closeTransfer: () =>
     set((s) => ({
       transferOpen: false,
@@ -517,6 +549,27 @@ export const useAppStore = create<AppState>((set, get) => ({
           : s.activeId,
     })),
   setTransferSession: (id) => set({ transferSessionId: id }),
+  openTransferTab: (id) =>
+    set((s) => {
+      if (s.transferTabs.includes(id)) {
+        return { transferSessionId: id };
+      }
+      const tabs = [...s.transferTabs, id];
+      persistTransferTabs(tabs);
+      return { transferTabs: tabs, transferSessionId: id };
+    }),
+  closeTransferTab: (id) =>
+    set((s) => {
+      const index = s.transferTabs.indexOf(id);
+      if (index < 0) return {};
+      const tabs = s.transferTabs.filter((tab) => tab !== id);
+      persistTransferTabs(tabs);
+      const next =
+        s.transferSessionId === id
+          ? (tabs[Math.min(index, tabs.length - 1)] ?? null)
+          : s.transferSessionId;
+      return { transferTabs: tabs, transferSessionId: next };
+    }),
   goHome: () => set({ activeId: HOME_TAB }),
   setQuickConnectOpen: (open) => set({ quickConnectOpen: open }),
   upsertTransfer: (job) =>
@@ -1139,6 +1192,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       transferConcurrency: clampTransferConcurrency(
         Number(settings.transferConcurrency),
       ),
+      transferTabs: parseIdList(settings.transferTabs),
     });
     if (isTauri) {
       // The queue starts at its built-in default, so push the saved value.

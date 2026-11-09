@@ -48,6 +48,9 @@ pub struct TransferJob {
     pub is_directory: bool,
     pub files_done: u32,
     pub files_total: u32,
+    /// Both ends are remote, so the bytes travel through this machine instead
+    /// of straight from one server to the other.
+    pub relay: bool,
 }
 
 impl TransferJob {
@@ -64,6 +67,7 @@ impl TransferJob {
             speed: 0,
             eta_seconds: None,
             is_directory: false,
+            relay: source.remote && target.remote,
             files_done: 0,
             files_total: 0,
         }
@@ -74,6 +78,8 @@ impl TransferJob {
 pub struct Endpoint {
     pub vfs: Arc<dyn Vfs>,
     pub path: String,
+    /// True for a remote session or mount, false for the local disk.
+    pub remote: bool,
 }
 
 impl Endpoint {
@@ -81,7 +87,15 @@ impl Endpoint {
         Self {
             vfs,
             path: path.into(),
+            remote: false,
         }
+    }
+
+    /// Marks the endpoint as remote, which is what makes a copy between two
+    /// endpoints a relay through this machine.
+    pub fn as_remote(mut self) -> Self {
+        self.remote = true;
+        self
     }
 }
 

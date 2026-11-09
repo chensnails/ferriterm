@@ -1089,20 +1089,32 @@ pub struct TransferRequest {
     pub directory: bool,
 }
 
+fn is_remote(session: &Option<String>) -> bool {
+    session.as_deref().is_some_and(|id| !id.is_empty())
+}
+
 #[tauri::command]
 pub async fn transfer_enqueue(
     sessions: State<'_, SessionRegistry>,
     runtime: State<'_, SshRuntimeState>,
     request: TransferRequest,
 ) -> Result<String, String> {
-    let source = ft_transfer::Endpoint::new(
+    let source_remote = is_remote(&request.source_session);
+    let target_remote = is_remote(&request.target_session);
+    let mut source = ft_transfer::Endpoint::new(
         resolve_vfs(&sessions, &runtime, request.source_session.as_deref()).await?,
         request.source_path,
     );
-    let target = ft_transfer::Endpoint::new(
+    if source_remote {
+        source = source.as_remote();
+    }
+    let mut target = ft_transfer::Endpoint::new(
         resolve_vfs(&sessions, &runtime, request.target_session.as_deref()).await?,
         request.target_path,
     );
+    if target_remote {
+        target = target.as_remote();
+    }
     if request.directory {
         runtime
             .transfers

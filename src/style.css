@@ -4604,3 +4604,176 @@ body.dock-resizing-y * {
   cursor: row-resize !important;
   user-select: none;
 }
+
+/* Remote tabs in the transfer view: one pane, N targets. */
+.transfer-remote {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-panel);
+}
+
+.transfer-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 30px;
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.transfer-tabs-scroll {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.transfer-tabs-scroll::-webkit-scrollbar {
+  height: 0;
+}
+
+.transfer-tabs-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.transfer-tab {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  max-width: 180px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+}
+
+.transfer-tab:hover {
+  background: var(--hover-bg);
+}
+
+.transfer-tab.active {
+  background: var(--hover-bg);
+  border-color: var(--border);
+  color: var(--fg-primary);
+}
+
+.transfer-tab-label {
+  min-width: 0;
+  padding: 2px var(--space-2);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: var(--font-ui-sm);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.transfer-tab-close,
+.transfer-tab-add {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: var(--font-ui);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.transfer-tab-close {
+  margin-right: 2px;
+}
+
+.transfer-tab-close:hover,
+.transfer-tab-add:hover {
+  background: var(--divider);
+  color: var(--fg-primary);
+}
+
+.transfer-tab-add {
+  margin-left: var(--space-1);
+}
+
+.transfer-tabs-actions .transfer-tab-add {
+  margin-left: 0;
+}
+
+.transfer-tab-empty {
+  font-size: var(--font-ui-sm);
+  color: var(--fg-muted);
+}
+
+.transfer-copyto {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  padding-left: var(--space-2);
+  flex-shrink: 0;
+  font-size: var(--font-ui-sm);
+  color: var(--fg-muted);
+}
+
+.transfer-copyto select {
+  height: 22px;
+  width: 120px;
+  font-size: var(--font-ui-sm);
+  text-overflow: ellipsis;
+}
+
+.transfer-relay {
+  display: inline-block;
+  margin-right: var(--space-2);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-size: 10px;
+  line-height: 15px;
+  vertical-align: middle;
+}
+
+/* Six columns have to fit a half-width pane. Fixed layout keeps 属主 inside
+   the pane; the narrow columns are sized to their widest realistic content and
+   the name column takes the rest. */
+.file-table {
+  table-layout: fixed;
+}
+
+.file-table th,
+.file-table td {
+  padding-left: var(--space-1);
+  padding-right: var(--space-1);
+}
+
+.file-table th:nth-child(2) {
+  width: 54px;
+}
+
+.file-table th:nth-child(3) {
+  width: 62px;
+}
+
+.file-table th:nth-child(4) {
+  width: 108px;
+}
+
+.file-table th:nth-child(5) {
+  width: 74px;
+}
+
+.file-table th:nth-child(6) {
+  width: 74px;
+}
