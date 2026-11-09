@@ -238,6 +238,16 @@ Acceptance = perform each path in Ferriterm and in the reference install; record
 - [ ] Disconnecting a session forgets its cached CPU counters so a reconnect starts a fresh delta.
 - [ ] Frameless Windows and Linux windows expose resize handles on all four edges and four corners; dragging one starts a native resize, and macOS keeps its overlay traffic lights.
 
+### 4.9 Window chrome, sidebar width, icon set, settings layout and transport plugins
+
+- [ ] A vertical handle between the host sidebar and the content resizes the sidebar between 220 px and 460 px; dragging follows the pointer, arrow keys move it by 16 px, and the width persists across restarts.
+- [ ] On macOS, pressing the frameless header background starts a native window drag; presses that land on tabs, buttons, inputs, menus or other interactive controls never start a drag.
+- [ ] Double-clicking empty header space zooms the window; the host sidebar and tools sidebar title bars drag the window the same way while their controls keep their own clicks.
+- [ ] Functional buttons use the shared stroke icon set (close, record/stop, pause, reconnect, refresh, download/upload, check, copy, trash, theme, split, search and similar); text glyphs are no longer used as button labels, and icon + label toolbars centre the glyph against the text.
+- [ ] Telnet is an optional plugin (kind `telnet`, permission `telnet`); Settings › Plugins › Installed lists the built-in Serial Ports and Telnet entries with Enable/Uninstall, and enabling one writes `<id>.json` into the plugin folder.
+- [ ] Without the telnet plugin, the Telnet host tab explains how to enable it and `telnet_open` is rejected; with it, Telnet hosts connect normally.
+- [ ] Settings panes open with the category title and a one-line description; legend, hint, action and message blocks share the left content edge instead of being centred or indented, while field hints stay in the control column.
+
 ## 5. Phase maintenance rule
 
 Each phase (P1…) updates this file before implementation: add/adjust screen checklist items, then implement, then sign the checklist in the phase review. Token additions require a table row here first.
