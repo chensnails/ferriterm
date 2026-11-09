@@ -594,3 +594,70 @@ export function onForwardError(
 ): Promise<UnlistenFn> {
   return listen<ForwardError>(forwardErrorEvent, (e) => cb(e.payload));
 }
+export const netToolOutputEvent = "net-tool://output";
+export const netToolDoneEvent = "net-tool://done";
+
+export type NetProbeKind = "ping" | "traceroute";
+
+export interface NetToolChunk {
+  id: string;
+  stream: "out" | "err";
+  line: string;
+}
+
+export interface NetToolDone {
+  id: string;
+  code: number | null;
+  cancelled: boolean;
+  error: string | null;
+}
+
+export interface GeoInfo {
+  ip: string;
+  version: string;
+  country: string;
+  countryCode: string;
+  region: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+  isp: string;
+  org: string;
+  asn: string;
+  timezone: string;
+  source: string;
+}
+
+/** Runs ping or traceroute on this machine and returns the job id. */
+export function startNetProbe(
+  kind: NetProbeKind,
+  target: string,
+  options: { count?: number; hops?: number } = {},
+): Promise<string> {
+  return invoke<string>("net_tool_start", {
+    kind,
+    target,
+    count: options.count,
+    hops: options.hops,
+  });
+}
+
+export function cancelNetProbe(id: string): Promise<void> {
+  return invoke<void>("net_tool_cancel", { id });
+}
+
+export function geoipLookup(query: string): Promise<GeoInfo> {
+  return invoke<GeoInfo>("geoip_lookup", { query });
+}
+
+export function onNetToolOutput(
+  cb: (chunk: NetToolChunk) => void,
+): Promise<UnlistenFn> {
+  return listen<NetToolChunk>(netToolOutputEvent, (e) => cb(e.payload));
+}
+
+export function onNetToolDone(
+  cb: (event: NetToolDone) => void,
+): Promise<UnlistenFn> {
+  return listen<NetToolDone>(netToolDoneEvent, (e) => cb(e.payload));
+}

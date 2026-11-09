@@ -1,4 +1,5 @@
 mod commands;
+mod net_tools;
 
 use std::sync::Arc;
 
@@ -10,6 +11,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(SessionRegistry::default())
         .manage(tokio::sync::Mutex::new(ft_monitor::Monitor::new()))
+        .manage(std::sync::Arc::new(net_tools::NetToolState::default()))
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
@@ -112,6 +114,9 @@ pub fn run() {
             commands::transfer_clear_finished,
             commands::sync_preview,
             commands::sync_apply,
+            net_tools::net_tool_start,
+            net_tools::net_tool_cancel,
+            net_tools::geoip_lookup,
         ])
         .run(tauri::generate_context!())
         .expect("error while running ferriterm");

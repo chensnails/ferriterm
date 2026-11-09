@@ -10,8 +10,8 @@
     "panels": "Side panels",
     "hosts": "Host list",
     "showHosts": "Show the host list",
-    "toolsReserved": "Tool list (reserved)",
-    "activeTask": "A transfer is in progress"
+    "activeTask": "A transfer is in progress",
+    "showTools": "Show the network toolbox"
   },
   "home": {
     "tagline": "Cross-platform SSH terminal and file transfer"
@@ -655,5 +655,73 @@
     "minimize": "Minimize",
     "maximize": "Maximize",
     "close": "Close window"
+  },
+  "tools": {
+    "title": "Network toolbox",
+    "localHint": "Probes run on this machine, not on a session.",
+    "desktopOnly": "Network tools need the desktop app.",
+    "ping": {
+      "title": "Ping / traceroute",
+      "hint": "Check reachability and the path packets take.",
+      "kindPing": "Ping",
+      "kindTrace": "Traceroute",
+      "target": "Target",
+      "targetPlaceholder": "8.8.8.8 or example.com",
+      "count": "Packets",
+      "hops": "Max hops",
+      "run": "Run",
+      "running": "Running…",
+      "stop": "Stop",
+      "empty": "Run a probe to see its output here.",
+      "finished": "Finished (exit code {code})",
+      "failed": "Failed: {error}",
+      "cancelled": "Probe cancelled."
+    },
+    "geoip": {
+      "title": "GeoIP lookup",
+      "hint": "Resolve an address to its location and network owner.",
+      "ip": "Address",
+      "placeholder": "Leave empty for this machine's public IP",
+      "lookup": "Look up",
+      "loading": "Looking up…",
+      "mine": "My public IP",
+      "empty": "Look up an address to see its details.",
+      "location": "Location",
+      "coordinates": "Coordinates",
+      "isp": "ISP",
+      "org": "Organisation",
+      "asn": "ASN",
+      "timezone": "Time zone",
+      "source": "Source"
+    },
+    "ipcalc": {
+      "title": "IP calculator",
+      "hint": "Subnet, mask and usable range for a CIDR block.",
+      "input": "CIDR",
+      "sample": "Reset",
+      "invalidAddress": "That is not a valid IPv4 or IPv6 address.",
+      "invalidPrefix": "Prefix length is out of range.",
+      "network": "Network",
+      "netmask": "Netmask",
+      "wildcard": "Wildcard",
+      "broadcast": "Broadcast",
+      "lastAddress": "Last address",
+      "range": "Usable range",
+      "hosts": "Addresses",
+      "usable": "Usable hosts",
+      "scope": "Scope",
+      "addressBits": "Address",
+      "networkBits": "Network",
+      "maskBits": "Mask",
+      "hintShort": "Accepts IPv4 or IPv6 with an optional /prefix."
+    },
+    "scope": {
+      "private": "Private",
+      "public": "Public",
+      "loopback": "Loopback",
+      "linkLocal": "Link-local",
+      "multicast": "Multicast",
+      "reserved": "Reserved"
+    }
   }
 }

@@ -28,6 +28,10 @@ ft-sync.workspace = true
 ft-plugin.workspace = true
 ft-vfs.workspace = true
 ft-transfer.workspace = true
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "json"] }
+
+[target.'cfg(windows)'.dependencies]
+encoding_rs = "0.8"
 
 [dev-dependencies]
 russh.workspace = true

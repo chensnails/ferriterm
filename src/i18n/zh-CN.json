@@ -10,8 +10,8 @@
     "panels": "侧边面板",
     "hosts": "主机列表",
     "showHosts": "显示主机列表",
-    "toolsReserved": "工具列表（预留）",
-    "activeTask": "有进行中的传输任务"
+    "activeTask": "有进行中的传输任务",
+    "showTools": "显示网络工具箱"
   },
   "home": {
     "tagline": "跨平台 SSH 终端与文件传输"
@@ -655,5 +655,73 @@
     "minimize": "最小化",
     "maximize": "最大化",
     "close": "关闭窗口"
+  },
+  "tools": {
+    "title": "网络工具箱",
+    "localHint": "探测在本机执行，不经过会话。",
+    "desktopOnly": "网络工具需要在桌面应用中运行。",
+    "ping": {
+      "title": "Ping / 路由追踪",
+      "hint": "检测可达性，并查看报文经过的路径。",
+      "kindPing": "Ping",
+      "kindTrace": "路由追踪",
+      "target": "目标",
+      "targetPlaceholder": "8.8.8.8 或 example.com",
+      "count": "报文数",
+      "hops": "最大跳数",
+      "run": "运行",
+      "running": "运行中…",
+      "stop": "停止",
+      "empty": "运行一次探测，输出会显示在这里。",
+      "finished": "结束（退出码 {code}）",
+      "failed": "失败：{error}",
+      "cancelled": "已取消探测。"
+    },
+    "geoip": {
+      "title": "GeoIP 查询",
+      "hint": "解析地址的归属地与网络运营方。",
+      "ip": "地址",
+      "placeholder": "留空则查询本机公网 IP",
+      "lookup": "查询",
+      "loading": "查询中…",
+      "mine": "我的公网 IP",
+      "empty": "查询一个地址后查看详情。",
+      "location": "位置",
+      "coordinates": "经纬度",
+      "isp": "运营商",
+      "org": "组织",
+      "asn": "ASN",
+      "timezone": "时区",
+      "source": "数据源"
+    },
+    "ipcalc": {
+      "title": "IP 计算器",
+      "hint": "计算 CIDR 的子网、掩码与可用地址范围。",
+      "input": "CIDR",
+      "sample": "重置示例",
+      "invalidAddress": "不是合法的 IPv4 或 IPv6 地址。",
+      "invalidPrefix": "前缀长度超出范围。",
+      "network": "网络地址",
+      "netmask": "子网掩码",
+      "wildcard": "反掩码",
+      "broadcast": "广播地址",
+      "lastAddress": "末地址",
+      "range": "可用范围",
+      "hosts": "地址总数",
+      "usable": "可用主机数",
+      "scope": "地址类型",
+      "addressBits": "地址",
+      "networkBits": "网络",
+      "maskBits": "掩码",
+      "hintShort": "支持 IPv4 / IPv6，可省略 /前缀。"
+    },
+    "scope": {
+      "private": "私有",
+      "public": "公网",
+      "loopback": "环回",
+      "linkLocal": "链路本地",
+      "multicast": "组播",
+      "reserved": "保留"
+    }
   }
 }

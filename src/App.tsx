@@ -5,6 +5,8 @@ import { RightStrip } from "./components/RightStrip";
 import { TabBar } from "./components/TabBar";
 import { HomeView } from "./components/HomeView";
 import { HostTree } from "./components/HostTree";
+import { NetTools } from "./components/NetTools";
+import { ToolList } from "./components/ToolList";
 import { TerminalArea } from "./components/TerminalArea";
 import { BrowserBanner } from "./components/BrowserBanner";
 import { ExecutionLog } from "./components/ExecutionLog";
@@ -64,6 +66,7 @@ export default function App() {
   const quickConnectOpen = useAppStore((s) => s.quickConnectOpen);
   const setQuickConnectOpen = useAppStore((s) => s.setQuickConnectOpen);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const sidebarView = useAppStore((s) => s.sidebarView);
 
   const isTerminalView = activeId !== HOME_TAB && activeId !== TRANSFER_TAB;
 
@@ -173,10 +176,11 @@ export default function App() {
           <ActivityRail />
           <div id="body-main">
             <aside id="host-sidebar" hidden={!sidebarOpen}>
-              <HostTree />
+              {sidebarView === "tools" ? <ToolList /> : <HostTree />}
             </aside>
             <div id="content">
-              {activeId === HOME_TAB && <HomeView />}
+              {activeId === HOME_TAB && sidebarView === "tools" && <NetTools />}
+              {activeId === HOME_TAB && sidebarView === "hosts" && <HomeView />}
               {transferOpen && (
                 <div className="view-transfer" hidden={activeId !== TRANSFER_TAB}>
                   <Suspense fallback={null}>

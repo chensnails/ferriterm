@@ -224,4 +224,21 @@ export function EyeIcon({ size = 14 }: { size?: number }) {
   );
 }
 
+/** Globe: the network toolbox module. */
+export function GlobeIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <circle cx="8" cy="8" r="6" />
+      <path d="M2 8h12M8 2c1.7 1.8 2.6 3.8 2.6 6S9.7 12.2 8 14c-1.7-1.8-2.6-3.8-2.6-6S6.3 3.8 8 2z" />
+    </svg>
+  );
+}
 
+/** Signal bars: ping / traceroute probes. */
+export function SignalIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M2 11v2M5.5 8.5v4.5M9 6v7M12.5 3v10" />
+    </svg>
+  );
+}

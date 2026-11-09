@@ -4242,3 +4242,236 @@ mark {
   background: #e81123;
   color: #ffffff;
 }
+
+/* Network toolbox (module: tools). Same island language as the host list:
+   one scroll container per pane, tokens only. */
+
+.tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.tool-list-foot {
+  margin: var(--space-2) 0 0;
+}
+
+.net-tools {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.net-tools-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.net-tools-head h2 {
+  margin: 0;
+  font-size: var(--font-title);
+  font-weight: 600;
+}
+
+.net-tools-head p {
+  margin: 0;
+}
+
+.net-tools-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.net-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.net-kind {
+  align-self: flex-start;
+}
+
+.net-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.net-form input {
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  height: var(--control-h);
+  padding: 0 var(--space-2);
+  color: var(--fg-primary);
+  font-size: var(--font-ui);
+  outline: none;
+  transition: border-color var(--motion-fast);
+}
+
+.net-form input:focus {
+  border-color: var(--accent);
+}
+
+.net-target {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+}
+
+.net-number {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-ui-sm);
+  color: var(--fg-muted);
+}
+
+.net-number input {
+  width: 64px;
+  font-family: var(--font-mono);
+}
+
+.net-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.net-actions button {
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-size: var(--font-ui);
+  transition: background var(--motion-fast);
+}
+
+.net-actions button:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+
+.net-actions button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--fg-on-accent);
+  font-weight: 600;
+}
+
+.net-actions button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.net-actions button:disabled {
+  opacity: 0.5;
+}
+
+.net-console {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-3);
+  overflow: auto;
+  background: var(--sub-bg);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  line-height: var(--line-ui);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.net-console.empty {
+  color: var(--fg-muted);
+}
+
+.geo-card {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--sub-bg);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-md);
+}
+
+.geo-card header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.geo-card h3 {
+  margin: 0;
+  font-size: var(--font-ui);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.geo-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+}
+
+.geo-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.geo-row dt {
+  flex-shrink: 0;
+  min-width: 96px;
+  font-size: var(--font-ui-sm);
+  color: var(--fg-muted);
+}
+
+.geo-row dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.net-binary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.net-binary pre {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  background: var(--sub-bg);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  overflow-x: auto;
+}

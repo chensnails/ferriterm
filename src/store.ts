@@ -144,6 +144,11 @@ export type SplitDirection = "horizontal" | "vertical";
 
 export type TabNumbering = "asNeed" | "always" | "none";
 
+/** Which module the left rail currently shows. */
+export type SidebarView = "hosts" | "tools";
+
+export type NetToolId = "ping" | "geoip" | "ipcalc";
+
 export const HOME_TAB = "home";
 export const TRANSFER_TAB = "transfer";
 
@@ -236,6 +241,10 @@ interface AppState {
   toggleCommands: () => void;
   sidebarOpen: boolean;
   toggleSidebar: () => void;
+  sidebarView: SidebarView;
+  showSidebarView: (view: SidebarView) => void;
+  netTool: NetToolId;
+  setNetTool: (tool: NetToolId) => void;
   /** Frame shape the header must draw around, resolved once at startup. */
   windowChrome: WindowChrome;
   setWindowChrome: (chrome: WindowChrome) => void;
@@ -391,6 +400,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   shortcuts: { ...SHORTCUT_DEFAULTS },
   commandsOpen: true,
   sidebarOpen: true,
+  sidebarView: "hosts",
+  netTool: "ping",
   windowChrome: initialWindowChrome,
   paletteOpen: false,
   searchOpen: false,
@@ -524,6 +535,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (isTauri) api.setSetting("sidebarOpen", open ? "1" : "0").catch(() => {});
       return { sidebarOpen: open };
     }),
+  showSidebarView: (view) =>
+    set({ sidebarView: view, activeId: HOME_TAB, sidebarOpen: true }),
+  setNetTool: (tool) => set({ netTool: tool }),
   setWindowChrome: (chrome) => set({ windowChrome: chrome }),
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
   closePalette: () => set({ paletteOpen: false }),
