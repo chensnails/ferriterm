@@ -372,6 +372,9 @@ interface AppState {
   setConfirmClose: (value: boolean) => void;
   sftpShowHidden: boolean;
   setSftpShowHidden: (value: boolean) => void;
+  /** Write an edited file back on its own once typing pauses. */
+  editorAutoSave: boolean;
+  setEditorAutoSave: (value: boolean) => void;
   /** How many transfers may run at once (1–8). */
   transferConcurrency: number;
   setTransferConcurrency: (value: number) => void;
@@ -601,6 +604,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   tabNumbering: "asNeed",
   confirmClose: true,
   sftpShowHidden: false,
+  editorAutoSave: false,
   transferConcurrency: 6,
   pendingCloseId: null,
   shortcuts: { ...SHORTCUT_DEFAULTS },
@@ -756,6 +760,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSftpShowHidden: (value) => {
     set({ sftpShowHidden: value });
     if (isTauri) api.setSetting("sftpShowHidden", value ? "1" : "0").catch(() => {});
+  },
+  setEditorAutoSave: (value) => {
+    set({ editorAutoSave: value });
+    if (isTauri) api.setSetting("editorAutoSave", value ? "1" : "0").catch(() => {});
   },
   setTransferConcurrency: (value) => {
     const next = clampTransferConcurrency(value);
@@ -1341,6 +1349,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       tabNumbering,
       confirmClose: (settings.confirmClose ?? "1") !== "0",
       sftpShowHidden: settings.sftpShowHidden === "1",
+      editorAutoSave: settings.editorAutoSave === "1",
       commandHistory: parseHistory(settings.commandHistory),
       shortcuts: parseShortcuts(settings.shortcuts),
       sidebarOpen: (settings.sidebarOpen ?? "1") !== "0",

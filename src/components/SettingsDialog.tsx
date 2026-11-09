@@ -114,6 +114,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const setConfirmClose = useAppStore((s) => s.setConfirmClose);
   const sftpShowHidden = useAppStore((s) => s.sftpShowHidden);
   const setSftpShowHidden = useAppStore((s) => s.setSftpShowHidden);
+  const editorAutoSave = useAppStore((s) => s.editorAutoSave);
+  const setEditorAutoSave = useAppStore((s) => s.setEditorAutoSave);
   const transferConcurrency = useAppStore((s) => s.transferConcurrency);
   const setTransferConcurrency = useAppStore(
     (s) => s.setTransferConcurrency,
@@ -741,6 +743,17 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             </select>
           </label>
           <span className="hint">{t("settings.transferConcurrencyHint")}</span>
+          <label className="field">
+            <span>{t("settings.editorAutoSave")}</span>
+            <select
+              value={editorAutoSave ? "1" : "0"}
+              onChange={(e) => setEditorAutoSave(e.target.value === "1")}
+            >
+              <option value="1">{t("common.yes")}</option>
+              <option value="0">{t("common.no")}</option>
+            </select>
+          </label>
+          <span className="hint">{t("settings.editorAutoSaveHint")}</span>
         </fieldset>
             </>
           )}

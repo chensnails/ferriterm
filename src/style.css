@@ -3173,9 +3173,8 @@ mark {
 
 .editor-conflict {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
+  flex-direction: column;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--warning);
   border-radius: var(--radius-md);
@@ -3187,6 +3186,18 @@ mark {
   margin: 0;
 }
 
+.editor-conflict-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.editor-conflict-actions .prompt-input {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
 .editor-conflict button {
   height: var(--control-h);
   padding: 0 var(--space-3);
@@ -3196,6 +3207,20 @@ mark {
   color: var(--fg-primary);
   cursor: pointer;
   flex-shrink: 0;
+}
+
+.editor-conflict button.danger {
+  border-color: transparent;
+  background: var(--danger);
+  color: var(--fg-on-accent);
+  font-weight: 600;
+}
+
+.editor-autosave {
+  margin-right: auto;
+  align-self: center;
+  font-size: var(--font-ui-sm);
+  color: var(--fg-muted);
 }
 
 /* Permissions editor */

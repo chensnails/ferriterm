@@ -160,4 +160,31 @@ mod tests {
         assert_eq!(parent_path("/"), None);
         assert_eq!(parent_path("a"), None);
     }
+
+    /// The editor's "overwrite" button has no backend of its own: it saves with
+    /// no expectation at all, and that is what must skip the stamp check.
+    #[tokio::test]
+    async fn a_stored_buffer_can_be_forced_over_a_newer_file() {
+        let fs = LocalFs;
+        let path = std::env::temp_dir()
+            .join(format!("ft-vfs-overwrite-{}.txt", std::process::id()));
+        let path = path.to_string_lossy().into_owned();
+
+        write_text(&fs, &path, "opened", None).await.unwrap();
+        let opened_at = fs.stat(&path).await.unwrap().mtime;
+
+        // Only equality matters, so any other stamp stands in for a file that
+        // someone else saved in the meantime.
+        let stale = opened_at.wrapping_add(1);
+        let err = write_text(&fs, &path, "mine", Some(stale))
+            .await
+            .unwrap_err();
+        assert!(err.contains("changed since"), "{err}");
+
+        write_text(&fs, &path, "mine", None).await.unwrap();
+        let text = read_text(&fs, &path, 1024).await.unwrap();
+        assert_eq!(text.content, "mine");
+
+        let _ = std::fs::remove_file(&path);
+    }
 }
