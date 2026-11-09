@@ -1376,9 +1376,13 @@ pub fn vault_list_entries(
 ) -> Result<Vec<VaultEntryView>, String> {
     let hosts = store.list_hosts().unwrap_or_default();
     let keys = store.list_ssh_keys().unwrap_or_default();
+    let refs = credentials.refs();
     let mut views: Vec<VaultEntryView> = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
     for entry in store.list_vault_entries().unwrap_or_default() {
+        if !refs.iter().any(|item| item == &entry.secret_ref) {
+            continue;
+        }
         seen.insert(entry.secret_ref.clone());
         views.push(VaultEntryView {
             secret_ref: entry.secret_ref,
@@ -1388,7 +1392,7 @@ pub fn vault_list_entries(
             updated_at: entry.updated_at,
         });
     }
-    for reference in credentials.refs() {
+    for reference in refs {
         if !seen.insert(reference.clone()) {
             continue;
         }

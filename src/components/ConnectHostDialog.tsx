@@ -11,6 +11,7 @@ import {
 } from "../api";
 import { buildConnectArgs, type PendingConnect } from "../connect";
 import { useAppStore } from "../store";
+import { vaultErrorText } from "../vault-errors";
 import { Modal } from "./Modal";
 
 export function ConnectHostDialog({
@@ -89,7 +90,7 @@ export function ConnectHostDialog({
       setUseSaved(nextStatus.password);
       setUnlockPassword("");
     } catch (err) {
-      setError(String(err));
+      setError(vaultErrorText(err, t));
     } finally {
       setUnlocking(false);
     }

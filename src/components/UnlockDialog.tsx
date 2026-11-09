@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api";
+import { vaultErrorText } from "../vault-errors";
 import { Modal } from "./Modal";
 
 export type VaultAction = "unlock" | "enable" | "change" | "disable" | "reset";
@@ -61,7 +62,7 @@ export function UnlockDialog({
       }
       onClose();
     } catch (err) {
-      setError(String(err));
+      setError(vaultErrorText(err, t));
     } finally {
       setBusy(false);
     }

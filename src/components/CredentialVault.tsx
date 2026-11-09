@@ -136,7 +136,7 @@ export function CredentialVault() {
             </button>
           )}
         </div>
-        <p className="hint">{t("vault.masterHint")}</p>
+        {!masterMode && <p className="hint">{t("vault.masterHint")}</p>}
       </fieldset>
 
       <fieldset className="settings-group">

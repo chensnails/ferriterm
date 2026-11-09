@@ -135,7 +135,7 @@ impl CredentialStore {
         VaultStatus {
             mode: inner.mode,
             locked: inner.locked,
-            entries: self.read_index().len(),
+            entries: self.read_vault().map(|vault| vault.len()).unwrap_or(0),
         }
     }
 
@@ -173,10 +173,11 @@ impl CredentialStore {
 
     pub fn set(&self, id: &str, secret: &str) -> Result<(), CredentialError> {
         let key = self.active_key()?;
-        self.register_ref(id);
         let mut vault = self.read_vault()?;
         vault.insert(id.to_string(), self.encrypt_with(&key, secret)?);
-        self.write_vault(&vault)
+        self.write_vault(&vault)?;
+        self.register_ref(id);
+        Ok(())
     }
 
     pub fn delete(&self, id: &str) -> Result<(), CredentialError> {
@@ -262,12 +263,19 @@ impl CredentialStore {
                 refs.push(item.clone());
             }
         }
+        let stored = self.read_vault()?;
+        for id in stored.keys() {
+            if !refs.iter().any(|item| item == id) {
+                refs.push(id.clone());
+            }
+        }
         let mut plain: Vec<(String, String)> = Vec::new();
         for id in &refs {
             if let Some(secret) = self.get(id)? {
                 plain.push((id.clone(), secret));
             }
         }
+        let migrated: Vec<String> = plain.iter().map(|(id, _)| id.clone()).collect();
 
         let mut salt = [0u8; 16];
         SystemRandom::new()
@@ -291,7 +299,7 @@ impl CredentialStore {
             .map_err(|e| CredentialError::Storage(format!("serialize master file: {e}")))?;
         write_private(&self.master_path(), &raw)?;
         self.write_vault(&vault)?;
-        self.write_index(&refs)?;
+        self.write_index(&migrated)?;
         let _ = fs::remove_file(self.key_path());
 
         let mut inner = self.inner.lock().unwrap();
@@ -324,6 +332,8 @@ impl CredentialStore {
             next.insert(id.clone(), self.encrypt_with(&device_key, secret)?);
         }
         self.write_vault(&next)?;
+        let stored: Vec<String> = next.keys().cloned().collect();
+        self.write_index(&stored)?;
         let _ = fs::remove_file(self.master_path());
         let mut inner = self.inner.lock().unwrap();
         inner.mode = VaultMode::Local;
@@ -780,6 +790,25 @@ mod tests {
         ));
         reopened.unlock("hunter2").unwrap();
         assert_eq!(reopened.get("host-1").unwrap().as_deref(), Some("pw"));
+    }
+
+    #[test]
+    fn enable_ignores_refs_without_secrets() {
+        let (_guard, store) = temp_store("phantom");
+        store.set("host-1", "pw").unwrap();
+        let extra = vec![
+            "host-1".to_string(),
+            "host-2".to_string(),
+            "sync:gist-token".to_string(),
+        ];
+        let migrated = store.enable_master_password("hunter2", &extra).unwrap();
+        assert_eq!(migrated, 1);
+        assert_eq!(store.refs(), vec!["host-1".to_string()]);
+        assert_eq!(store.status().entries, 1);
+
+        store.disable_master_password("hunter2").unwrap();
+        assert_eq!(store.refs(), vec!["host-1".to_string()]);
+        assert_eq!(store.status().entries, 1);
     }
 
     #[test]

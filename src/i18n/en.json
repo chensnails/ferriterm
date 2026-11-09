@@ -941,6 +941,8 @@
     "passwordHint": "At least 8 characters. There is no recovery if you forget it.",
     "passwordTooShort": "Use at least 8 characters.",
     "passwordMismatch": "The passwords do not match.",
+    "errorWrongPassword": "Master password is incorrect. Try again.",
+    "errorTooManyAttempts": "Too many attempts. Try again in {seconds}s.",
     "resetWarning": "This deletes every stored password, passphrase and key secret. It cannot be undone.",
     "resetUnderstood": "I understand stored secrets will be deleted",
     "resetConfirmRequired": "Confirm that you understand stored secrets will be deleted.",
