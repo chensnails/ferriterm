@@ -85,7 +85,6 @@ pub fn run() {
             commands::plugin_run_wasm,
             commands::save_credential,
             commands::save_host_credential,
-            commands::get_credential,
             commands::delete_credential,
             commands::credential_status,
             commands::save_secret,

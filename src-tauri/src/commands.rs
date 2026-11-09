@@ -984,16 +984,6 @@ pub fn save_credential(
     apply_host_secrets(&store, &credentials, &host_id, Some(secret), None)
 }
 
-/// Deprecated: plaintext must stay in the Rust process. Kept temporarily for
-/// code paths that have not migrated yet.
-#[tauri::command]
-pub fn get_credential(
-    credentials: State<'_, Credentials>,
-    host_id: String,
-) -> Result<Option<String>, String> {
-    credentials.get(&host_id).map_err(|e| e.to_string())
-}
-
 #[tauri::command]
 pub fn delete_credential(
     store: State<'_, Arc<ft_store::Store>>,
