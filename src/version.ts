@@ -1,10 +1,14 @@
 /**
- * Development build label shown in the About page: YYYYMMDD-dev<baseline>.
+ * Development build label shown in the About page:
+ * YYYYMMDD-dev<baseline>+<short HEAD>, for example 20261109-dev1.0.0+eb4e626.
+ *
  * The dev baseline is a display-only label chosen by the product owner; it is
  * intentionally independent from the packaged version in package.json /
- * src-tauri/tauri.conf.json. Vite injects the build date at build time, with a
- * local-date fallback so dev servers started before the config change still
- * show a valid label.
+ * src-tauri/tauri.conf.json. Vite injects the build date and the HEAD sampled
+ * at config evaluation time, with fallbacks so dev servers started before the
+ * config change (or builds without a git checkout) still show a valid label.
+ * A commit cannot embed its own hash, so the suffix always refers to the HEAD
+ * at build / dev-server start; restart after a commit to refresh it.
  */
 const DEV_BASELINE = "1.0.0";
 
@@ -20,4 +24,9 @@ const localStamp = (() => {
 const buildStamp =
   typeof __BUILD_STAMP__ === "string" ? __BUILD_STAMP__ : localStamp;
 
-export const DEV_VERSION = `${buildStamp}-dev${DEV_BASELINE}`;
+const buildHead =
+  typeof __BUILD_HEAD__ === "string" && __BUILD_HEAD__
+    ? __BUILD_HEAD__
+    : "nogit";
+
+export const DEV_VERSION = `${buildStamp}-dev${DEV_BASELINE}+${buildHead}`;
