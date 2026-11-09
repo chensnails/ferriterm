@@ -3290,6 +3290,37 @@ mark {
   flex-shrink: 0;
 }
 
+.sync-side {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: var(--font-ui-sm);
+}
+
+.sync-conflicts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sync-conflict select {
+  flex-shrink: 0;
+  max-width: 140px;
+}
+
+label.sync-action {
+  cursor: pointer;
+}
+
+.sync-bulk {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+}
+
+.sync-bulk button {
+  font-size: var(--font-ui-sm);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

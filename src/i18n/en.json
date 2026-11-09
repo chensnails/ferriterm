@@ -376,7 +376,28 @@
     "kind_deleteFile": "Delete file",
     "kind_deleteDir": "Delete folder",
     "showPassword": "Show password",
-    "hidePassword": "Hide password"
+    "hidePassword": "Hide password",
+    "twoWayDirection": "Two-way sync {local} ⇄ {remote}",
+    "twoWayHint": "Entries missing on either side are copied over; entries that differ on both sides are listed as conflicts.",
+    "summaryTwoWay": "{up} files ↑, {down} files ↓, {bytes} in total, {conflicts} conflicts",
+    "conflictsTitle": "{count} conflicts",
+    "conflictHint": "These names exist on both sides with different content. Pick the version to keep.",
+    "conflictSides": "local {local} · remote {remote}",
+    "conflictManual": "File and folder clash — fix by hand",
+    "keepNewer": "Keep newer",
+    "keepLocal": "Keep local",
+    "keepRemote": "Keep remote",
+    "skip": "Skip",
+    "sideRemote": "→ remote",
+    "sideLocal": "→ local",
+    "deleteConfirmTitle": "Confirm {count} deletions",
+    "deleteConfirmHint": "These entries exist only in the target. Uncheck any you want to keep.",
+    "deleteConfirmButton": "Delete {count} items",
+    "back": "Back",
+    "selectAll": "Select all",
+    "selectNone": "Select none",
+    "showLess": "Show less",
+    "continueButton": "Continue without deleting"
   },
   "transfer": {
     "title": "File transfer",
@@ -438,7 +459,8 @@
     "colActions": "Actions",
     "statActive": "{n} running",
     "statWaiting": "{n} waiting",
-    "perSecond": "/s"
+    "perSecond": "/s",
+    "syncTwoWay": "Two-way"
   },
   "files": {
     "name": "Name",

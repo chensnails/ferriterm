@@ -367,18 +367,39 @@ export type SyncActionKind =
   | "deleteFile"
   | "deleteDir";
 
+/** Which tree an action writes to. One-way sync only writes to the target. */
+export type SyncSide = "target" | "source";
+
 export interface SyncAction {
   kind: SyncActionKind;
+  side: SyncSide;
   path: string;
   size: number;
 }
 
+export type ConflictReason = "contentDiffers" | "typeMismatch";
+
+export interface SyncConflict {
+  path: string;
+  reason: ConflictReason;
+  sourceSize: number;
+  sourceMtime: number;
+  targetSize: number;
+  targetMtime: number;
+}
+
 export interface SyncPlan {
+  sourceRoot: string;
+  targetRoot: string;
+  twoWay: boolean;
   actions: SyncAction[];
-  uploadBytes: number;
+  upFiles: number;
+  upBytes: number;
+  downFiles: number;
+  downBytes: number;
   createDirs: number;
-  copyFiles: number;
   deleteEntries: number;
+  conflicts: SyncConflict[];
 }
 
 export const api = {
@@ -453,6 +474,7 @@ export const api = {
     sourcePath: string,
     targetSession: string | null,
     targetPath: string,
+    twoWay: boolean,
     deleteExtra: boolean,
   ) =>
     invoke<SyncPlan>("sync_preview", {
@@ -460,21 +482,18 @@ export const api = {
       sourcePath,
       targetSession,
       targetPath,
+      twoWay,
       deleteExtra,
     }),
   syncApply: (
     sourceSession: string | null,
-    sourcePath: string,
     targetSession: string | null,
-    targetPath: string,
-    deleteExtra: boolean,
+    plan: SyncPlan,
   ) =>
     invoke<SyncPlan>("sync_apply", {
       sourceSession,
-      sourcePath,
       targetSession,
-      targetPath,
-      deleteExtra,
+      plan,
     }),
 
   ptySpawn: (id: string, cols: number, rows: number) =>

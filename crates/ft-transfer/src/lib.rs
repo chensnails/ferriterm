@@ -97,6 +97,13 @@ impl Endpoint {
         self.remote = true;
         self
     }
+
+    /// Explicit form of [`Endpoint::as_remote`] for callers that already know
+    /// which side they hold.
+    pub fn with_remote(mut self, remote: bool) -> Self {
+        self.remote = remote;
+        self
+    }
 }
 
 struct JobState {
@@ -695,22 +702,77 @@ pub enum SyncActionKind {
     DeleteDir,
 }
 
+/// Which tree receives an action. A one-way sync only ever writes to the
+/// target; a two-way sync pulls missing entries back into the source as well.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SyncSide {
+    #[default]
+    Target,
+    Source,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SyncAction {
     pub kind: SyncActionKind,
+    #[serde(default)]
+    pub side: SyncSide,
     pub path: String,
     pub size: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ConflictReason {
+    /// Same name on both sides, different size or modification time.
+    ContentDiffers,
+    /// One side is a file, the other a directory.
+    TypeMismatch,
+}
+
+/// A pair of entries that both trees own but that disagree. Two-way sync never
+/// resolves these on its own: the caller picks a side (or skips the entry).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncConflict {
+    pub path: String,
+    pub reason: ConflictReason,
+    pub source_size: u64,
+    pub source_mtime: u64,
+    pub target_size: u64,
+    pub target_mtime: u64,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SyncPlan {
+    #[serde(default)]
+    pub source_root: String,
+    #[serde(default)]
+    pub target_root: String,
+    #[serde(default)]
+    pub two_way: bool,
     pub actions: Vec<SyncAction>,
-    pub upload_bytes: u64,
+    pub up_files: usize,
+    pub up_bytes: u64,
+    pub down_files: usize,
+    pub down_bytes: u64,
     pub create_dirs: usize,
-    pub copy_files: usize,
     pub delete_entries: usize,
+    #[serde(default)]
+    pub conflicts: Vec<SyncConflict>,
+}
+
+impl SyncPlan {
+    fn roots(source_root: &str, target_root: &str, two_way: bool) -> Self {
+        Self {
+            source_root: source_root.to_string(),
+            target_root: target_root.to_string(),
+            two_way,
+            ..Self::default()
+        }
+    }
 }
 
 /// Compares a source tree with a target tree, producing the actions needed to
@@ -723,7 +785,7 @@ pub async fn preview_sync(
     delete_extra: bool,
 ) -> Result<SyncPlan, String> {
     let source_scan = scan_tree(source, source_root).await?;
-    let mut plan = SyncPlan::default();
+    let mut plan = SyncPlan::roots(source_root, target_root, false);
     let mut source_relatives: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for entry in &source_scan.entries {
@@ -734,6 +796,7 @@ pub async fn preview_sync(
             if !existing.map(|entry| entry.is_dir).unwrap_or(false) {
                 plan.actions.push(SyncAction {
                     kind: SyncActionKind::CreateDir,
+                    side: SyncSide::Target,
                     path: entry.relative.clone(),
                     size: 0,
                 });
@@ -750,11 +813,12 @@ pub async fn preview_sync(
             if needs_copy {
                 plan.actions.push(SyncAction {
                     kind: SyncActionKind::CopyFile,
+                    side: SyncSide::Target,
                     path: entry.relative.clone(),
                     size: entry.size,
                 });
-                plan.upload_bytes += entry.size;
-                plan.copy_files += 1;
+                plan.up_bytes += entry.size;
+                plan.up_files += 1;
             }
         }
     }
@@ -801,6 +865,7 @@ async fn collect_target_extras(
                     } else {
                         SyncActionKind::DeleteFile
                     },
+                    side: SyncSide::Target,
                     path: child,
                     size: entry.size,
                 },
@@ -819,8 +884,99 @@ async fn collect_target_extras(
     Ok(())
 }
 
+fn push_entry_action(plan: &mut SyncPlan, entry: &ScanEntry, side: SyncSide) {
+    if entry.is_dir {
+        plan.actions.push(SyncAction {
+            kind: SyncActionKind::CreateDir,
+            side,
+            path: entry.relative.clone(),
+            size: 0,
+        });
+        plan.create_dirs += 1;
+    } else {
+        plan.actions.push(SyncAction {
+            kind: SyncActionKind::CopyFile,
+            side,
+            path: entry.relative.clone(),
+            size: entry.size,
+        });
+        match side {
+            SyncSide::Target => {
+                plan.up_bytes += entry.size;
+                plan.up_files += 1;
+            }
+            SyncSide::Source => {
+                plan.down_bytes += entry.size;
+                plan.down_files += 1;
+            }
+        }
+    }
+}
+
+/// Compares both trees in both directions. Entries owned by one side only are
+/// copied to the other; entries that exist on both sides but disagree are
+/// reported as conflicts and left for the caller to resolve.
+pub async fn preview_sync_two_way(
+    source: &dyn Vfs,
+    source_root: &str,
+    target: &dyn Vfs,
+    target_root: &str,
+) -> Result<SyncPlan, String> {
+    let source_scan = scan_tree(source, source_root).await?;
+    let target_scan = scan_tree(target, target_root).await?;
+    let mut plan = SyncPlan::roots(source_root, target_root, true);
+    let mut target_entries: HashMap<String, ScanEntry> = target_scan
+        .entries
+        .into_iter()
+        .map(|entry| (entry.relative.clone(), entry))
+        .collect();
+
+    let mut pending: Vec<(usize, ScanEntry, SyncSide)> = Vec::new();
+    for entry in source_scan.entries {
+        match target_entries.remove(&entry.relative) {
+            None => {
+                let depth = entry.relative.matches('/').count();
+                pending.push((depth, entry, SyncSide::Target));
+            }
+            Some(other) => {
+                if entry.is_dir && other.is_dir {
+                    continue;
+                }
+                let reason = if entry.is_dir != other.is_dir {
+                    ConflictReason::TypeMismatch
+                } else if entry.size == other.size && entry.mtime == other.mtime {
+                    continue;
+                } else {
+                    ConflictReason::ContentDiffers
+                };
+                plan.conflicts.push(SyncConflict {
+                    path: entry.relative.clone(),
+                    reason,
+                    source_size: entry.size,
+                    source_mtime: entry.mtime,
+                    target_size: other.size,
+                    target_mtime: other.mtime,
+                });
+            }
+        }
+    }
+    for (_, entry) in target_entries {
+        let depth = entry.relative.matches('/').count();
+        pending.push((depth, entry, SyncSide::Source));
+    }
+
+    // Parents before children, so a directory is always created before the
+    // entries it holds on that side.
+    pending.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| b.1.is_dir.cmp(&a.1.is_dir)));
+    for (_, entry, side) in pending {
+        push_entry_action(&mut plan, &entry, side);
+    }
+    plan.conflicts.sort_by(|a, b| a.path.cmp(&b.path));
+    Ok(plan)
+}
+
 /// Applies a previously previewed plan: creates directories, enqueues copies
-/// and deletes entries missing from the source.
+/// and deletes entries, honouring the side each action belongs to.
 pub async fn apply_sync(
     manager: &TransferManager,
     source: &Endpoint,
@@ -829,22 +985,29 @@ pub async fn apply_sync(
     id_prefix: &str,
 ) -> Result<(), String> {
     for (index, action) in plan.actions.iter().enumerate() {
-        let target_path = join_path(&target.path, &action.path);
+        let (dest, from) = match action.side {
+            SyncSide::Target => (target, source),
+            SyncSide::Source => (source, target),
+        };
+        let dest_path = join_path(&dest.path, &action.path);
         match action.kind {
-            SyncActionKind::CreateDir => ensure_dir(target.vfs.as_ref(), &target_path).await?,
+            SyncActionKind::CreateDir => ensure_dir(dest.vfs.as_ref(), &dest_path).await?,
             SyncActionKind::CopyFile => {
-                let source_path = join_path(&source.path, &action.path);
+                if let Some(parent) = ft_vfs::parent_path(&dest_path) {
+                    ensure_dir(dest.vfs.as_ref(), &parent).await?;
+                }
                 manager
                     .enqueue_file(
                         format!("{id_prefix}-{index}"),
-                        Endpoint::new(source.vfs.clone(), source_path),
-                        Endpoint::new(target.vfs.clone(), target_path),
+                        Endpoint::new(from.vfs.clone(), join_path(&from.path, &action.path))
+                            .with_remote(from.remote),
+                        Endpoint::new(dest.vfs.clone(), dest_path).with_remote(dest.remote),
                         action.size,
                     )
                     .await;
             }
-            SyncActionKind::DeleteFile => target.vfs.remove_file(&target_path).await?,
-            SyncActionKind::DeleteDir => target.vfs.remove_dir_all(&target_path).await?,
+            SyncActionKind::DeleteFile => dest.vfs.remove_file(&dest_path).await?,
+            SyncActionKind::DeleteDir => dest.vfs.remove_dir_all(&dest_path).await?,
         }
     }
     Ok(())
@@ -946,7 +1109,7 @@ mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(plan.copy_files, 1);
+        assert_eq!(plan.up_files, 1);
         assert_eq!(plan.delete_entries, 1);
 
         let source = Endpoint::new(local.clone(), src.to_string_lossy());
@@ -968,6 +1131,56 @@ mod tests {
         }
         assert!(dst.join("keep.txt").exists());
         assert!(!dst.join("stale.txt").exists());
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn two_way_sync_copies_both_directions_and_reports_conflicts() {
+        let root = temp_dir("twoway");
+        let src = root.join("src");
+        let dst = root.join("dst");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::create_dir_all(&dst).unwrap();
+        std::fs::write(src.join("only-source.txt"), b"up").unwrap();
+        std::fs::write(dst.join("only-target.txt"), b"down").unwrap();
+        std::fs::write(src.join("clash.txt"), b"left").unwrap();
+        std::fs::write(dst.join("clash.txt"), b"right-side").unwrap();
+
+        let local = Arc::new(LocalFs);
+        let src_str = src.to_string_lossy().to_string();
+        let dst_str = dst.to_string_lossy().to_string();
+        let plan = preview_sync_two_way(local.as_ref(), &src_str, local.as_ref(), &dst_str)
+            .await
+            .unwrap();
+        assert!(plan.two_way);
+        assert_eq!(plan.up_files, 1);
+        assert_eq!(plan.down_files, 1);
+        assert_eq!(plan.conflicts.len(), 1);
+        assert_eq!(plan.conflicts[0].path, "clash.txt");
+        assert_eq!(plan.conflicts[0].reason, ConflictReason::ContentDiffers);
+        assert_eq!(plan.actions.len(), 2);
+
+        let source = Endpoint::new(local.clone(), src_str);
+        let target = Endpoint::new(local, dst_str);
+        let manager = TransferManager::default();
+        apply_sync(&manager, &source, &target, &plan, "twoway")
+            .await
+            .unwrap();
+        for _ in 0..200 {
+            if manager
+                .list()
+                .await
+                .iter()
+                .all(|job| job.status.is_finished())
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert_eq!(std::fs::read(dst.join("only-source.txt")).unwrap(), b"up");
+        assert_eq!(std::fs::read(src.join("only-target.txt")).unwrap(), b"down");
+        assert_eq!(std::fs::read(src.join("clash.txt")).unwrap(), b"left");
+        assert_eq!(std::fs::read(dst.join("clash.txt")).unwrap(), b"right-side");
         std::fs::remove_dir_all(&root).unwrap();
     }
 }

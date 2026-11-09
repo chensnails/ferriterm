@@ -159,10 +159,10 @@ async fn run() -> Result<(), String> {
         false,
     )
     .await?;
-    if plan.copy_files != 2 || plan.create_dirs == 0 {
+    if plan.up_files != 2 || plan.create_dirs == 0 {
         return Err(format!(
             "unexpected sync plan: {} dirs, {} files",
-            plan.create_dirs, plan.copy_files
+            plan.create_dirs, plan.up_files
         ));
     }
     ft_transfer::apply_sync(
@@ -173,7 +173,7 @@ async fn run() -> Result<(), String> {
         "sync",
     )
     .await?;
-    wait_jobs(&manager, 3 + plan.copy_files).await?;
+    wait_jobs(&manager, 3 + plan.up_files).await?;
     let synced = ft_vfs::read_text(&*sftp_vfs, &format!("{sync_target}/a.txt"), 4096).await?;
     if synced.content != "alpha\n" {
         return Err("synced file mismatch".into());

@@ -1198,10 +1198,20 @@ pub async fn sync_preview(
     source_path: String,
     target_session: Option<String>,
     target_path: String,
+    two_way: bool,
     delete_extra: bool,
 ) -> Result<ft_transfer::SyncPlan, String> {
     let source = resolve_vfs(&sessions, &runtime, source_session.as_deref()).await?;
     let target = resolve_vfs(&sessions, &runtime, target_session.as_deref()).await?;
+    if two_way {
+        return ft_transfer::preview_sync_two_way(
+            source.as_ref(),
+            &source_path,
+            target.as_ref(),
+            &target_path,
+        )
+        .await;
+    }
     ft_transfer::preview_sync(
         source.as_ref(),
         &source_path,
@@ -1217,27 +1227,19 @@ pub async fn sync_apply(
     sessions: State<'_, SessionRegistry>,
     runtime: State<'_, SshRuntimeState>,
     source_session: Option<String>,
-    source_path: String,
     target_session: Option<String>,
-    target_path: String,
-    delete_extra: bool,
+    plan: ft_transfer::SyncPlan,
 ) -> Result<ft_transfer::SyncPlan, String> {
     let source = ft_transfer::Endpoint::new(
         resolve_vfs(&sessions, &runtime, source_session.as_deref()).await?,
-        source_path,
-    );
+        plan.source_root.clone(),
+    )
+    .with_remote(source_session.as_deref().map_or(false, |id| !id.is_empty()));
     let target = ft_transfer::Endpoint::new(
         resolve_vfs(&sessions, &runtime, target_session.as_deref()).await?,
-        target_path,
-    );
-    let plan = ft_transfer::preview_sync(
-        source.vfs.as_ref(),
-        &source.path,
-        target.vfs.as_ref(),
-        &target.path,
-        delete_extra,
+        plan.target_root.clone(),
     )
-    .await?;
+    .with_remote(target_session.as_deref().map_or(false, |id| !id.is_empty()));
     let prefix = format!(
         "sync-{}",
         std::time::SystemTime::now()

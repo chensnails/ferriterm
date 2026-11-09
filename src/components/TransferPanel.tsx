@@ -358,6 +358,13 @@ export function TransferPanel() {
             </button>
             <button
               type="button"
+              disabled={!canSync}
+              onClick={() => setSyncDirection("twoway")}
+            >
+              ⇅ {t("transfer.syncTwoWay")}
+            </button>
+            <button
+              type="button"
               className="icon-btn"
               aria-label={t("common.close")}
               title={t("common.close")}

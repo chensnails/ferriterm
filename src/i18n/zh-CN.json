@@ -376,7 +376,28 @@
     "kind_deleteFile": "删除文件",
     "kind_deleteDir": "删除文件夹",
     "showPassword": "显示密码",
-    "hidePassword": "隐藏密码"
+    "hidePassword": "隐藏密码",
+    "twoWayDirection": "双向同步 {local} ⇄ {remote}",
+    "twoWayHint": "只在一侧存在的条目会复制到另一侧；两侧同名但内容不同的条目会列为冲突。",
+    "summaryTwoWay": "上传 {up} 个文件、下载 {down} 个文件，共 {bytes}，{conflicts} 项冲突",
+    "conflictsTitle": "{count} 项冲突",
+    "conflictHint": "两侧同名但内容不同，请选择要保留的版本。",
+    "conflictSides": "本机 {local} · 远端 {remote}",
+    "conflictManual": "文件与目录同名，需手动处理",
+    "keepNewer": "保留较新",
+    "keepLocal": "保留本机",
+    "keepRemote": "保留远端",
+    "skip": "跳过",
+    "sideRemote": "→ 远端",
+    "sideLocal": "→ 本机",
+    "deleteConfirmTitle": "确认删除 {count} 项",
+    "deleteConfirmHint": "下列条目只存在于目标端，取消勾选的项会被保留。",
+    "deleteConfirmButton": "删除 {count} 项",
+    "back": "返回",
+    "selectAll": "全选",
+    "selectNone": "全不选",
+    "showLess": "收起",
+    "continueButton": "跳过删除并继续"
   },
   "transfer": {
     "title": "文件传输",
@@ -438,7 +459,8 @@
     "colActions": "操作",
     "statActive": "{n} 进行中",
     "statWaiting": "{n} 等待",
-    "perSecond": "/s"
+    "perSecond": "/s",
+    "syncTwoWay": "双向"
   },
   "files": {
     "name": "名称",
