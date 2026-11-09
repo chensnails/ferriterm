@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, isTauri, type RemoteConfig } from "../api";
+import { api, isTauri, type MarketEntry, type MarketIndex, type RemoteConfig } from "../api";
 import { useAppStore, type TabNumbering } from "../store";
 import { BUILTIN_THEMES, HIGHLIGHT_COLORS } from "../theme";
 import { parseSchemeFile } from "../scheme";
@@ -134,6 +134,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const [passphrase, setPassphrase] = useState("");
   const [includeSecrets, setIncludeSecrets] = useState(false);
   const [pluginMessage, setPluginMessage] = useState("");
+  const [pluginTab, setPluginTab] = useState<"installed" | "market">(
+    "installed",
+  );
+  const [market, setMarket] = useState<MarketIndex | null>(null);
+  const [marketBusy, setMarketBusy] = useState(false);
+  const [marketBusyId, setMarketBusyId] = useState<string | null>(null);
+  const [marketMessage, setMarketMessage] = useState("");
+  const setSerialDialogOpen = useAppStore((s) => s.setSerialDialogOpen);
   const [themeMessage, setThemeMessage] = useState("");
   const [keywordDraft, setKeywordDraft] = useState("");
   const [colorDraft, setColorDraft] = useState(HIGHLIGHT_COLORS[0]);
@@ -355,6 +363,54 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       );
     } catch (err) {
       setPluginMessage(String(err));
+    }
+  };
+
+  const loadMarket = async (force = false) => {
+    if (!isTauri) {
+      setMarketMessage(t("plugins.marketDesktopOnly"));
+      return;
+    }
+    if (market && !force) return;
+    setMarketBusy(true);
+    try {
+      const index = await api.pluginMarketFetch();
+      setMarket(index);
+      setMarketMessage(index.plugins.length ? "" : t("plugins.marketEmpty"));
+    } catch (err) {
+      setMarketMessage(String(err));
+    } finally {
+      setMarketBusy(false);
+    }
+  };
+
+  const installMarket = async (entry: MarketEntry) => {
+    setMarketBusyId(entry.id);
+    try {
+      await api.pluginMarketInstall(entry.id, entry.manifestUrl);
+      await loadLanguagePacks();
+      setMarketMessage(t("plugins.marketInstalled", { name: entry.name }));
+    } catch (err) {
+      setMarketMessage(String(err));
+    } finally {
+      setMarketBusyId(null);
+    }
+  };
+
+  const uninstallPlugin = async (entry: MarketEntry) => {
+    setMarketBusyId(entry.id);
+    try {
+      const removed = await api.pluginMarketUninstall(entry.id);
+      await loadLanguagePacks();
+      setMarketMessage(
+        removed
+          ? t("plugins.marketUninstalled", { name: entry.name })
+          : t("plugins.marketNotFound", { name: entry.name }),
+      );
+    } catch (err) {
+      setMarketMessage(String(err));
+    } finally {
+      setMarketBusyId(null);
     }
   };
 
@@ -1027,13 +1083,28 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           {category === "plugins" && (
             <>
         <div className="settings-tabs">
-          <button type="button" className="settings-tab" disabled>
+          <button
+            type="button"
+            className={
+              pluginTab === "market" ? "settings-tab active" : "settings-tab"
+            }
+            aria-current={pluginTab === "market" ? "page" : undefined}
+            onClick={() => {
+              setPluginTab("market");
+              void loadMarket();
+            }}
+          >
             {t("plugins.market")}
           </button>
           <button
             type="button"
-            className="settings-tab active"
-            aria-current="page"
+            className={
+              pluginTab === "installed"
+                ? "settings-tab active"
+                : "settings-tab"
+            }
+            aria-current={pluginTab === "installed" ? "page" : undefined}
+            onClick={() => setPluginTab("installed")}
           >
             {t("plugins.installed")}
           </button>
@@ -1047,6 +1118,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             <GearIcon size={14} />
           </button>
         </div>
+        {pluginTab === "installed" && (
         <fieldset className="settings-group">
           <p className="hint">{t("plugins.hint")}</p>
           <div className="plugin-actions">
@@ -1084,6 +1156,18 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                       onClick={() => void runPlugin(plugin.id)}
                     >
                       {t("plugins.run")}
+                    </button>
+                  )}
+                  {plugin.kind === "serial" && (
+                    <button
+                      type="button"
+                      className="plugin-action"
+                      onClick={() => {
+                        setSerialDialogOpen(true);
+                        onClose();
+                      }}
+                    >
+                      {t("plugins.openSerial")}
                     </button>
                   )}
                 </li>
@@ -1127,6 +1211,105 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             </details>
           )}
         </fieldset>
+        )}
+        {pluginTab === "market" && (
+        <fieldset className="settings-group">
+          <p className="hint">{t("plugins.marketHint")}</p>
+          <div className="plugin-actions">
+            <button
+              type="button"
+              onClick={() => void loadMarket(true)}
+              disabled={marketBusy || !isTauri}
+            >
+              {marketBusy
+                ? t("plugins.marketLoading")
+                : t("plugins.marketRefresh")}
+            </button>
+          </div>
+          {marketMessage && (
+            <p className="hint sync-message">{marketMessage}</p>
+          )}
+          {market && market.plugins.length > 0 && (
+            <ul className="plugin-list">
+              {market.plugins.map((entry) => {
+                const installed = !!pluginScan?.plugins.some(
+                  (plugin) => plugin.id === entry.id,
+                );
+                const busy = marketBusyId === entry.id;
+                return (
+                  <li key={entry.id} className="plugin-row">
+                    <span className="plugin-icon">
+                      <PuzzleIcon size={16} />
+                    </span>
+                    <span className="plugin-main">
+                      <span className="plugin-name">
+                        {entry.name}
+                        {entry.version && (
+                          <span className="plugin-version">
+                            {" "}
+                            {entry.version}
+                          </span>
+                        )}
+                        {installed && (
+                          <span className="badge ok plugin-badge">
+                            {t("plugins.marketInstalledBadge")}
+                          </span>
+                        )}
+                      </span>
+                      <span className="hint plugin-desc">
+                        {entry.description ||
+                          t(`plugins.kinds.${entry.kind}`, {
+                            defaultValue: entry.kind,
+                          })}
+                        {entry.author && ` · ${entry.author}`}
+                      </span>
+                    </span>
+                    {installed ? (
+                      <span className="plugin-actions-inline">
+                        {entry.kind === "serial" && (
+                          <button
+                            type="button"
+                            className="plugin-action"
+                            disabled={busy}
+                            onClick={() => {
+                              setSerialDialogOpen(true);
+                              onClose();
+                            }}
+                          >
+                            {t("plugins.marketConnect")}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="plugin-action"
+                          disabled={busy}
+                          onClick={() => void uninstallPlugin(entry)}
+                        >
+                          {busy
+                            ? t("plugins.marketWorking")
+                            : t("plugins.marketUninstall")}
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="plugin-action"
+                        disabled={busy || !isTauri}
+                        onClick={() => void installMarket(entry)}
+                      >
+                        {busy
+                          ? t("plugins.marketWorking")
+                          : t("plugins.marketInstall")}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <p className="hint">{t("plugins.marketSource")}</p>
+        </fieldset>
+        )}
             </>
           )}
           {category === "about" && (

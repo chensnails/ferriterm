@@ -19,6 +19,7 @@ import { HostKeyPrompt } from "./components/HostKeyPrompt";
 import { KeyboardInteractivePrompt } from "./components/KeyboardInteractivePrompt";
 import { Modal } from "./components/Modal";
 import { PromptDialog } from "./components/PromptDialog";
+import { SerialDialog } from "./components/SerialDialog";
 import { ShortcutsDialog } from "./components/ShortcutsDialog";
 import { api, isTauri, onForwardError, onTransferUpdate } from "./api";
 import i18n from "./i18n";
@@ -60,6 +61,7 @@ export default function App() {
   const recordingsOpen = useAppStore((s) => s.recordingsOpen);
   const quickConnectOpen = useAppStore((s) => s.quickConnectOpen);
   const setQuickConnectOpen = useAppStore((s) => s.setQuickConnectOpen);
+  const serialDialogOpen = useAppStore((s) => s.serialDialogOpen);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const sidebarView = useAppStore((s) => s.sidebarView);
 
@@ -261,6 +263,7 @@ export default function App() {
           />
         </Modal>
       )}
+      {serialDialogOpen && <SerialDialog />}
     </>
   );
 }

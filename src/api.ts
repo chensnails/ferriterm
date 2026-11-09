@@ -4,7 +4,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 export const isTauri =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-export type SessionKind = "ssh" | "pty";
+export type SessionKind = "ssh" | "pty" | "serial";
 
 export interface Tag {
   id: string;
@@ -311,6 +311,40 @@ export interface PluginScan {
   errors: string[];
 }
 
+export interface MarketEntry {
+  id: string;
+  name: string;
+  version: string;
+  kind: string;
+  description: string;
+  author: string;
+  homepage: string;
+  manifestUrl: string;
+}
+
+export interface MarketIndex {
+  apiVersion: number;
+  updated: string;
+  plugins: MarketEntry[];
+}
+
+export type SerialParity = "none" | "odd" | "even";
+export type SerialFlowControl = "none" | "rtscts" | "xonxoff";
+
+export interface SerialConfig {
+  path: string;
+  baudRate: number;
+  dataBits: number;
+  parity: SerialParity;
+  stopBits: number;
+  flowControl: SerialFlowControl;
+}
+
+export interface SerialPortInfo {
+  path: string;
+  name: string;
+}
+
 export interface WasmRunResult {
   output: string;
   logs: string[];
@@ -576,6 +610,13 @@ export const api = {
     invoke<void>("pty_resize", { id, cols, rows }),
   ptyKill: (id: string) => invoke<void>("pty_kill", { id }),
 
+  serialListPorts: () => invoke<SerialPortInfo[]>("serial_list_ports"),
+  serialOpen: (id: string, config: SerialConfig) =>
+    invoke<void>("serial_open", { id, config }),
+  serialWrite: (id: string, data: string) =>
+    invoke<void>("serial_write", { id, data }),
+  serialClose: (id: string) => invoke<void>("serial_close", { id }),
+
   recordingStart: (id: string, title: string, cols: number, rows: number) =>
     invoke<string>("recording_start", { id, title, cols, rows }),
   recordingStop: (id: string) => invoke<string | null>("recording_stop", { id }),
@@ -701,6 +742,12 @@ export const api = {
     invoke<number>("plugin_import_commands", { packId }),
   pluginRunWasm: (id: string, payload: string) =>
     invoke<WasmRunResult>("plugin_run_wasm", { id, payload }),
+  pluginMarketFetch: (indexUrl?: string) =>
+    invoke<MarketIndex>("plugin_market_fetch", { indexUrl: indexUrl ?? null }),
+  pluginMarketInstall: (id: string, manifestUrl: string) =>
+    invoke<PluginManifest>("plugin_market_install", { id, manifestUrl }),
+  pluginMarketUninstall: (id: string) =>
+    invoke<boolean>("plugin_market_uninstall", { id }),
 
   listHosts: () => invoke<HostEntry[]>("list_hosts"),
   createHost: (input: HostInput) => invoke<void>("create_host", { input }),
@@ -712,15 +759,19 @@ export const api = {
   deleteTag: (tagId: string) => invoke<void>("delete_tag", { tagId }),
 
   write(kind: SessionKind, id: string, data: string) {
-    return kind === "ssh" ? api.sshWrite(id, data) : api.ptyWrite(id, data);
+    if (kind === "ssh") return api.sshWrite(id, data);
+    if (kind === "serial") return api.serialWrite(id, data);
+    return api.ptyWrite(id, data);
   },
   resize(kind: SessionKind, id: string, cols: number, rows: number) {
-    return kind === "ssh"
-      ? api.sshResize(id, cols, rows)
-      : api.ptyResize(id, cols, rows);
+    if (kind === "ssh") return api.sshResize(id, cols, rows);
+    if (kind === "serial") return Promise.resolve();
+    return api.ptyResize(id, cols, rows);
   },
   close(kind: SessionKind, id: string) {
-    return kind === "ssh" ? api.sshDisconnect(id) : api.ptyKill(id);
+    if (kind === "ssh") return api.sshDisconnect(id);
+    if (kind === "serial") return api.serialClose(id);
+    return api.ptyKill(id);
   },
 };
 

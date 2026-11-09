@@ -52,6 +52,7 @@ export function TabBar() {
   const windowChrome = useAppStore((s) => s.windowChrome);
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen);
   const setQuickConnectOpen = useAppStore((s) => s.setQuickConnectOpen);
+  const setSerialDialogOpen = useAppStore((s) => s.setSerialDialogOpen);
   const openSession = useAppStore((s) => s.openSession);
 
   const [newMenu, setNewMenu] = useState<{ x: number; y: number } | null>(null);
@@ -79,6 +80,11 @@ export function TabBar() {
     {
       label: t("tab.newSsh"),
       onSelect: () => setQuickConnectOpen(true),
+    },
+    {
+      label: t("tab.newSerial"),
+      disabled: !isTauri,
+      onSelect: () => setSerialDialogOpen(true),
     },
   ];
 

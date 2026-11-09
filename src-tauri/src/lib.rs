@@ -13,6 +13,7 @@ pub fn run() {
     let sessions = SessionRegistry::default();
     tauri::Builder::default()
         .manage(sessions.clone())
+        .manage(ft_serial::SerialRegistry::default())
         .manage(tokio::sync::Mutex::new(ft_monitor::Monitor::new()))
         .manage(std::sync::Arc::new(net_tools::NetToolState::default()))
         .setup(move |app| {
@@ -67,6 +68,10 @@ pub fn run() {
             commands::pty_write,
             commands::pty_resize,
             commands::pty_kill,
+            commands::serial_list_ports,
+            commands::serial_open,
+            commands::serial_write,
+            commands::serial_close,
             commands::recording_start,
             commands::recording_stop,
             commands::recording_list,
@@ -83,6 +88,9 @@ pub fn run() {
             commands::plugin_open_dir,
             commands::plugin_import_commands,
             commands::plugin_run_wasm,
+            commands::plugin_market_fetch,
+            commands::plugin_market_install,
+            commands::plugin_market_uninstall,
             commands::save_credential,
             commands::save_host_credential,
             commands::delete_credential,

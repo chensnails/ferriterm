@@ -1253,6 +1253,7 @@ dependencies = [
  "ft-plugin",
  "ft-pty",
  "ft-security",
+ "ft-serial",
  "ft-ssh",
  "ft-store",
  "ft-sync",
@@ -1436,6 +1437,16 @@ dependencies = [
  "ring",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "ft-serial"
+version = "0.1.0"
+dependencies = [
+ "ft-core",
+ "serde",
+ "serial2",
+ "tokio",
 ]
 
 [[package]]

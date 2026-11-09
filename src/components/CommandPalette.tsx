@@ -46,6 +46,11 @@ export function CommandPalette() {
         run: () =>
           store.openSession("pty", t("session.localTitle"), { type: "pty" }),
       },
+      {
+        id: "serial",
+        label: t("palette.newSerial"),
+        run: () => store.setSerialDialogOpen(true),
+      },
       ...hosts
         .filter((host) => !host.isFolder)
         .map((host) => ({

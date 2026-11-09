@@ -575,6 +575,116 @@ pub async fn plugin_run_wasm(
     })
 }
 
+const MARKET_INDEX_CAP: usize = 512 * 1024;
+const MARKET_MANIFEST_CAP: usize = 256 * 1024;
+
+/// Fetches a marketplace document. Only https URLs are accepted, and the body
+/// is read in chunks so an oversized or endless response cannot exhaust memory.
+async fn fetch_market_text(url: &str, cap: usize) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .user_agent(concat!("Ferriterm/", env!("CARGO_PKG_VERSION")))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let mut response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("marketplace request failed: {e}"))?;
+    if !response.status().is_success() {
+        return Err(format!("marketplace returned HTTP {}", response.status()));
+    }
+    if response
+        .content_length()
+        .is_some_and(|len| len as usize > cap)
+    {
+        return Err("marketplace response is too large".to_string());
+    }
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
+        if body.len() + chunk.len() > cap {
+            return Err("marketplace response is too large".to_string());
+        }
+        body.extend_from_slice(&chunk);
+    }
+    String::from_utf8(body).map_err(|_| "marketplace response is not UTF-8".to_string())
+}
+
+#[tauri::command]
+pub async fn plugin_market_fetch(
+    index_url: Option<String>,
+) -> Result<ft_plugin::MarketIndex, String> {
+    let url = index_url
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| ft_plugin::DEFAULT_MARKET_URL.to_string());
+    let raw = fetch_market_text(&url, MARKET_INDEX_CAP).await?;
+    ft_plugin::parse_market_index(&raw)
+}
+
+#[tauri::command]
+pub async fn plugin_market_install(
+    plugins: State<'_, ft_plugin::PluginRegistry>,
+    id: String,
+    manifest_url: String,
+) -> Result<ft_plugin::PluginManifest, String> {
+    let raw = fetch_market_text(&manifest_url, MARKET_MANIFEST_CAP).await?;
+    plugins.install(&id, &raw)
+}
+
+#[tauri::command]
+pub fn plugin_market_uninstall(
+    plugins: State<'_, ft_plugin::PluginRegistry>,
+    id: String,
+) -> Result<bool, String> {
+    plugins.remove(&id)
+}
+
+fn serial_plugin_installed(plugins: &ft_plugin::PluginRegistry) -> bool {
+    plugins.scan().plugins.iter().any(|plugin| {
+        plugin.kind == "serial" && plugin.permissions.iter().any(|perm| perm == "serial")
+    })
+}
+
+#[tauri::command]
+pub fn serial_list_ports() -> Result<Vec<ft_serial::SerialPortInfo>, String> {
+    ft_serial::list_ports()
+}
+#[tauri::command]
+pub async fn serial_open(
+    app: AppHandle,
+    plugins: State<'_, ft_plugin::PluginRegistry>,
+    state: State<'_, ft_serial::SerialRegistry>,
+    recorders: State<'_, RecorderRegistry>,
+    id: String,
+    config: ft_serial::SerialConfig,
+) -> Result<(), String> {
+    if !serial_plugin_installed(&plugins) {
+        return Err("serial support requires the Serial Ports plugin".to_string());
+    }
+    let sink = Arc::new(TauriSink {
+        app,
+        recorders: recorders.inner().clone(),
+    });
+    ft_serial::open(sink, &state, id, config).await
+}
+
+#[tauri::command]
+pub async fn serial_write(
+    state: State<'_, ft_serial::SerialRegistry>,
+    id: String,
+    data: String,
+) -> Result<(), String> {
+    ft_serial::write(&state, &id, data).await
+}
+
+#[tauri::command]
+pub async fn serial_close(
+    state: State<'_, ft_serial::SerialRegistry>,
+    id: String,
+) -> Result<(), String> {
+    ft_serial::close(&state, &id).await
+}
+
 #[tauri::command]
 pub fn export_backup(
     backups: State<'_, ft_sync::BackupStore>,
@@ -2022,6 +2132,7 @@ pub async fn transfer_clear_finished(runtime: State<'_, SshRuntimeState>) -> Res
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn sync_preview(
     sessions: State<'_, SessionRegistry>,
     runtime: State<'_, SshRuntimeState>,
@@ -2065,13 +2176,13 @@ pub async fn sync_apply(
         resolve_vfs(&sessions, &runtime, source_session.as_deref()).await?,
         plan.source_root.clone(),
     )
-    .with_remote(source_session.as_deref().map_or(false, |id| !id.is_empty()))
+    .with_remote(source_session.as_deref().is_some_and(|id| !id.is_empty()))
     .with_session(source_session.clone());
     let target = ft_transfer::Endpoint::new(
         resolve_vfs(&sessions, &runtime, target_session.as_deref()).await?,
         plan.target_root.clone(),
     )
-    .with_remote(target_session.as_deref().map_or(false, |id| !id.is_empty()))
+    .with_remote(target_session.as_deref().is_some_and(|id| !id.is_empty()))
     .with_session(target_session.clone());
     let prefix = format!(
         "sync-{}",
@@ -2082,4 +2193,43 @@ pub async fn sync_apply(
     );
     ft_transfer::apply_sync(&runtime.transfers, &source, &target, &plan, &prefix).await?;
     Ok(plan)
+}
+
+#[cfg(test)]
+mod market_tests {
+    use super::*;
+
+    /// Hits the published marketplace so a broken index or moved manifest is
+    /// caught before release. Not part of the normal suite because it needs
+    /// network access.
+    #[tokio::test]
+    #[ignore = "requires network access to the live GitHub marketplace"]
+    async fn installs_the_serial_plugin_from_the_live_marketplace() {
+        let raw = fetch_market_text(ft_plugin::DEFAULT_MARKET_URL, MARKET_INDEX_CAP)
+            .await
+            .unwrap();
+        let index = ft_plugin::parse_market_index(&raw).unwrap();
+        let entry = index
+            .plugins
+            .iter()
+            .find(|entry| entry.kind == "serial")
+            .expect("marketplace lists the serial plugin");
+        let manifest = fetch_market_text(&entry.manifest_url, MARKET_MANIFEST_CAP)
+            .await
+            .unwrap();
+
+        let dir = std::env::temp_dir().join(format!(
+            "ferriterm-market-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let registry = ft_plugin::PluginRegistry::new(&dir);
+        let installed = registry.install(&entry.id, &manifest).unwrap();
+        assert_eq!(installed.kind, "serial");
+        assert!(registry.scan().plugins.iter().any(|p| p.id == entry.id));
+        assert!(registry.remove(&entry.id).unwrap());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

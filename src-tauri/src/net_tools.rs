@@ -166,9 +166,7 @@ where
             Ok(0) | Err(_) => break,
             Ok(_) => {
                 let text = decode(&buffer);
-                let line = text
-                    .trim_end_matches(|c| c == '\r' || c == '\n')
-                    .to_string();
+                let line = text.trim_end_matches(['\r', '\n']).to_string();
                 let _ = app.emit(
                     OUTPUT_EVENT,
                     OutputChunk {

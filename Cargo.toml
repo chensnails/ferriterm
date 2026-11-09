@@ -5,6 +5,7 @@ members = [
   "crates/ft-core",
   "crates/ft-ssh",
   "crates/ft-pty",
+  "crates/ft-serial",
   "crates/ft-store",
   "crates/ft-security",
   "crates/ft-import",
@@ -24,6 +25,7 @@ rust-version = "1.85"
 ft-core = { path = "crates/ft-core" }
 ft-ssh = { path = "crates/ft-ssh" }
 ft-pty = { path = "crates/ft-pty" }
+ft-serial = { path = "crates/ft-serial" }
 ft-store = { path = "crates/ft-store" }
 ft-security = { path = "crates/ft-security" }
 ft-import = { path = "crates/ft-import" }
@@ -37,6 +39,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 russh = { version = "0.65", default-features = false, features = ["ring", "flate2", "rsa"] }
 portable-pty = "0.9"
+serial2 = "0.2"
 rusqlite = { version = "0.41", features = ["bundled"] }
 
 [profile.release]

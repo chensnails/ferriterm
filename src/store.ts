@@ -8,6 +8,7 @@ import {
   type SshConnectArgs,
   type Tag,
   type PluginScan,
+  type SerialConfig,
   type TransferJob,
 } from "./api";
 import { buildConnectArgs } from "./connect";
@@ -114,7 +115,8 @@ export interface ExecLogEntry {
 
 export type PendingConnect =
   | { type: "ssh"; args: Omit<SshConnectArgs, "cols" | "rows"> }
-  | { type: "pty" };
+  | { type: "pty" }
+  | { type: "serial"; config: SerialConfig };
 
 export interface SessionMeta {
   id: string;
@@ -350,6 +352,8 @@ interface AppState {
   goHome: () => void;
   quickConnectOpen: boolean;
   setQuickConnectOpen: (open: boolean) => void;
+  serialDialogOpen: boolean;
+  setSerialDialogOpen: (open: boolean) => void;
   transfers: TransferJob[];
   upsertTransfer: (job: TransferJob) => void;
   setTransfers: (jobs: TransferJob[]) => void;
@@ -596,6 +600,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   transferSessionId: null,
   transferTabs: [],
   quickConnectOpen: false,
+  serialDialogOpen: false,
   transfers: [],
   keepaliveSecs: 30,
   autoLockMinutes: 0,
@@ -688,6 +693,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }),
   goHome: () => set({ activeId: HOME_TAB }),
   setQuickConnectOpen: (open) => set({ quickConnectOpen: open }),
+  setSerialDialogOpen: (open) => set({ serialDialogOpen: open }),
   upsertTransfer: (job) =>
     set((s) => {
       const exists = s.transfers.some((item) => item.id === job.id);
@@ -860,7 +866,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   saveLayout: () => {
     if (!isTauri) return;
     const state = get();
-    const live = state.sessions.filter((session) => !session.closed);
+    // Serial devices are usually unplugged between runs, so they are not
+    // restored; leaving them out keeps the saved indices pointing at tabs
+    // that can actually come back.
+    const live = state.sessions.filter(
+      (session) => !session.closed && session.kind !== "serial",
+    );
     const entries: StoredSession[] = live.map(
       ({ kind, title, hostId, production }) => ({
         kind,

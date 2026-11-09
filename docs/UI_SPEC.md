@@ -124,13 +124,14 @@ Single main window:
 | ContextMenu | keyboard navigable, submenu support, customizable entries | `--bg-elevated`, `--radius-md` |
 | TagManagerDialog | create/rename/recolor/delete tags; deleting detaches from hosts | `--bg-panel`, `--tag-*` |
 | CommandPalette | fuzzy actions, Ctrl+Shift+P | `--bg-elevated` |
-| SettingsCenter | floating dialog; left category nav (General/Credentials/Terminal/Keyboard/Transfer/Plugins/Sync/About) + scrolling pane; 12 built-in themes (each with a full ANSI palette) plus iTerm2/TOML scheme import; terminal pane offers bundled font presets, custom stacks and a live preview; credentials section manages the vault | `--settings-w`, `--settings-h`, `--settings-nav-w` |
+| SettingsCenter | floating dialog; left category nav (General/Credentials/Terminal/Keyboard/Transfer/Plugins/Sync/About) + scrolling pane; 12 built-in themes (each with a full ANSI palette) plus iTerm2/TOML scheme import; terminal pane offers bundled font presets, custom stacks and a live preview; credentials section manages the vault; the Plugins pane has Installed and Market tabs, the market listing coming from the GitHub-hosted index | `--settings-w`, `--settings-h`, `--settings-nav-w` |
 | CredentialVault | Settings › Credentials pane: vault mode badge (keychain / master password), lock state, unlock/enable/disable/change/reset actions, auto-lock selector, per-host stored-secret list with delete/clear, recent access log | `--bg-panel`, `--radius-md`, `--danger` |
 | KeyManagerDialog | list managed keys (name, algorithm, SHA256 fingerprint, comment, passphrase badge); import from `~/.ssh` scan, a file path, pasted OpenSSH text with live inspection, or generate ed25519/RSA; copy public key; delete | `--dialog-w`, `--font-mono`, `--row-h` |
 | KnownHostsDialog | list trusted host keys (host, port, algorithm, fingerprint) with remove action, opened from the credentials section | `--dialog-w`, `--font-mono`, `--danger` |
 | UnlockDialog | master-password entry on startup or when a connect needs a locked vault; wrong-password feedback and cancel | `--dialog-w`, `--control-h`, `--danger` |
 | TerminalView | xterm.js host; theme mapped from tokens; inline history suggestion with ghost text and prompt-anchored dropdown; OSC 52 clipboard writes; configurable keyword tinting | `--font-terminal`, `--bg-base`, `--suggest-w`, `--tag-*` |
 | RecordingsDialog | list of stored `.cast` files (title, date, length, size); read-only replay with play/pause, restart, seek and 1×/2×/4× speed | `--recordings-list-w`, `--player-h`, `--bg-base` |
+| SerialDialog | port picker from detected devices with refresh, baud-rate presets, 2×2 grid for data bits / stop bits / parity / flow control; warns when the serial plugin is missing or the app runs outside the desktop shell; Connect stays disabled without a port | `--dialog-w`, `--serial-grid`, `--control-h` |
 | StatusStrip / Toast | connection state, transient errors | `--font-ui-sm` |
 
 ## 4. Screen specs and acceptance checklists
@@ -163,6 +164,7 @@ Acceptance = perform each path in Ferriterm and in the reference install; record
 - [ ] Keywords configured in settings tint matching output text (case-insensitive) and take effect on open sessions immediately.
 - [ ] Closing a session tab prompts only when a process is running (configurable).
 - [ ] Floating SFTP/monitor panels open above terminal without hiding tabs.
+- [ ] Serial tabs reconnect nothing on launch: layout snapshots keep SSH and local tabs but drop serial ones, since devices are often unplugged.
 
 ### 4.3 Connect dialog / properties
 
@@ -205,6 +207,17 @@ Acceptance = perform each path in Ferriterm and in the reference install; record
 - [ ] Jump-host hops resolve their own saved password, passphrase or managed key.
 - [ ] Known-hosts dialog lists entries with fingerprints and removes a selected entry; the next connect prompts for that host again.
 - [ ] Backup and remote sync include secrets only when the "include credentials" option is on; importing restores them into the vault.
+
+### 4.7 Serial sessions and the plugin marketplace
+
+- [ ] New Serial… appears in the tab-bar new-tab menu and the command palette; it stays disabled outside the desktop shell.
+- [ ] The serial dialog lists detected ports with a refresh action, accepts a typed device path, and offers baud, data-bit, stop-bit, parity and flow-control choices.
+- [ ] Connecting opens a normal terminal tab titled `<port> · <baud>`; keystrokes reach the device and device output renders in the tab.
+- [ ] Nothing is written to the serial port until the Serial Ports plugin (kind `serial`, permission `serial`) is installed; without it the dialog and backend both explain why.
+- [ ] Settings › Plugins › Market loads the index from the GitHub repository, shows name, version, author and description, and marks already-installed entries.
+- [ ] Install fetches the manifest, validates it, writes it to the plugin directory and refreshes the installed list; uninstall removes it after confirmation.
+- [ ] Marketplace fetches accept only https URLs, reject loopback hosts, cap the response size and validate every field before installing.
+- [ ] With the serial plugin installed, its Installed row offers Connect… which opens the serial dialog.
 
 ## 5. Phase maintenance rule
 

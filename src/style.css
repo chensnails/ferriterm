@@ -2669,6 +2669,23 @@ mark {
   border-color: var(--accent);
 }
 
+.plugin-actions-inline {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-1);
+}
+
+.plugin-badge {
+  margin-left: var(--space-2);
+  vertical-align: middle;
+}
+
+.serial-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
 .settings-pane .plugin-actions button,
 .settings-pane .highlight-form button {
   height: var(--control-h);

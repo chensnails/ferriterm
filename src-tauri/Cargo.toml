@@ -20,6 +20,7 @@ tokio = { workspace = true, features = ["fs", "io-util", "process"] }
 ft-core.workspace = true
 ft-ssh.workspace = true
 ft-pty.workspace = true
+ft-serial.workspace = true
 ft-store.workspace = true
 ft-security.workspace = true
 ft-import.workspace = true

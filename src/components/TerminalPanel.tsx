@@ -40,7 +40,9 @@ export function TerminalPanel({
         const connect =
           pending.type === "ssh"
             ? api.sshConnect(session.id, { ...pending.args, cols, rows })
-            : api.ptySpawn(session.id, cols, rows);
+            : pending.type === "serial"
+              ? api.serialOpen(session.id, pending.config)
+              : api.ptySpawn(session.id, cols, rows);
         connect
           .then(() => setStatus(""))
           .catch((err) => {

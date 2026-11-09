@@ -14,7 +14,14 @@ pub use wasm::{run as run_wasm, WasmLimits, WasmRun};
 
 pub const API_VERSION: u32 = 1;
 const MAX_STRING_LEN: usize = 8 * 1024;
-const PERMISSIONS: &[&str] = &["network", "filesystem", "clipboard"];
+const PERMISSIONS: &[&str] = &["network", "filesystem", "clipboard", "serial"];
+const KINDS: &[&str] = &["language", "theme", "command-pack", "wasm", "serial"];
+const MAX_MARKET_ENTRIES: usize = 200;
+
+/// Index of the community marketplace. It is a plain JSON file served from
+/// the repository's default branch, so publishing a plugin needs no server.
+pub const DEFAULT_MARKET_URL: &str =
+    "https://raw.githubusercontent.com/chensnails/ferriterm-plugins/main/index.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -106,6 +113,105 @@ pub struct PluginScan {
     pub errors: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketEntry {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub version: String,
+    pub kind: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub author: String,
+    #[serde(default)]
+    pub homepage: String,
+    pub manifest_url: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketIndex {
+    #[serde(default = "default_api_version")]
+    pub api_version: u32,
+    #[serde(default)]
+    pub updated: String,
+    #[serde(default)]
+    pub plugins: Vec<MarketEntry>,
+}
+
+/// Parses and validates a marketplace index. Everything that reaches the
+/// install path is checked here first: ids, kinds, and https manifest URLs.
+pub fn parse_market_index(raw: &str) -> Result<MarketIndex, String> {
+    let index: MarketIndex =
+        serde_json::from_str(raw).map_err(|e| format!("invalid marketplace index: {e}"))?;
+    if index.api_version != API_VERSION {
+        return Err(format!(
+            "unsupported marketplace apiVersion {} (expected {API_VERSION})",
+            index.api_version
+        ));
+    }
+    if index.plugins.len() > MAX_MARKET_ENTRIES {
+        return Err("marketplace index has too many entries".to_string());
+    }
+    let mut ids = BTreeSet::new();
+    for entry in &index.plugins {
+        validate_id(&entry.id)?;
+        if !ids.insert(entry.id.as_str()) {
+            return Err(format!("duplicate marketplace id {}", entry.id));
+        }
+        if !KINDS.contains(&entry.kind.as_str()) {
+            return Err(format!("unsupported plugin kind {}", entry.kind));
+        }
+        if entry.name.trim().is_empty() || entry.name.len() > 128 {
+            return Err(format!("marketplace entry {} needs a name", entry.id));
+        }
+        if !entry.description.is_empty() && entry.description.len() > MAX_STRING_LEN {
+            return Err(format!(
+                "marketplace entry {} has a long description",
+                entry.id
+            ));
+        }
+        validate_https_url(&entry.manifest_url)?;
+        if !entry.homepage.is_empty() {
+            validate_https_url(&entry.homepage)?;
+        }
+    }
+    Ok(index)
+}
+
+fn validate_https_url(url: &str) -> Result<(), String> {
+    if url.len() > 2048 {
+        return Err("URL is too long".to_string());
+    }
+    let rest = url
+        .strip_prefix("https://")
+        .ok_or_else(|| format!("URL must use https: {url}"))?;
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    let host_port = authority
+        .rsplit_once('@')
+        .map_or(authority, |(_, rest)| rest);
+    let host = match host_port.rsplit_once(':') {
+        Some((host, port)) if port.chars().all(|ch| ch.is_ascii_digit()) => host,
+        _ => host_port,
+    };
+    let host_lower = host.to_ascii_lowercase();
+    let looks_public = !host.is_empty()
+        && host
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '.' | '-'))
+        && !matches!(host_lower.as_str(), "localhost" | "127.0.0.1" | "0.0.0.0")
+        && !host_lower.starts_with("127.")
+        && !host_lower.ends_with(".local")
+        && !host_lower.ends_with(".localhost");
+    if looks_public {
+        Ok(())
+    } else {
+        Err(format!("URL must point at a public host: {url}"))
+    }
+}
+
 pub struct PluginRegistry {
     dir: PathBuf,
 }
@@ -169,7 +275,7 @@ impl PluginRegistry {
                 PluginBody::Language(pack) => scan.packs.push(pack),
                 PluginBody::Theme(pack) => scan.themes.push(pack),
                 PluginBody::Commands(pack) => scan.command_packs.push(pack),
-                PluginBody::Wasm => {}
+                PluginBody::Wasm | PluginBody::Serial => {}
             }
         }
         scan
@@ -199,6 +305,79 @@ impl PluginRegistry {
         }
         Err(format!("plugin {id} not found"))
     }
+
+    /// Validates a manifest fetched from the marketplace and writes it into the
+    /// plugin directory as `<id>.json`. The temp file + rename keeps a partial
+    /// download from ever looking installed.
+    pub fn install(&self, expected_id: &str, raw: &str) -> Result<PluginManifest, String> {
+        validate_id(expected_id)?;
+        if raw.len() > 256 * 1024 {
+            return Err("plugin manifest is too large".to_string());
+        }
+        fs::create_dir_all(&self.dir).map_err(|e| e.to_string())?;
+        let temp = self.dir.join(format!(".{expected_id}.installing"));
+        fs::write(&temp, raw).map_err(|e| e.to_string())?;
+        let loaded = match load_plugin(&temp) {
+            Ok(loaded) => loaded,
+            Err(err) => {
+                let _ = fs::remove_file(&temp);
+                return Err(err);
+            }
+        };
+        if loaded.manifest.id != expected_id {
+            let _ = fs::remove_file(&temp);
+            return Err(format!(
+                "manifest id {} does not match the marketplace entry {expected_id}",
+                loaded.manifest.id
+            ));
+        }
+        let target = self.dir.join(format!("{expected_id}.json"));
+        if target.is_dir() {
+            let _ = fs::remove_file(&temp);
+            return Err(format!(
+                "{} is a directory; remove it from the plugin folder first",
+                target.display()
+            ));
+        }
+        fs::rename(&temp, &target).map_err(|err| {
+            let _ = fs::remove_file(&temp);
+            err.to_string()
+        })?;
+        Ok(loaded.manifest)
+    }
+
+    /// Removes the manifest (file or directory package) whose id matches.
+    pub fn remove(&self, id: &str) -> Result<bool, String> {
+        validate_id(id)?;
+        let entries = match fs::read_dir(&self.dir) {
+            Ok(entries) => entries,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            Err(err) => return Err(err.to_string()),
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let manifest_path = if path.is_dir() {
+                path.join("manifest.json")
+            } else if path.extension().and_then(|ext| ext.to_str()) == Some("json") {
+                path.clone()
+            } else {
+                continue;
+            };
+            let Ok(loaded) = load_plugin(&manifest_path) else {
+                continue;
+            };
+            if loaded.manifest.id != id {
+                continue;
+            }
+            if path.is_dir() {
+                fs::remove_dir_all(&path).map_err(|e| e.to_string())?;
+            } else {
+                fs::remove_file(&path).map_err(|e| e.to_string())?;
+            }
+            return Ok(true);
+        }
+        Ok(false)
+    }
 }
 
 struct LoadedPlugin {
@@ -211,6 +390,7 @@ enum PluginBody {
     Theme(ThemePack),
     Commands(CommandPack),
     Wasm,
+    Serial,
 }
 
 fn load_plugin(path: &Path) -> Result<LoadedPlugin, String> {
@@ -277,6 +457,18 @@ fn load_plugin(path: &Path) -> Result<LoadedPlugin, String> {
             PluginBody::Commands(pack)
         }
         "wasm" => PluginBody::Wasm,
+        // Serial is a built-in transport unlocked by this manifest; the plugin
+        // itself contributes no data, only the permission.
+        "serial" => {
+            if !value
+                .get("permissions")
+                .and_then(|v| v.as_array())
+                .is_some_and(|list| list.iter().any(|item| item.as_str() == Some("serial")))
+            {
+                return Err("serial plugin needs the serial permission".to_string());
+            }
+            PluginBody::Serial
+        }
         other => return Err(format!("unsupported plugin kind {other}")),
     };
     let manifest = manifest_from(&value, entry);
@@ -486,6 +678,85 @@ mod tests {
         let scan = PluginRegistry::new(&dir).scan();
         assert!(scan.plugins.is_empty());
         assert_eq!(scan.errors.len(), 2);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_serial_plugins_only_with_permission() {
+        let dir = temp_dir("serial");
+        fs::write(
+            dir.join("serial.json"),
+            r#"{"id":"serial","name":"Serial Ports","kind":"serial","permissions":["serial"]}"#,
+        )
+        .unwrap();
+        fs::write(
+            dir.join("nope.json"),
+            r#"{"id":"nope","name":"Nope","kind":"serial"}"#,
+        )
+        .unwrap();
+        let scan = PluginRegistry::new(&dir).scan();
+        assert_eq!(scan.plugins.len(), 1);
+        assert_eq!(scan.plugins[0].kind, "serial");
+        assert_eq!(scan.errors.len(), 1);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn parses_and_validates_marketplace_index() {
+        let raw = r#"{
+          "apiVersion": 1,
+          "updated": "2026-11-09",
+          "plugins": [{
+            "id": "serial",
+            "name": "Serial Ports",
+            "version": "1.0.0",
+            "kind": "serial",
+            "manifestUrl": "https://raw.githubusercontent.com/chensnails/ferriterm-plugins/main/plugins/serial/manifest.json"
+          }]
+        }"#;
+        let index = parse_market_index(raw).unwrap();
+        assert_eq!(index.plugins.len(), 1);
+        assert_eq!(index.plugins[0].id, "serial");
+
+        assert!(parse_market_index(
+            r#"{"apiVersion":1,"plugins":[{"id":"a","name":"A","kind":"serial","manifestUrl":"http://example.com/a.json"}]}"#
+        )
+        .is_err());
+        assert!(parse_market_index(
+            r#"{"apiVersion":1,"plugins":[{"id":"a","name":"A","kind":"serial","manifestUrl":"https://localhost/a.json"}]}"#
+        )
+        .is_err());
+        assert!(parse_market_index(
+            r#"{"apiVersion":1,"plugins":[
+                {"id":"a","name":"A","kind":"serial","manifestUrl":"https://example.com/a.json"},
+                {"id":"a","name":"B","kind":"serial","manifestUrl":"https://example.com/b.json"}
+            ]}"#
+        )
+        .is_err());
+        assert!(parse_market_index(
+            r#"{"apiVersion":1,"plugins":[{"id":"a","name":"A","kind":"root","manifestUrl":"https://example.com/a.json"}]}"#
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn installs_and_removes_marketplace_manifests() {
+        let dir = temp_dir("install");
+        let registry = PluginRegistry::new(&dir);
+        let manifest =
+            r#"{"id":"serial","name":"Serial Ports","kind":"serial","permissions":["serial"]}"#;
+        let installed = registry.install("serial", manifest).unwrap();
+        assert_eq!(installed.id, "serial");
+        assert!(dir.join("serial.json").is_file());
+        assert_eq!(registry.scan().plugins.len(), 1);
+
+        assert!(registry.install("other", manifest).is_err());
+        assert!(!dir.join("other.json").is_file());
+        assert!(registry.install("../escape", manifest).is_err());
+
+        assert!(registry.remove("serial").unwrap());
+        assert!(!dir.join("serial.json").exists());
+        assert!(!registry.remove("serial").unwrap());
         let _ = fs::remove_dir_all(&dir);
     }
 }

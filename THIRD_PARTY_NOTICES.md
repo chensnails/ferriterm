@@ -19,10 +19,12 @@ attribution. Versions reflect the current lockfiles.
 | tauri-build | 2.7.4 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
 | russh | 0.65.1 | Apache-2.0 | https://github.com/Eugeny/russh |
 | portable-pty | 0.9.0 | MIT | https://github.com/wezterm/wezterm |
+| serial2 | 0.2.39 | MIT | https://github.com/de-vrije/serial2 |
 | rusqlite | 0.41.1 | MIT | https://github.com/rusqlite/rusqlite |
 | tokio | 1.54.1 | MIT | https://github.com/tokio-rs/tokio |
 | serde | 1.0.229 | MIT OR Apache-2.0 | https://github.com/serde-rs/serde |
 | serde_json | 1.0.154 | MIT OR Apache-2.0 | https://github.com/serde-rs/json |
+| reqwest | 0.13.5 | MIT OR Apache-2.0 | https://github.com/seanmonstar/reqwest |
 
 Notable transitive components:
 
