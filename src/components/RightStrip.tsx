@@ -4,8 +4,9 @@ import { FilesIcon, ListIcon, LogIcon, PulseIcon } from "./icons";
 import { RailButton } from "./ui";
 
 /**
- * Right tool strip: one toggle per existing companion panel. The dot on the
- * transfer slot is driven by real queued jobs, not by a decorative state.
+ * Right tool strip: file transfer on top, then one toggle per companion panel.
+ * The dot on the transfer slot is driven by real queued jobs, not by a
+ * decorative state.
  */
 export function RightStrip() {
   const { t } = useTranslation();
@@ -17,8 +18,10 @@ export function RightStrip() {
   const toggleExecLog = useAppStore((s) => s.toggleExecLog);
   const activeId = useAppStore((s) => s.activeId);
   const openTransfer = useAppStore((s) => s.openTransfer);
+  const closeTransfer = useAppStore((s) => s.closeTransfer);
   const transfers = useAppStore((s) => s.transfers);
 
+  const transferActive = activeId === TRANSFER_TAB;
   const busy = transfers.some(
     (job) =>
       job.status === "running" ||
@@ -28,6 +31,20 @@ export function RightStrip() {
 
   return (
     <nav className="tool-strip" aria-label={t("nav.panels")}>
+      <div className="strip-group">
+        <RailButton
+          label={t("transfer.open")}
+          active={transferActive}
+          badge={busy}
+          badgeLabel={t("nav.activeTask")}
+          onClick={() => (transferActive ? closeTransfer() : openTransfer())}
+        >
+          <FilesIcon size={18} />
+        </RailButton>
+      </div>
+
+      <div className="strip-divider" />
+
       <div className="strip-group">
         <RailButton
           label={t("commands.title")}
@@ -49,20 +66,6 @@ export function RightStrip() {
           onClick={toggleExecLog}
         >
           <LogIcon size={18} />
-        </RailButton>
-      </div>
-
-      <div className="strip-divider" />
-
-      <div className="strip-group">
-        <RailButton
-          label={t("nav.queue")}
-          active={activeId === TRANSFER_TAB}
-          badge={busy}
-          badgeLabel={t("nav.activeTask")}
-          onClick={() => openTransfer()}
-        >
-          <FilesIcon size={18} />
         </RailButton>
       </div>
     </nav>

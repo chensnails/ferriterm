@@ -8,11 +8,10 @@
   "nav": {
     "modules": "Workspace modules",
     "panels": "Side panels",
-    "terminal": "Terminal workspace",
-    "queue": "Transfer queue",
-    "activeTask": "A transfer is in progress",
-    "collapse": "Collapse the tool island",
-    "expand": "Expand the tool island"
+    "hosts": "Host list",
+    "showHosts": "Show the host list",
+    "toolsReserved": "Tool list (reserved)",
+    "activeTask": "A transfer is in progress"
   },
   "home": {
     "tagline": "Cross-platform SSH terminal and file transfer"

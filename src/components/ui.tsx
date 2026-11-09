@@ -208,6 +208,7 @@ export function RailButton({
   pressed,
   badge = false,
   badgeLabel,
+  disabled = false,
   onClick,
   children,
 }: {
@@ -216,6 +217,8 @@ export function RailButton({
   pressed?: boolean;
   badge?: boolean;
   badgeLabel?: string;
+  /** Reserved slots stay visible but cannot be activated yet. */
+  disabled?: boolean;
   onClick: () => void;
   children: ReactNode;
 }) {
@@ -230,6 +233,7 @@ export function RailButton({
       // Toggle slots expose aria-pressed; module slots expose aria-current.
       aria-current={pressed === undefined && active ? "page" : undefined}
       aria-pressed={pressed}
+      disabled={disabled}
       onClick={onClick}
     >
       {children}

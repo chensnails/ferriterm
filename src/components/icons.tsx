@@ -81,8 +81,8 @@ export function FolderIcon({ size = 14 }: { size?: number }) {
 export function GearIcon({ size = 14 }: { size?: number }) {
   return (
     <svg {...base(size)}>
-      <circle cx="8" cy="8" r="2.2" />
-      <path d="M8 2.2v1.4M8 12.4v1.4M2.2 8h1.4M12.4 8h1.4M3.9 3.9l1 1M11.1 11.1l1 1M12.1 3.9l-1 1M4.9 11.1l-1 1" />
+      <path d="M14.79 6.31 14.79 9.69 13.01 9.73 12.76 10.32 14 11.61 11.61 14 10.32 12.76 9.73 13.01 9.69 14.79 6.31 14.79 6.27 13.01 5.68 12.76 4.39 14 2 11.61 3.24 10.32 2.99 9.73 1.21 9.69 1.21 6.31 2.99 6.27 3.24 5.68 2 4.39 4.39 2 5.68 3.24 6.27 2.99 6.31 1.21 9.69 1.21 9.73 2.99 10.32 3.24 11.61 2 14 4.39 12.76 5.68 13.01 6.27Z" />
+      <circle cx="8" cy="8" r="2.4" />
     </svg>
   );
 }
@@ -150,12 +150,12 @@ export function FilesIcon({ size = 14 }: { size?: number }) {
   );
 }
 
+/** Simplified home glyph: roof plus body, no door or chimney detail. */
 export function HomeIcon({ size = 14 }: { size?: number }) {
   return (
     <svg {...base(size)}>
-      <path d="M2.5 7.5L8 2.8l5.5 4.7" />
-      <path d="M4 6.8V13h8V6.8" />
-      <path d="M6.5 13V9.5h3V13" />
+      <path d="M2.5 7.6 8 3.2l5.5 4.4" />
+      <path d="M4.3 6.9v5.9h7.4V6.9" />
     </svg>
   );
 }

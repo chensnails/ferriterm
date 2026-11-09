@@ -4031,6 +4031,20 @@ mark {
   outline-offset: var(--focus-offset);
 }
 
+/* Reserved slots stay visible so the rail's future shape is legible, but they
+   refuse activation and keep their idle colour on hover. */
+.ui-rail-button:disabled {
+  color: var(--fg-muted);
+  background: transparent;
+  opacity: 0.42;
+  cursor: default;
+}
+
+.ui-rail-button:disabled:hover {
+  color: var(--fg-muted);
+  background: transparent;
+}
+
 .ui-rail-badge {
   position: absolute;
   top: var(--space-1);

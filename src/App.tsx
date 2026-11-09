@@ -71,12 +71,6 @@ export default function App() {
     return uninstall;
   }, []);
 
-  // Views can also be opened from the tab bar, palette or shortcuts. Mirror
-  // that into the activity rail highlight without re-running module actions.
-  useEffect(() => {
-    useAppStore.getState().syncActiveModule();
-  }, [activeId]);
-
   useEffect(() => {
     if (!isTauri) return;
     let disposed = false;
