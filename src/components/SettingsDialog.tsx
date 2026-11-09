@@ -4,8 +4,10 @@ import { api, isTauri, type RemoteConfig } from "../api";
 import { useAppStore, type TabNumbering } from "../store";
 import { BUILTIN_THEMES, HIGHLIGHT_COLORS } from "../theme";
 import { parseSchemeFile } from "../scheme";
+import { DEV_VERSION } from "../version";
 import { Modal } from "./Modal";
 import { ShortcutEditor } from "./ShortcutEditor";
+import { Chip } from "./ui";
 import {
   CloudIcon,
   EyeIcon,
@@ -979,6 +981,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         <fieldset className="settings-group">
           <legend>{t("settings.cat.about")}</legend>
           <p className="about-name">{t("app.name")}</p>
+          <p className="about-version">
+            <span className="hint">{t("about.devVersion")}</span>
+            <Chip tone="info">{DEV_VERSION}</Chip>
+          </p>
           <p className="hint">{t("about.description")}</p>
           <p className="hint">{t("about.cleanRoom")}</p>
           <p className="hint">

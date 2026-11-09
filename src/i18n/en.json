@@ -549,6 +549,7 @@
     "shiftCloseHint": "Shift-click × closes without confirmation"
   },
   "about": {
+    "devVersion": "Development version",
     "description": "Cross-platform SSH terminal and file transfer.",
     "cleanRoom": "An independent implementation; no source code, icons or UI strings from other products are included.",
     "repository": "View source on GitHub"

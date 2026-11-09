@@ -549,6 +549,7 @@
     "shiftCloseHint": "按住 Shift 单击 × 可直接关闭"
   },
   "about": {
+    "devVersion": "开发版本",
     "description": "跨平台 SSH 终端与文件传输。",
     "cleanRoom": "独立实现，不包含其他产品的源代码、图标或界面文案。",
     "repository": "在 GitHub 上查看源码"

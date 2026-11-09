@@ -1,7 +1,17 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+const now = new Date();
+const buildStamp = [
+  now.getFullYear(),
+  String(now.getMonth() + 1).padStart(2, "0"),
+  String(now.getDate()).padStart(2, "0"),
+].join("");
+
 export default defineConfig({
+  define: {
+    __BUILD_STAMP__: JSON.stringify(buildStamp),
+  },
   plugins: [react()],
   clearScreen: false,
   server: {
