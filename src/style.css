@@ -87,6 +87,7 @@
   --status-bar-h: 28px;
   --activity-rail-w: 40px;
   --tool-strip-w: 40px;
+  --row-h-lg: calc(var(--row-h) + var(--space-3));
   --fs-xs: 11px;
   --fs-sm: var(--font-ui-sm);
   --fs-base: var(--font-ui);
@@ -460,12 +461,6 @@ body {
   align-items: center;
   gap: var(--space-1);
   padding-bottom: var(--space-1);
-}
-
-.tab-sidebar {
-  align-self: center;
-  margin-bottom: var(--space-1);
-  border-color: transparent;
 }
 
 .tab-new {
@@ -3776,13 +3771,30 @@ mark {
   gap: var(--space-2);
 }
 
-/* ---- S2: island layout applied to the existing three regions ----
-   Kept as one block so S3 can merge it back into the per-view rules when the
-   right dock becomes an independent column. */
+/* ---- S2: island layout applied to the three content regions ----
+   S3 adds two edge-to-edge icon rails, so the island gutters live on
+   #body-main instead of #body. Kept as one block until S4 splits the dock. */
 
 #body {
+  /* Explicit tracks instead of flex: the two icon rails must keep their exact
+     width no matter what the terminal or transfer view reports as min-content. */
+  display: grid;
+  grid-template-columns:
+    var(--activity-rail-w)
+    minmax(0, 1fr)
+    var(--tool-strip-w);
+  gap: 0;
+  padding: 0;
+}
+
+#body-main {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
   gap: var(--island-gap);
   padding: var(--island-gap);
+  /* Keep island overflow from painting over the edge tool strip. */
+  overflow: hidden;
 }
 
 #host-sidebar {
@@ -3941,4 +3953,166 @@ mark {
 
 .version-show-all:hover {
   background: var(--hover-bg);
+}
+
+/* ---- S3: activity rail, tool strip and two-line host rows ---- */
+
+.activity-rail,
+.tool-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: var(--activity-rail-w);
+  min-height: 0;
+  padding: var(--space-2) 0;
+  gap: var(--space-1);
+  background: var(--bg-base);
+  border-right: 1px solid var(--divider);
+}
+
+.tool-strip {
+  position: relative;
+  z-index: 2;
+  width: var(--tool-strip-w);
+  border-right: 0;
+  border-left: 1px solid var(--divider);
+}
+
+.rail-group,
+.strip-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: var(--space-1);
+}
+
+.rail-divider,
+.strip-divider {
+  width: var(--space-4);
+  height: 1px;
+  margin: var(--space-1) 0;
+  background: var(--divider);
+}
+
+.rail-spacer {
+  flex: 1;
+}
+
+.ui-rail-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  height: var(--control-h);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.ui-rail-button:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+.ui-rail-button.active {
+  background: var(--selected-bg);
+  color: var(--accent);
+}
+
+.ui-rail-button:focus-visible {
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
+}
+
+.ui-rail-badge {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  width: var(--space-1);
+  height: var(--space-1);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--bg-base);
+}
+
+/* Two-line host rows: primary line keeps the icon, name, status dot and tags;
+   the meta line carries user@host:port without competing with the name. */
+.tree-row.two-line {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0;
+  height: var(--row-h-lg);
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-1);
+}
+
+.tree-row-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  height: var(--control-h);
+}
+
+.tree-row-meta {
+  display: block;
+  padding-left: calc(var(--space-3) + var(--fs-md) + var(--space-1));
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-row.two-line .tree-tags {
+  max-width: 40%;
+}
+
+.tree-row-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: var(--space-1);
+  opacity: 0;
+  transition: opacity var(--motion-fast);
+}
+
+.tree-row:hover .tree-row-actions,
+.tree-row:focus-within .tree-row-actions,
+.tree-row.selected .tree-row-actions {
+  opacity: 1;
+}
+
+.tree-empty-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.tree-empty-actions button {
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.tree-empty-actions button:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+
+.tree-empty-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

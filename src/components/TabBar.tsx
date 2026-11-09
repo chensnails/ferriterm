@@ -11,13 +11,9 @@ import {
   ForwardIcon,
   GearIcon,
   HomeIcon,
-  ListIcon,
-  LogIcon,
   PlayIcon,
   PlusIcon,
-  PulseIcon,
   SearchIcon,
-  SidebarIcon,
   SplitIcon,
   TerminalIcon,
 } from "./icons";
@@ -40,20 +36,12 @@ export function TabBar() {
   const splitId = useAppStore((s) => s.splitId);
   const splitActive = useAppStore((s) => s.splitActive);
   const closeSplit = useAppStore((s) => s.closeSplit);
-  const commandsOpen = useAppStore((s) => s.commandsOpen);
-  const toggleCommands = useAppStore((s) => s.toggleCommands);
-  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
-  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
   const broadcastTargets = useAppStore((s) => s.broadcastTargets);
   const requestBroadcast = useAppStore((s) => s.requestBroadcast);
   const stopBroadcast = useAppStore((s) => s.stopBroadcast);
   const transferOpen = useAppStore((s) => s.transferOpen);
   const openTransfer = useAppStore((s) => s.openTransfer);
   const closeTransfer = useAppStore((s) => s.closeTransfer);
-  const execLogOpen = useAppStore((s) => s.execLogOpen);
-  const toggleExecLog = useAppStore((s) => s.toggleExecLog);
-  const monitorOpen = useAppStore((s) => s.monitorOpen);
-  const toggleMonitor = useAppStore((s) => s.toggleMonitor);
   const forwardOpen = useAppStore((s) => s.forwardOpen);
   const toggleForward = useAppStore((s) => s.toggleForward);
   const recordingsOpen = useAppStore((s) => s.recordingsOpen);
@@ -132,15 +120,8 @@ export function TabBar() {
 
   return (
     <div id="tabbar">
-      <button
-        className={sidebarOpen ? "icon-btn tab-sidebar active" : "icon-btn tab-sidebar"}
-        title={t("sidebar.toggle")}
-        aria-label={t("sidebar.toggle")}
-        aria-pressed={sidebarOpen}
-        onClick={toggleSidebar}
-      >
-        <SidebarIcon />
-      </button>
+      {/* The sidebar toggle now lives in the activity rail, so the tab bar
+          starts flush with the first tab and carries no duplicated affordance. */}
       <div className="tab-strip" role="tablist">
         <div
           className={activeId === HOME_TAB ? "tab tab-home active" : "tab tab-home"}
@@ -305,42 +286,6 @@ export function TabBar() {
           }
         >
           <BroadcastIcon />
-        </button>
-        <button
-          className={transferOpen ? "icon-btn active" : "icon-btn"}
-          title={t("transfer.open")}
-          aria-label={t("transfer.open")}
-          aria-pressed={transferOpen}
-          onClick={() => openTransfer(isTerminalView ? activeId : undefined)}
-        >
-          <FilesIcon />
-        </button>
-        <button
-          className={execLogOpen ? "icon-btn active" : "icon-btn"}
-          title={t("log.toggle")}
-          aria-label={t("log.toggle")}
-          aria-pressed={execLogOpen}
-          onClick={toggleExecLog}
-        >
-          <LogIcon />
-        </button>
-        <button
-          className={commandsOpen ? "icon-btn active" : "icon-btn"}
-          title={t("commands.toggle")}
-          aria-label={t("commands.toggle")}
-          aria-pressed={commandsOpen}
-          onClick={toggleCommands}
-        >
-          <ListIcon />
-        </button>
-        <button
-          className={monitorOpen ? "icon-btn active" : "icon-btn"}
-          title={t("monitor.open")}
-          aria-label={t("monitor.open")}
-          aria-pressed={monitorOpen}
-          onClick={toggleMonitor}
-        >
-          <PulseIcon />
         </button>
         <button
           className={forwardOpen ? "icon-btn active" : "icon-btn"}

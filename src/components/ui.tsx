@@ -201,6 +201,43 @@ export function IconButton({
   );
 }
 
+/** One icon slot in the 40px activity rail / tool strip. */
+export function RailButton({
+  label,
+  active = false,
+  pressed,
+  badge = false,
+  badgeLabel,
+  onClick,
+  children,
+}: {
+  label: string;
+  active?: boolean;
+  pressed?: boolean;
+  badge?: boolean;
+  badgeLabel?: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      className={["ui-rail-button", active ? "active" : ""]
+        .filter(Boolean)
+        .join(" ")}
+      aria-label={badge && badgeLabel ? `${label} — ${badgeLabel}` : label}
+      title={badge && badgeLabel ? `${label} — ${badgeLabel}` : label}
+      // Toggle slots expose aria-pressed; module slots expose aria-current.
+      aria-current={pressed === undefined && active ? "page" : undefined}
+      aria-pressed={pressed}
+      onClick={onClick}
+    >
+      {children}
+      {badge && <span className="ui-rail-badge" aria-hidden />}
+    </button>
+  );
+}
+
 export function Chip({
   children,
   tone = "neutral",

@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { ActivityRail } from "./components/ActivityRail";
+import { RightStrip } from "./components/RightStrip";
 import { TabBar } from "./components/TabBar";
 import { HomeView } from "./components/HomeView";
 import { HostTree } from "./components/HostTree";
@@ -68,6 +70,12 @@ export default function App() {
     const uninstall = installShortcuts();
     return uninstall;
   }, []);
+
+  // Views can also be opened from the tab bar, palette or shortcuts. Mirror
+  // that into the activity rail highlight without re-running module actions.
+  useEffect(() => {
+    useAppStore.getState().syncActiveModule();
+  }, [activeId]);
 
   useEffect(() => {
     if (!isTauri) return;
@@ -154,23 +162,27 @@ export default function App() {
       <div id="app">
         <TabBar />
         <div id="body">
-          <aside id="host-sidebar" hidden={!sidebarOpen}>
-            <HostTree />
-          </aside>
-          <div id="content">
-            {activeId === HOME_TAB && <HomeView />}
-            {transferOpen && (
-              <div className="view-transfer" hidden={activeId !== TRANSFER_TAB}>
-                <Suspense fallback={null}>
-                  <TransferPanel />
-                </Suspense>
+          <ActivityRail />
+          <div id="body-main">
+            <aside id="host-sidebar" hidden={!sidebarOpen}>
+              <HostTree />
+            </aside>
+            <div id="content">
+              {activeId === HOME_TAB && <HomeView />}
+              {transferOpen && (
+                <div className="view-transfer" hidden={activeId !== TRANSFER_TAB}>
+                  <Suspense fallback={null}>
+                    <TransferPanel />
+                  </Suspense>
+                </div>
+              )}
+              <div id="workspace" hidden={!isTerminalView}>
+                <TerminalArea />
+                <CommandRail />
               </div>
-            )}
-            <div id="workspace" hidden={!isTerminalView}>
-              <TerminalArea />
-              <CommandRail />
             </div>
           </div>
+          <RightStrip />
         </div>
         <ExecutionLog />
       </div>

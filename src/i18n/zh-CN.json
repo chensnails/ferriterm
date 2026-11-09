@@ -5,6 +5,15 @@
   "sidebar": {
     "toggle": "切换主机侧栏"
   },
+  "nav": {
+    "modules": "工作区模块",
+    "panels": "侧边面板",
+    "terminal": "终端工作台",
+    "queue": "传输队列",
+    "activeTask": "有进行中的传输任务",
+    "collapse": "收起工具岛",
+    "expand": "展开工具岛"
+  },
   "home": {
     "tagline": "跨平台 SSH 终端与文件传输"
   },
@@ -49,6 +58,7 @@
   },
   "hosts": {
     "title": "主机",
+    "sectionAll": "全部主机",
     "searchPlaceholder": "搜索主机",
     "newHost": "新建主机",
     "newFolder": "新建文件夹",

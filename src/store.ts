@@ -143,6 +143,9 @@ export type SplitDirection = "horizontal" | "vertical";
 
 export type TabNumbering = "asNeed" | "always" | "none";
 
+/** Top-level workspaces exposed by the left activity rail. */
+export type WorkspaceModule = "terminal" | "transfer";
+
 export const HOME_TAB = "home";
 export const TRANSFER_TAB = "transfer";
 
@@ -235,6 +238,9 @@ interface AppState {
   toggleCommands: () => void;
   sidebarOpen: boolean;
   toggleSidebar: () => void;
+  activeModule: WorkspaceModule;
+  setActiveModule: (module: WorkspaceModule) => void;
+  syncActiveModule: () => void;
   paletteOpen: boolean;
   togglePalette: () => void;
   closePalette: () => void;
@@ -387,6 +393,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   shortcuts: { ...SHORTCUT_DEFAULTS },
   commandsOpen: true,
   sidebarOpen: true,
+  activeModule: "terminal",
   paletteOpen: false,
   searchOpen: false,
   settingsOpen: false,
@@ -518,6 +525,40 @@ export const useAppStore = create<AppState>((set, get) => ({
       const open = !s.sidebarOpen;
       if (isTauri) api.setSetting("sidebarOpen", open ? "1" : "0").catch(() => {});
       return { sidebarOpen: open };
+    }),
+  // The activity rail owns module selection; activeId stays the single source
+  // of truth for the visible view. Selecting the module you are already inside
+  // collapses the tool island, mirroring the activity-bar behaviour in ShellAX.
+  setActiveModule: (module) => {
+    const state = get();
+    if (module === "transfer") {
+      if (state.activeId !== TRANSFER_TAB) state.openTransfer();
+      else if (state.activeModule === module) state.toggleSidebar();
+      set({ activeModule: module });
+      return;
+    }
+    // Terminal module: leaving the transfer view restores the previous tab, and
+    // clicking the rail from the home landing page surfaces the newest live
+    // session so the module always has a destination.
+    if (state.activeId === TRANSFER_TAB) state.closeTransfer();
+    const current = get();
+    if (current.activeId === HOME_TAB) {
+      const last = [...current.sessions].reverse().find((item) => !item.closed);
+      if (last) current.activate(last.id);
+    } else if (state.activeModule === module) {
+      current.toggleSidebar();
+    }
+    set({ activeModule: module });
+  },
+  // Keeps the rail highlight in step when a view is opened from the tab bar,
+  // command palette or a shortcut instead of the rail itself. No side effects.
+  // The home landing page belongs to the terminal module, so it keeps that
+  // highlight rather than leaving the rail blank.
+  syncActiveModule: () =>
+    set((s) => {
+      const next: WorkspaceModule =
+        s.activeId === TRANSFER_TAB ? "transfer" : "terminal";
+      return next === s.activeModule ? s : { activeModule: next };
     }),
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
   closePalette: () => set({ paletteOpen: false }),

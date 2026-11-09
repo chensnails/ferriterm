@@ -5,6 +5,15 @@
   "sidebar": {
     "toggle": "Toggle host sidebar"
   },
+  "nav": {
+    "modules": "Workspace modules",
+    "panels": "Side panels",
+    "terminal": "Terminal workspace",
+    "queue": "Transfer queue",
+    "activeTask": "A transfer is in progress",
+    "collapse": "Collapse the tool island",
+    "expand": "Expand the tool island"
+  },
   "home": {
     "tagline": "Cross-platform SSH terminal and file transfer"
   },
@@ -49,6 +58,7 @@
   },
   "hosts": {
     "title": "Hosts",
+    "sectionAll": "All hosts",
     "searchPlaceholder": "Search hosts",
     "newHost": "New host",
     "newFolder": "New folder",

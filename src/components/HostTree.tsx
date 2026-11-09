@@ -11,13 +11,17 @@ import { TagChip } from "./TagChip";
 import { TagManagerDialog } from "./TagManagerDialog";
 import {
   Chevron,
+  FilesIcon,
   FolderIcon,
   FolderPlusIcon,
+  GearIcon,
+  PlayIcon,
   PlusIcon,
   SearchIcon,
   TagIcon,
   TerminalIcon,
 } from "./icons";
+import { EmptyState, IconButton, PanelHeader, SectionHeader } from "./ui";
 
 interface DialogState {
   kind: "host" | "folder";
@@ -99,6 +103,7 @@ export function HostTree() {
   const [pendingDelete, setPendingDelete] = useState<HostEntry | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [treeCollapsed, setTreeCollapsed] = useState(false);
 
   useEffect(() => {
     if (!newWindowHostId) return;
@@ -354,6 +359,7 @@ export function HostTree() {
         const selected = node.id === selectedHostId;
         const rowClass = [
           "tree-row",
+          node.isFolder ? "" : "two-line",
           selected ? "selected" : "",
           dropTarget === node.id ? "drop" : "",
         ]
@@ -444,34 +450,73 @@ export function HostTree() {
                   : undefined
               }
             >
-              {node.isFolder ? (
-                <Chevron open={open} />
-              ) : (
-                <span className="tree-caret-spacer" />
-              )}
-              {node.isFolder ? (
-                <FolderIcon />
-              ) : (
-                <TerminalIcon />
-              )}
-              {node.production && !node.isFolder && (
-                <span className="prod-dot" title={t("hosts.production")} />
-              )}
-              <span className="tree-name">
-                <Highlight text={node.name} query={query} />
+              <span className="tree-row-line">
+                {node.isFolder ? (
+                  <Chevron open={open} />
+                ) : (
+                  <span className="tree-caret-spacer" />
+                )}
+                {node.isFolder ? <FolderIcon /> : <TerminalIcon />}
+                {node.production && !node.isFolder && (
+                  <span className="prod-dot" title={t("hosts.production")} />
+                )}
+                <span className="tree-name">
+                  <Highlight text={node.name} query={query} />
+                </span>
+                {node.isFolder && (
+                  <span className="tree-count">({countHosts(node.id)})</span>
+                )}
+                <span className="tree-tags">
+                  {node.tags.map((tag) => (
+                    <TagChip key={tag.id} tag={tag} small />
+                  ))}
+                </span>
+                {!node.isFolder && (
+                  <span className="tree-row-actions">
+                    <IconButton
+                      label={t("hosts.connect")}
+                      size="sm"
+                      disabled={!isTauri}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        selectHost(node.id);
+                        setConnectTarget(node);
+                      }}
+                    >
+                      <PlayIcon />
+                    </IconButton>
+                    <IconButton
+                      label={t("hosts.copy")}
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        copyAddress(node);
+                      }}
+                    >
+                      <FilesIcon />
+                    </IconButton>
+                    <IconButton
+                      label={t("hosts.properties")}
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDialog({
+                          kind: "host",
+                          host: node,
+                          parentId: node.parentId,
+                        });
+                      }}
+                    >
+                      <GearIcon />
+                    </IconButton>
+                  </span>
+                )}
               </span>
-              {node.isFolder ? (
-                <span className="tree-count">({countHosts(node.id)})</span>
-              ) : (
-                <span className="tree-sub">
-                  {node.username}@{node.host}
+              {!node.isFolder && (
+                <span className="tree-row-meta">
+                  {node.username}@{node.host}:{node.port}
                 </span>
               )}
-              <span className="tree-tags">
-                {node.tags.map((tag) => (
-                  <TagChip key={tag.id} tag={tag} small />
-                ))}
-              </span>
             </div>
             {node.isFolder && open && renderNodes(node.id, depth + 1)}
           </div>
@@ -482,41 +527,42 @@ export function HostTree() {
 
   return (
     <section className="host-section">
-      <header className="section-head">
-        <h2>
-          {t("hosts.title")}
-          {hostCount > 0 && <span className="head-count"> ({hostCount})</span>}
-        </h2>
-        <div className="section-actions">
-          <button
-            className="icon-btn"
-            title={t("hosts.newHost")}
-            aria-label={t("hosts.newHost")}
-            disabled={!isTauri}
-            onClick={() => setDialog({ kind: "host", parentId: null })}
-          >
-            <PlusIcon />
-          </button>
-          <button
-            className="icon-btn"
-            title={t("hosts.newFolder")}
-            aria-label={t("hosts.newFolder")}
-            disabled={!isTauri}
-            onClick={() => setDialog({ kind: "folder", parentId: null })}
-          >
-            <FolderPlusIcon />
-          </button>
-          <button
-            className="icon-btn"
-            title={t("hosts.manageTags")}
-            aria-label={t("hosts.manageTags")}
-            disabled={!isTauri}
-            onClick={() => setTagManagerOpen(true)}
-          >
-            <TagIcon />
-          </button>
-        </div>
-      </header>
+      <PanelHeader
+        title={
+          <>
+            {t("hosts.title")}
+            {hostCount > 0 && <span className="head-count"> ({hostCount})</span>}
+          </>
+        }
+        actions={
+          <>
+            <IconButton
+              label={t("hosts.newHost")}
+              size="sm"
+              disabled={!isTauri}
+              onClick={() => setDialog({ kind: "host", parentId: null })}
+            >
+              <PlusIcon />
+            </IconButton>
+            <IconButton
+              label={t("hosts.newFolder")}
+              size="sm"
+              disabled={!isTauri}
+              onClick={() => setDialog({ kind: "folder", parentId: null })}
+            >
+              <FolderPlusIcon />
+            </IconButton>
+            <IconButton
+              label={t("hosts.manageTags")}
+              size="sm"
+              disabled={!isTauri}
+              onClick={() => setTagManagerOpen(true)}
+            >
+              <TagIcon />
+            </IconButton>
+          </>
+        }
+      />
 
       <label className="search-field">
         <SearchIcon />
@@ -530,9 +576,17 @@ export function HostTree() {
         />
       </label>
 
+      <SectionHeader
+        title={t("hosts.sectionAll")}
+        count={hostCount}
+        collapsed={treeCollapsed}
+        onToggle={() => setTreeCollapsed((value) => !value)}
+      />
+
       <div
         className={`tree-scroll${dropTarget === "__root__" ? " drop-root" : ""}`}
         role="tree"
+        hidden={treeCollapsed}
         aria-label={t("hosts.title")}
         onContextMenu={(e) => {
           if (e.target === e.currentTarget) {
@@ -561,11 +615,28 @@ export function HostTree() {
         }}
       >
         {hosts.length === 0 ? (
-          <p className="tree-empty">
-            {t("hosts.empty")}
-            <br />
-            <span>{t("hosts.emptyHint")}</span>
-          </p>
+          <EmptyState
+            title={t("hosts.empty")}
+            description={t("hosts.emptyHint")}
+            action={
+              <div className="tree-empty-actions">
+                <button
+                  type="button"
+                  disabled={!isTauri}
+                  onClick={() => setDialog({ kind: "host", parentId: null })}
+                >
+                  {t("hosts.newHost")}
+                </button>
+                <button
+                  type="button"
+                  disabled={!isTauri}
+                  onClick={() => openImport(null)}
+                >
+                  {t("hosts.import")}
+                </button>
+              </div>
+            }
+          />
         ) : noMatches ? (
           <p className="tree-empty">{t("hosts.noMatches")}</p>
         ) : (
