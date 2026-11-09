@@ -114,6 +114,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const setConfirmClose = useAppStore((s) => s.setConfirmClose);
   const sftpShowHidden = useAppStore((s) => s.sftpShowHidden);
   const setSftpShowHidden = useAppStore((s) => s.setSftpShowHidden);
+  const transferConcurrency = useAppStore((s) => s.transferConcurrency);
+  const setTransferConcurrency = useAppStore(
+    (s) => s.setTransferConcurrency,
+  );
   const loadHosts = useAppStore((s) => s.loadHosts);
   const loadTags = useAppStore((s) => s.loadTags);
   const [passphrase, setPassphrase] = useState("");
@@ -719,6 +723,24 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             </select>
           </label>
           <span className="hint">{t("settings.sftpShowHiddenHint")}</span>
+          <label className="field">
+            <span>{t("settings.transferConcurrency")}</span>
+            <select
+              value={String(transferConcurrency)}
+              onChange={(e) =>
+                setTransferConcurrency(Number(e.target.value))
+              }
+            >
+              {Array.from({ length: 8 }, (_, index) => index + 1).map(
+                (value) => (
+                  <option key={value} value={String(value)}>
+                    {value}
+                  </option>
+                ),
+              )}
+            </select>
+          </label>
+          <span className="hint">{t("settings.transferConcurrencyHint")}</span>
         </fieldset>
             </>
           )}

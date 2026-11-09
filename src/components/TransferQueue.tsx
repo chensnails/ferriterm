@@ -53,10 +53,36 @@ export function TransferQueue({
     }
   };
 
+  const running = jobs.filter((job) => job.status === "running");
+  const waiting = jobs.filter(
+    (job) => job.status === "pending" || job.status === "paused",
+  );
+  const speed = running.reduce((total, job) => total + job.speed, 0);
+
   return (
     <section className="transfer-queue">
       <header className="transfer-queue-head">
-        <span>{t("transfer.queue", { count: jobs.length })}</span>
+        <div className="transfer-queue-stats">
+          <span className="transfer-queue-title">
+            {t("transfer.queue", { count: jobs.length })}
+          </span>
+          {running.length > 0 && (
+            <span className="transfer-stat running">
+              {t("transfer.statActive", { n: running.length })}
+            </span>
+          )}
+          {waiting.length > 0 && (
+            <span className="transfer-stat">
+              {t("transfer.statWaiting", { n: waiting.length })}
+            </span>
+          )}
+          {speed > 0 && (
+            <span className="transfer-stat mono">
+              {formatBytes(speed)}
+              {t("transfer.perSecond")}
+            </span>
+          )}
+        </div>
         <button
           type="button"
           className="link-btn"
@@ -69,103 +95,128 @@ export function TransferQueue({
       {jobs.length === 0 ? (
         <p className="hint">{t("transfer.empty")}</p>
       ) : (
-        <div className="transfer-jobs">
-          {jobs.map((job) => {
-            const percent =
-              job.size === 0
-                ? job.status === "done"
-                  ? 100
-                  : 0
-                : Math.min(100, Math.round((job.transferred / job.size) * 100));
-            return (
-              <div key={job.id} className="transfer-job">
-                <div className="transfer-job-main">
-                  <span className="transfer-name" title={job.targetPath}>
-                    {job.isDirectory ? "▸ " : ""}
-                    {job.name}
-                  </span>
-                  <span className={`transfer-status ${job.status}`}>
-                    {t(`transfer.status_${job.status}`)}
-                  </span>
-                  <span className="transfer-progress-text">
-                    {formatBytes(job.transferred)} / {formatBytes(job.size)}
-                  </span>
-                  {job.status === "running" && (
-                    <span className="transfer-speed">
-                      {formatBytes(job.speed)}/s
-                      {job.etaSeconds !== null
-                        ? ` · ${formatEta(job.etaSeconds)}`
-                        : ""}
-                    </span>
-                  )}
-                  <div className="transfer-actions">
-                    {job.status === "running" && (
-                      <button
-                        type="button"
-                        className="icon-btn"
-                        title={t("transfer.pause")}
-                        onClick={() => void act(api.transferPause, job.id)}
+        <div className="transfer-table-wrap">
+          <table className="transfer-table">
+            <thead>
+              <tr>
+                <th className="col-name">{t("transfer.colName")}</th>
+                <th className="col-route">{t("transfer.colRoute")}</th>
+                <th className="col-progress">{t("transfer.colProgress")}</th>
+                <th className="col-status">{t("transfer.colStatus")}</th>
+                <th className="col-actions">{t("transfer.colActions")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {jobs.map((job) => {
+                const percent =
+                  job.size === 0
+                    ? job.status === "done"
+                      ? 100
+                      : 0
+                    : Math.min(
+                        100,
+                        Math.round((job.transferred / job.size) * 100),
+                      );
+                return (
+                  <tr key={job.id} className={job.status}>
+                    <td className="transfer-name" title={job.name}>
+                      {job.isDirectory ? "▸ " : ""}
+                      {job.name}
+                    </td>
+                    <td className="transfer-route">
+                      <span title={job.sourcePath}>{job.sourcePath}</span>
+                      <span className="transfer-route-arrow">→</span>
+                      <span title={job.targetPath}>{job.targetPath}</span>
+                    </td>
+                    <td className="transfer-cell-progress">
+                      <div className="transfer-bar">
+                        <div
+                          className={`transfer-bar-fill ${job.status}`}
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                      <span className="transfer-progress-text">
+                        {percent}% · {formatBytes(job.transferred)} /{" "}
+                        {formatBytes(job.size)}
+                      </span>
+                    </td>
+                    <td className="transfer-cell-status">
+                      <span
+                        className={`transfer-status ${job.status}`}
+                        title={job.error ?? undefined}
                       >
-                        ⏸
-                      </button>
-                    )}
-                    {job.status === "paused" && (
-                      <button
-                        type="button"
-                        className="icon-btn"
-                        title={t("transfer.resume")}
-                        onClick={() => void act(api.transferResume, job.id)}
-                      >
-                        ▶
-                      </button>
-                    )}
-                    {(job.status === "running" ||
-                      job.status === "paused" ||
-                      job.status === "pending") && (
-                      <button
-                        type="button"
-                        className="icon-btn"
-                        title={t("transfer.cancel")}
-                        onClick={() => void act(api.transferCancel, job.id)}
-                      >
-                        ×
-                      </button>
-                    )}
-                    {(job.status === "failed" ||
-                      job.status === "cancelled") && (
-                      <button
-                        type="button"
-                        className="icon-btn"
-                        title={t("transfer.retry")}
-                        onClick={() => void act(api.transferRetry, job.id)}
-                      >
-                        ↻
-                      </button>
-                    )}
-                    {job.status !== "running" && (
-                      <button
-                        type="button"
-                        className="icon-btn"
-                        title={t("transfer.remove")}
-                        onClick={() => void act(api.transferRemove, job.id)}
-                      >
-                        ⌫
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="transfer-bar">
-                  <div
-                    className={`transfer-bar-fill ${job.status}`}
-                    style={{ width: `${percent}%` }}
-                  />
-                </div>
-                {job.error && job.status === "failed" && (
-                  <p className="transfer-error">{job.error}</p>
-                )}
-              </div>
-            );
-          })}
+                        {t(`transfer.status_${job.status}`)}
+                      </span>
+                      {job.status === "running" && job.speed > 0 && (
+                        <span className="transfer-speed">
+                          {formatBytes(job.speed)}
+                          {t("transfer.perSecond")}
+                          {job.etaSeconds !== null
+                            ? ` · ${formatEta(job.etaSeconds)}`
+                            : ""}
+                        </span>
+                      )}
+                    </td>
+                    <td className="transfer-actions">
+                      {job.status === "running" && (
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          title={t("transfer.pause")}
+                          onClick={() => void act(api.transferPause, job.id)}
+                        >
+                          ⏸
+                        </button>
+                      )}
+                      {job.status === "paused" && (
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          title={t("transfer.resume")}
+                          onClick={() => void act(api.transferResume, job.id)}
+                        >
+                          ▶
+                        </button>
+                      )}
+                      {(job.status === "running" ||
+                        job.status === "paused" ||
+                        job.status === "pending") && (
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          title={t("transfer.cancel")}
+                          onClick={() => void act(api.transferCancel, job.id)}
+                        >
+                          ×
+                        </button>
+                      )}
+                      {(job.status === "failed" ||
+                        job.status === "cancelled") && (
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          title={t("transfer.retry")}
+                          onClick={() => void act(api.transferRetry, job.id)}
+                        >
+                          ↻
+                        </button>
+                      )}
+                      {job.status !== "running" && (
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          title={t("transfer.remove")}
+                          onClick={() => void act(api.transferRemove, job.id)}
+                        >
+                          ⌫
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </section>

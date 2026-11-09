@@ -1,15 +1,16 @@
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use ft_vfs::{join_path, OpenMode, Vfs};
 use serde::{Deserialize, Serialize};
-use tokio::sync::{broadcast, Mutex, Semaphore};
+use tokio::sync::{broadcast, Mutex, OwnedSemaphorePermit, Semaphore};
 
 const CHUNK_SIZE: u32 = 256 * 1024;
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(150);
 pub const DEFAULT_CONCURRENCY: usize = 6;
+pub const MAX_CONCURRENCY: usize = 16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -88,6 +89,9 @@ struct JobState {
     job: Mutex<TransferJob>,
     paused: AtomicBool,
     cancelled: AtomicBool,
+    /// Concurrency slot. It is taken away while the job is paused, so a
+    /// paused job never keeps a slot a waiting job could use.
+    slot: Mutex<Option<OwnedSemaphorePermit>>,
     source: Endpoint,
     target: Endpoint,
 }
@@ -96,6 +100,10 @@ struct Inner {
     jobs: Mutex<HashMap<String, Arc<JobState>>>,
     events: broadcast::Sender<TransferJob>,
     semaphore: Arc<Semaphore>,
+    limit: AtomicUsize,
+    /// Permits a lower concurrency setting could not reclaim yet because
+    /// they were in use; dropped as jobs release their slots.
+    debt: AtomicUsize,
 }
 
 #[derive(Clone)]
@@ -111,12 +119,51 @@ impl Default for TransferManager {
 
 impl TransferManager {
     pub fn new(concurrency: usize) -> Self {
+        let limit = concurrency.clamp(1, MAX_CONCURRENCY);
         Self {
             inner: Arc::new(Inner {
                 jobs: Mutex::new(HashMap::new()),
                 events: broadcast::channel(256).0,
-                semaphore: Arc::new(Semaphore::new(concurrency.max(1))),
+                semaphore: Arc::new(Semaphore::new(limit)),
+                limit: AtomicUsize::new(limit),
+                debt: AtomicUsize::new(0),
             }),
+        }
+    }
+
+    /// How many jobs may run at once.
+    pub fn concurrency(&self) -> usize {
+        self.inner.limit.load(Ordering::SeqCst)
+    }
+
+    /// Grows the queue immediately; shrinking takes the free permits back
+    /// and settles the rest as running jobs finish.
+    pub fn set_concurrency(&self, concurrency: usize) {
+        let target = concurrency.clamp(1, MAX_CONCURRENCY);
+        let previous = self.inner.limit.swap(target, Ordering::SeqCst);
+        if target > previous {
+            self.inner.semaphore.add_permits(target - previous);
+        } else if target < previous {
+            let wanted = previous - target;
+            let removed = self.inner.semaphore.forget_permits(wanted);
+            if removed < wanted {
+                self.inner.debt.fetch_add(wanted - removed, Ordering::SeqCst);
+            }
+        }
+    }
+
+    async fn release_slot(&self, state: &JobState) {
+        if state.slot.lock().await.take().is_some() {
+            self.settle_debt();
+        }
+    }
+
+    fn settle_debt(&self) {
+        while self.inner.debt.load(Ordering::SeqCst) > 0 {
+            if self.inner.semaphore.forget_permits(1) == 0 {
+                return;
+            }
+            self.inner.debt.fetch_sub(1, Ordering::SeqCst);
         }
     }
 
@@ -156,6 +203,7 @@ impl TransferManager {
             job: Mutex::new(job),
             paused: AtomicBool::new(false),
             cancelled: AtomicBool::new(false),
+            slot: Mutex::new(None),
             source,
             target,
         });
@@ -184,6 +232,7 @@ impl TransferManager {
             job: Mutex::new(job),
             paused: AtomicBool::new(false),
             cancelled: AtomicBool::new(false),
+            slot: Mutex::new(None),
             source,
             target,
         });
@@ -204,8 +253,10 @@ impl TransferManager {
 
     fn spawn(&self, state: Arc<JobState>) {
         let inner = self.inner.clone();
+        let manager = self.clone();
         tokio::spawn(async move {
-            if !wait_while_paused(&state).await {
+            if !pause_gate(&inner, &state).await {
+                manager.release_slot(&state).await;
                 finish(
                     &inner,
                     &state,
@@ -213,21 +264,6 @@ impl TransferManager {
                     Some("cancelled".into()),
                 )
                 .await;
-                return;
-            }
-            let permit = match inner.semaphore.clone().acquire_owned().await {
-                Ok(permit) => permit,
-                Err(_) => return,
-            };
-            if !wait_while_paused(&state).await {
-                finish(
-                    &inner,
-                    &state,
-                    TransferStatus::Cancelled,
-                    Some("cancelled".into()),
-                )
-                .await;
-                drop(permit);
                 return;
             }
             set_status(&inner, &state, TransferStatus::Running, None).await;
@@ -236,7 +272,7 @@ impl TransferManager {
             } else {
                 copy_single(&inner, &state).await
             };
-            drop(permit);
+            manager.release_slot(&state).await;
             match result {
                 Ok(()) => {
                     finish(&inner, &state, TransferStatus::Done, None).await;
@@ -280,6 +316,7 @@ impl TransferManager {
         if let Some(state) = self.find(id).await {
             state.cancelled.store(true, Ordering::SeqCst);
             state.paused.store(false, Ordering::SeqCst);
+            state.slot.lock().await.take();
             if state.job.lock().await.status != TransferStatus::Running {
                 finish(
                     &self.inner,
@@ -344,15 +381,34 @@ impl TransferManager {
     }
 }
 
-async fn wait_while_paused(state: &JobState) -> bool {
+/// Keeps a running job in step with pause/cancel and owns its concurrency
+/// slot: the permit is dropped while the job is paused and taken again on
+/// resume, so paused jobs never starve the queue.
+async fn pause_gate(inner: &Inner, state: &JobState) -> bool {
     loop {
         if state.cancelled.load(Ordering::SeqCst) {
+            state.slot.lock().await.take();
             return false;
         }
-        if !state.paused.load(Ordering::SeqCst) {
+        if state.paused.load(Ordering::SeqCst) {
+            state.slot.lock().await.take();
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            continue;
+        }
+        let mut slot = state.slot.lock().await;
+        if slot.is_some() {
             return true;
         }
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        if state.paused.load(Ordering::SeqCst) {
+            continue;
+        }
+        match inner.semaphore.clone().acquire_owned().await {
+            Ok(permit) => {
+                *slot = Some(permit);
+                return true;
+            }
+            Err(_) => return false,
+        }
     }
 }
 
@@ -490,7 +546,7 @@ async fn copy_file(
         .await?;
     let mut flushed = offset;
     while offset < source_entry.size {
-        if !wait_while_paused(progress.state).await {
+        if !pause_gate(progress.inner, progress.state).await {
             let _ = writer.close().await;
             let _ = reader.close().await;
             return Err("cancelled".to_string());
@@ -594,7 +650,7 @@ async fn copy_tree(inner: &Inner, state: &JobState) -> Result<(), String> {
 
     let mut progress = Progress::new(inner, state);
     for entry in scan.entries {
-        if !wait_while_paused(state).await {
+        if !pause_gate(inner, state).await {
             return Err("cancelled".to_string());
         }
         let source_path = join_path(&state.source.path, &entry.relative);

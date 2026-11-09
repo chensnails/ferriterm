@@ -156,6 +156,17 @@ export const DOCK_WIDTH_MIN = 252;
 export const DOCK_WIDTH_MAX = 560;
 export const DOCK_CARD_MIN_H = 132;
 
+export const TRANSFER_CONCURRENCY_MIN = 1;
+export const TRANSFER_CONCURRENCY_MAX = 8;
+
+function clampTransferConcurrency(value: number): number {
+  if (!Number.isFinite(value)) return 6;
+  return Math.min(
+    TRANSFER_CONCURRENCY_MAX,
+    Math.max(TRANSFER_CONCURRENCY_MIN, Math.round(value)),
+  );
+}
+
 const DOCK_CARD_DEFAULT_H: Record<DockCardId, number> = {
   commands: 300,
   monitor: 296,
@@ -289,6 +300,9 @@ interface AppState {
   setConfirmClose: (value: boolean) => void;
   sftpShowHidden: boolean;
   setSftpShowHidden: (value: boolean) => void;
+  /** How many transfers may run at once (1–8). */
+  transferConcurrency: number;
+  setTransferConcurrency: (value: number) => void;
   shortcuts: ShortcutBindings;
   setShortcut: (action: ShortcutAction, combo: string) => void;
   resetShortcuts: () => void;
@@ -456,6 +470,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   tabNumbering: "asNeed",
   confirmClose: true,
   sftpShowHidden: false,
+  transferConcurrency: 6,
   pendingCloseId: null,
   shortcuts: { ...SHORTCUT_DEFAULTS },
   commandsOpen: true,
@@ -580,6 +595,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSftpShowHidden: (value) => {
     set({ sftpShowHidden: value });
     if (isTauri) api.setSetting("sftpShowHidden", value ? "1" : "0").catch(() => {});
+  },
+  setTransferConcurrency: (value) => {
+    const next = clampTransferConcurrency(value);
+    set({ transferConcurrency: next });
+    if (isTauri) {
+      api.setSetting("transferConcurrency", String(next)).catch(() => {});
+      api.setTransferConcurrency(next).catch(() => {});
+    }
   },
   setShortcut: (action, combo) => {
     const value = combo ? normalizeCombo(combo) : "";
@@ -1113,7 +1136,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       commandsOpen: (settings.commandsOpen ?? "1") !== "0",
       monitorOpen: (settings.monitorOpen ?? "0") === "1",
       execLogOpen: (settings.execLogOpen ?? "0") === "1",
+      transferConcurrency: clampTransferConcurrency(
+        Number(settings.transferConcurrency),
+      ),
     });
+    if (isTauri) {
+      // The queue starts at its built-in default, so push the saved value.
+      api.setTransferConcurrency(get().transferConcurrency).catch(() => {});
+    }
   },
 
   loadLanguagePacks: async () => {

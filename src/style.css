@@ -2929,10 +2929,9 @@ mark {
 }
 
 .transfer-queue {
+  flex-shrink: 0;
   border-top: 1px solid var(--border);
   padding: var(--space-2) var(--space-4) var(--space-3);
-  max-height: 210px;
-  overflow-y: auto;
 }
 
 .transfer-queue-head {
@@ -2945,23 +2944,119 @@ mark {
   padding-bottom: var(--space-1);
 }
 
-.transfer-jobs {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.transfer-job {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.transfer-job-main {
+.transfer-queue-stats {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.transfer-queue-title {
+  flex-shrink: 0;
+}
+
+.transfer-stat {
+  flex-shrink: 0;
+  font-weight: 500;
+  color: var(--fg-muted);
+}
+
+.transfer-stat.running {
+  color: var(--accent);
+}
+
+.transfer-stat mono {
+  font-family: var(--font-mono);
+}
+
+.transfer-table-wrap {
+  max-height: 200px;
+  overflow: auto;
+}
+
+.transfer-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
   font-size: var(--font-ui-sm);
+}
+
+.transfer-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--divider);
+  background: var(--bg-panel);
+  color: var(--fg-muted);
+  font-weight: 600;
+  text-align: left;
+}
+
+.transfer-table td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--divider);
+  vertical-align: middle;
+}
+
+.transfer-table tbody tr:hover td {
+  background: var(--hover-bg);
+}
+
+.transfer-table .col-name {
+  width: 22%;
+}
+
+.transfer-table .col-route {
+  width: 34%;
+}
+
+.transfer-table .col-progress {
+  width: 18%;
+}
+
+.transfer-table .col-status {
+  width: 16%;
+}
+
+.transfer-table .col-actions {
+  width: 84px;
+}
+
+.transfer-route {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.transfer-route span:not(.transfer-route-arrow) {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transfer-route-arrow {
+  flex-shrink: 0;
+  color: var(--fg-muted);
+}
+
+.transfer-cell-progress .transfer-bar {
+  margin-bottom: 3px;
+}
+
+.transfer-cell-status {
+  white-space: nowrap;
+}
+
+.transfer-cell-status .transfer-speed {
+  display: block;
 }
 
 .transfer-name {

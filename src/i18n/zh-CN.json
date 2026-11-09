@@ -239,6 +239,8 @@
     "confirmCloseHint": "关闭仍有进程运行的标签时弹出确认。",
     "sftpShowHidden": "默认显示隐藏文件",
     "sftpShowHiddenHint": "新建的 SFTP 面板默认显示隐藏文件。",
+    "transferConcurrency": "并发传输数",
+    "transferConcurrencyHint": "同时进行多少个传输（1–8）。暂停中的任务不占用并发位。",
     "terminalAppearance": "终端外观",
     "appearanceHint": "修改会立即作用于已打开的终端。",
     "fontFamily": "字体",
@@ -421,7 +423,15 @@
     "status_paused": "已暂停",
     "status_done": "已完成",
     "status_failed": "失败",
-    "status_cancelled": "已取消"
+    "status_cancelled": "已取消",
+    "colName": "名称",
+    "colRoute": "源 → 目标",
+    "colProgress": "进度",
+    "colStatus": "状态",
+    "colActions": "操作",
+    "statActive": "{n} 进行中",
+    "statWaiting": "{n} 等待",
+    "perSecond": "/s"
   },
   "files": {
     "name": "名称",

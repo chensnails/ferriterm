@@ -105,6 +105,7 @@ pub fn run() {
             commands::remote_mount_remove,
             commands::remote_mount_list,
             commands::transfer_enqueue,
+            commands::transfer_set_concurrency,
             commands::transfer_list,
             commands::transfer_pause,
             commands::transfer_resume,

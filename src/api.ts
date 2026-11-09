@@ -437,6 +437,8 @@ export const api = {
   transferEnqueue: (request: TransferRequest) =>
     invoke<string>("transfer_enqueue", { request }),
   transferList: () => invoke<TransferJob[]>("transfer_list"),
+  setTransferConcurrency: (concurrency: number) =>
+    invoke<number>("transfer_set_concurrency", { concurrency }),
   transferPause: (id: string) => invoke<void>("transfer_pause", { id }),
   transferResume: (id: string) => invoke<void>("transfer_resume", { id }),
   transferCancel: (id: string) => invoke<void>("transfer_cancel", { id }),

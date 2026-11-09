@@ -239,6 +239,8 @@
     "confirmCloseHint": "Ask for confirmation when a tab with an active process is closed.",
     "sftpShowHidden": "Show hidden files by default",
     "sftpShowHiddenHint": "New SFTP panes start with hidden files visible.",
+    "transferConcurrency": "Concurrent transfers",
+    "transferConcurrencyHint": "How many transfers may run at once (1–8). Paused transfers do not hold a slot.",
     "terminalAppearance": "Terminal appearance",
     "appearanceHint": "Changes apply to open terminals immediately.",
     "fontFamily": "Font family",
@@ -421,7 +423,15 @@
     "status_paused": "Paused",
     "status_done": "Done",
     "status_failed": "Failed",
-    "status_cancelled": "Cancelled"
+    "status_cancelled": "Cancelled",
+    "colName": "Name",
+    "colRoute": "Source → target",
+    "colProgress": "Progress",
+    "colStatus": "Status",
+    "colActions": "Actions",
+    "statActive": "{n} running",
+    "statWaiting": "{n} waiting",
+    "perSecond": "/s"
   },
   "files": {
     "name": "Name",

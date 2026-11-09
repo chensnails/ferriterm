@@ -1118,6 +1118,15 @@ pub async fn transfer_enqueue(
 }
 
 #[tauri::command]
+pub async fn transfer_set_concurrency(
+    runtime: State<'_, SshRuntimeState>,
+    concurrency: usize,
+) -> Result<usize, String> {
+    runtime.transfers.set_concurrency(concurrency);
+    Ok(runtime.transfers.concurrency())
+}
+
+#[tauri::command]
 pub async fn transfer_list(
     runtime: State<'_, SshRuntimeState>,
 ) -> Result<Vec<ft_transfer::TransferJob>, String> {
