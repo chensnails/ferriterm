@@ -14,6 +14,7 @@ export function ShortcutEditor() {
   const { t } = useTranslation();
   const shortcuts = useAppStore((s) => s.shortcuts);
   const setShortcut = useAppStore((s) => s.setShortcut);
+  const resetShortcuts = useAppStore((s) => s.resetShortcuts);
   const [editing, setEditing] = useState<ShortcutAction | null>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
@@ -63,77 +64,98 @@ export function ShortcutEditor() {
 
   return (
     <>
-      <p className="hint">{t("shortcuts.editHint")}</p>
-      <dl className="shortcut-list">
-        {SHORTCUT_ACTIONS.map((action) => {
-          const combo = shortcuts[action];
-          const isEditing = editing === action;
-          return (
-            <div key={action} className="shortcut-row">
-              <dt>{t(`shortcuts.${action}`)}</dt>
-              <dd>
-                {isEditing ? (
-                  <div className="shortcut-editor">
-                    <button
-                      type="button"
-                      className="shortcut-capture"
-                      autoFocus
-                      onKeyDown={(event) => capture(action, event)}
-                      onBlur={() => {
-                        if (!draft && !error) cancelEdit();
-                      }}
-                    >
-                      {draft
-                        ? displayCombo(draft)
-                        : t("shortcuts.pressKeys")}
-                    </button>
-                    <button
-                      type="button"
-                      className="link-btn"
-                      disabled={Boolean(error)}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => save(action)}
-                    >
-                      {t("shortcuts.save")}
-                    </button>
-                    <button
-                      type="button"
-                      className="link-btn"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={cancelEdit}
-                    >
-                      {t("shortcuts.cancelEdit")}
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <kbd>{combo ? displayCombo(combo) : t("shortcuts.disabled")}</kbd>
-                    <button
-                      type="button"
-                      className="link-btn"
-                      onClick={() => beginEdit(action)}
-                    >
-                      {t("shortcuts.edit")}
-                    </button>
-                    {combo !== SHORTCUT_DEFAULTS[action] && (
+      <div className="shortcut-toolbar">
+        <button type="button" onClick={resetShortcuts}>
+          {t("shortcuts.resetAll")}
+        </button>
+        <span className="hint">{t("shortcuts.editHint")}</span>
+      </div>
+      <div className="shortcut-table">
+        <div className="shortcut-head">
+          <span>{t("shortcuts.columnKeys")}</span>
+          <span>{t("shortcuts.columnAction")}</span>
+        </div>
+        <dl className="shortcut-list">
+          {SHORTCUT_ACTIONS.map((action) => {
+            const combo = shortcuts[action];
+            const isEditing = editing === action;
+            return (
+              <div key={action} className="shortcut-row">
+                <dt>
+                  {isEditing ? (
+                    <div className="shortcut-editor">
+                      <button
+                        type="button"
+                        className="shortcut-capture"
+                        autoFocus
+                        onKeyDown={(event) => capture(action, event)}
+                        onBlur={() => {
+                          if (!draft && !error) cancelEdit();
+                        }}
+                      >
+                        {draft
+                          ? displayCombo(draft)
+                          : t("shortcuts.pressKeys")}
+                      </button>
                       <button
                         type="button"
                         className="link-btn"
-                        onClick={() => setShortcut(action, SHORTCUT_DEFAULTS[action])}
+                        disabled={Boolean(error)}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => save(action)}
                       >
-                        {t("shortcuts.reset")}
+                        {t("shortcuts.save")}
                       </button>
-                    )}
-                  </>
-                )}
-              </dd>
-              {isEditing && error && (
-                <p className="error-text shortcut-error">{error}</p>
-              )}
-            </div>
-          );
-        })}
-      </dl>
+                      <button
+                        type="button"
+                        className="link-btn"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={cancelEdit}
+                      >
+                        {t("shortcuts.cancelEdit")}
+                      </button>
+                    </div>
+                  ) : (
+                    <kbd>
+                      {combo ? displayCombo(combo) : t("shortcuts.disabled")}
+                    </kbd>
+                  )}
+                </dt>
+                <dd>
+                  <span className="shortcut-action">
+                    {t(`shortcuts.${action}`)}
+                  </span>
+                  {!isEditing && (
+                    <>
+                      <button
+                        type="button"
+                        className="link-btn"
+                        onClick={() => beginEdit(action)}
+                      >
+                        {t("shortcuts.edit")}
+                      </button>
+                      {combo !== SHORTCUT_DEFAULTS[action] && (
+                        <button
+                          type="button"
+                          className="link-btn"
+                          onClick={() =>
+                            setShortcut(action, SHORTCUT_DEFAULTS[action])
+                          }
+                        >
+                          {t("shortcuts.reset")}
+                        </button>
+                      )}
+                    </>
+                  )}
+                  {isEditing && error && (
+                    <p className="error-text shortcut-error">{error}</p>
+                  )}
+                </dd>
+              </div>
+            );
+          })}
+        </dl>
+      </div>
     </>
   );
 }

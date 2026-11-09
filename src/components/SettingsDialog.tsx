@@ -6,6 +6,17 @@ import { BUILTIN_THEMES, HIGHLIGHT_COLORS } from "../theme";
 import { parseSchemeFile } from "../scheme";
 import { Modal } from "./Modal";
 import { ShortcutEditor } from "./ShortcutEditor";
+import {
+  CloudIcon,
+  EyeIcon,
+  FilesIcon,
+  GearIcon,
+  InfoIcon,
+  KeyboardIcon,
+  PuzzleIcon,
+  SlidersIcon,
+  TerminalIcon,
+} from "./icons";
 
 const SETTINGS_CATEGORIES = [
   "general",
@@ -18,6 +29,52 @@ const SETTINGS_CATEGORIES = [
 ] as const;
 
 type SettingsCategory = (typeof SETTINGS_CATEGORIES)[number];
+
+const CATEGORY_ICONS: Record<SettingsCategory, typeof SlidersIcon> = {
+  general: SlidersIcon,
+  terminal: TerminalIcon,
+  keyboard: KeyboardIcon,
+  transfer: FilesIcon,
+  plugins: PuzzleIcon,
+  sync: CloudIcon,
+  about: InfoIcon,
+};
+
+function PasswordInput({
+  value,
+  onChange,
+  placeholder,
+  shown,
+  onToggle,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  shown: boolean;
+  onToggle: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="password-field">
+      <input
+        type={shown ? "text" : "password"}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <button
+        type="button"
+        className="icon-btn password-toggle"
+        title={shown ? t("sync.hidePassword") : t("sync.showPassword")}
+        aria-label={shown ? t("sync.hidePassword") : t("sync.showPassword")}
+        aria-pressed={shown}
+        onClick={onToggle}
+      >
+        <EyeIcon size={14} />
+      </button>
+    </div>
+  );
+}
 
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
@@ -54,7 +111,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const setConfirmClose = useAppStore((s) => s.setConfirmClose);
   const sftpShowHidden = useAppStore((s) => s.sftpShowHidden);
   const setSftpShowHidden = useAppStore((s) => s.setSftpShowHidden);
-  const resetShortcuts = useAppStore((s) => s.resetShortcuts);
   const loadHosts = useAppStore((s) => s.loadHosts);
   const loadTags = useAppStore((s) => s.loadTags);
   const [passphrase, setPassphrase] = useState("");
@@ -74,6 +130,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const [davFile, setDavFile] = useState("ferriterm-backup.ftbak");
   const [remoteMessage, setRemoteMessage] = useState("");
   const [remoteBusy, setRemoteBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const themeFileRef = useRef<HTMLInputElement>(null);
 
@@ -263,25 +320,24 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       title={t("settings.title")}
       onClose={onClose}
       className="settings"
-      footer={
-        <button type="button" onClick={onClose}>
-          {t("settings.close")}
-        </button>
-      }
     >
       <div className="settings-center">
         <nav className="settings-nav" aria-label={t("settings.title")}>
-          {SETTINGS_CATEGORIES.map((item) => (
-            <button
-              key={item}
-              type="button"
-              className={category === item ? "active" : ""}
-              aria-current={category === item ? "page" : undefined}
-              onClick={() => setCategory(item)}
-            >
-              {t(`settings.cat.${item}`)}
-            </button>
-          ))}
+          {SETTINGS_CATEGORIES.map((item) => {
+            const Icon = CATEGORY_ICONS[item];
+            return (
+              <button
+                key={item}
+                type="button"
+                className={category === item ? "active" : ""}
+                aria-current={category === item ? "page" : undefined}
+                onClick={() => setCategory(item)}
+              >
+                <Icon size={14} />
+                <span>{t(`settings.cat.${item}`)}</span>
+              </button>
+            );
+          })}
         </nav>
         <div className="settings-pane">
           {category === "general" && (
@@ -468,13 +524,15 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             </select>
             <span className="hint">{t("settings.tabNumberingHint")}</span>
           </label>
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={confirmClose}
-              onChange={(e) => setConfirmClose(e.target.checked)}
-            />
+          <label className="field">
             <span>{t("settings.confirmClose")}</span>
+            <select
+              value={confirmClose ? "1" : "0"}
+              onChange={(e) => setConfirmClose(e.target.value === "1")}
+            >
+              <option value="1">{t("common.yes")}</option>
+              <option value="0">{t("common.no")}</option>
+            </select>
           </label>
           <span className="hint">{t("settings.confirmCloseHint")}</span>
         </fieldset>
@@ -490,57 +548,55 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         <fieldset className="settings-group">
           <legend>{t("settings.terminalAppearance")}</legend>
           <p className="hint">{t("settings.appearanceHint")}</p>
-          <label className="field">
-            <span>{t("settings.fontFamily")}</span>
-            <input
-              value={terminalFontFamily}
-              spellCheck={false}
-              onChange={(e) => setTerminalFontFamily(e.target.value)}
-            />
-            <span className="hint">{t("settings.fontFamilyHint")}</span>
-          </label>
-          <label className="field">
-            <span>{t("settings.fontSize")}</span>
-            <select
-              value={terminalFontSize}
-              onChange={(e) => setTerminalFontSize(Number(e.target.value))}
-            >
-              {Array.from(
-                new Set([10, 12, 13, 14, 15, 16, 18, 20, 24, 28, 32, terminalFontSize]),
-              )
-                .sort((a, b) => a - b)
-                .map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-            </select>
-          </label>
+          <div className="settings-inline">
+            <label className="field">
+              <span>{t("settings.fontFamily")}</span>
+              <input
+                value={terminalFontFamily}
+                spellCheck={false}
+                onChange={(e) => setTerminalFontFamily(e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span>{t("settings.fontSize")}</span>
+              <input
+                type="number"
+                min={8}
+                max={32}
+                value={terminalFontSize}
+                onChange={(e) =>
+                  setTerminalFontSize(
+                    Number.parseInt(e.target.value, 10) || terminalFontSize,
+                  )
+                }
+              />
+            </label>
+          </div>
+          <span className="hint">{t("settings.fontFamilyHint")}</span>
           <label className="field">
             <span>{t("settings.scrollback")}</span>
-            <select
+            <input
+              type="number"
+              min={200}
+              step={100}
               value={terminalScrollback}
-              onChange={(e) => setTerminalScrollback(Number(e.target.value))}
-            >
-              {Array.from(
-                new Set([1000, 2000, 5000, 10000, 20000, 50000, terminalScrollback]),
-              )
-                .sort((a, b) => a - b)
-                .map((lines) => (
-                  <option key={lines} value={lines}>
-                    {lines}
-                  </option>
-                ))}
-            </select>
+              onChange={(e) =>
+                setTerminalScrollback(
+                  Number.parseInt(e.target.value, 10) || terminalScrollback,
+                )
+              }
+            />
             <span className="hint">{t("settings.scrollbackHint")}</span>
           </label>
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={terminalCursorBlink}
-              onChange={(e) => setTerminalCursorBlink(e.target.checked)}
-            />
+          <label className="field">
             <span>{t("settings.cursorBlink")}</span>
+            <select
+              value={terminalCursorBlink ? "1" : "0"}
+              onChange={(e) => setTerminalCursorBlink(e.target.value === "1")}
+            >
+              <option value="1">{t("common.yes")}</option>
+              <option value="0">{t("common.no")}</option>
+            </select>
           </label>
         </fieldset>
 
@@ -560,13 +616,15 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
 
         <fieldset className="settings-group">
           <legend>{t("settings.osc52Title")}</legend>
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={osc52}
-              onChange={(e) => setOsc52(e.target.checked)}
-            />
+          <label className="field">
             <span>{t("settings.osc52")}</span>
+            <select
+              value={osc52 ? "1" : "0"}
+              onChange={(e) => setOsc52(e.target.value === "1")}
+            >
+              <option value="1">{t("common.yes")}</option>
+              <option value="0">{t("common.no")}</option>
+            </select>
           </label>
           <span className="hint">{t("settings.osc52Hint")}</span>
         </fieldset>
@@ -642,27 +700,20 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         </fieldset>
             </>
           )}
-          {category === "keyboard" && (
-            <>
-        <div className="plugin-actions">
-          <button type="button" onClick={resetShortcuts}>
-            {t("shortcuts.resetAll")}
-          </button>
-        </div>
-        <ShortcutEditor />
-            </>
-          )}
+          {category === "keyboard" && <ShortcutEditor />}
           {category === "transfer" && (
             <>
         <fieldset className="settings-group">
           <legend>{t("settings.cat.transfer")}</legend>
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={sftpShowHidden}
-              onChange={(e) => setSftpShowHidden(e.target.checked)}
-            />
+          <label className="field">
             <span>{t("settings.sftpShowHidden")}</span>
+            <select
+              value={sftpShowHidden ? "1" : "0"}
+              onChange={(e) => setSftpShowHidden(e.target.value === "1")}
+            >
+              <option value="1">{t("common.yes")}</option>
+              <option value="0">{t("common.no")}</option>
+            </select>
           </label>
           <span className="hint">{t("settings.sftpShowHiddenHint")}</span>
         </fieldset>
@@ -675,11 +726,12 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           <p className="hint">{t("sync.hint")}</p>
           <label className="field">
             <span>{t("sync.passphrase")}</span>
-            <input
-              type="password"
+            <PasswordInput
               value={passphrase}
-              onChange={(e) => setPassphrase(e.target.value)}
+              onChange={setPassphrase}
               placeholder={t("sync.passphrasePlaceholder")}
+              shown={showPassword}
+              onToggle={() => setShowPassword(!showPassword)}
             />
           </label>
           <div className="sync-actions">
@@ -716,22 +768,32 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           <p className="hint">{t("sync.remoteHint")}</p>
           <label className="field">
             <span>{t("sync.provider")}</span>
-            <select
-              value={remoteKind}
-              onChange={(e) => setRemoteKind(e.target.value as "gist" | "webdav")}
-            >
-              <option value="gist">{t("sync.providerGist")}</option>
-              <option value="webdav">{t("sync.providerWebdav")}</option>
-            </select>
+            <div className="field-inline">
+              <select
+                value={remoteKind}
+                onChange={(e) => setRemoteKind(e.target.value as "gist" | "webdav")}
+              >
+                <option value="gist">{t("sync.providerGist")}</option>
+                <option value="webdav">{t("sync.providerWebdav")}</option>
+              </select>
+              {remoteKind === "webdav" && (
+                <input
+                  value={davUrl}
+                  onChange={(e) => setDavUrl(e.target.value)}
+                  placeholder="https://dav.example.com/backups"
+                />
+              )}
+            </div>
           </label>
           {remoteKind === "gist" ? (
             <>
               <label className="field">
                 <span>{t("sync.gistToken")}</span>
-                <input
-                  type="password"
+                <PasswordInput
                   value={gistToken}
-                  onChange={(e) => setGistToken(e.target.value)}
+                  onChange={setGistToken}
+                  shown={showPassword}
+                  onToggle={() => setShowPassword(!showPassword)}
                 />
               </label>
               <label className="field">
@@ -754,14 +816,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           ) : (
             <>
               <label className="field">
-                <span>{t("sync.webdavUrl")}</span>
-                <input
-                  value={davUrl}
-                  onChange={(e) => setDavUrl(e.target.value)}
-                  placeholder="https://dav.example.com/backups"
-                />
-              </label>
-              <label className="field">
                 <span>{t("sync.webdavUser")}</span>
                 <input
                   value={davUser}
@@ -770,10 +824,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               </label>
               <label className="field">
                 <span>{t("sync.webdavPassword")}</span>
-                <input
-                  type="password"
+                <PasswordInput
                   value={davPass}
-                  onChange={(e) => setDavPass(e.target.value)}
+                  onChange={setDavPass}
+                  shown={showPassword}
+                  onToggle={() => setShowPassword(!showPassword)}
                 />
               </label>
               <label className="field">
@@ -816,15 +871,32 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           )}
           {category === "plugins" && (
             <>
+        <div className="settings-tabs">
+          <button type="button" className="settings-tab" disabled>
+            {t("plugins.market")}
+          </button>
+          <button
+            type="button"
+            className="settings-tab active"
+            aria-current="page"
+          >
+            {t("plugins.installed")}
+          </button>
+          <button
+            type="button"
+            className="icon-btn settings-tabs-gear"
+            title={t("plugins.openFolder")}
+            aria-label={t("plugins.openFolder")}
+            onClick={() => void openPluginDir()}
+          >
+            <GearIcon size={14} />
+          </button>
+        </div>
         <fieldset className="settings-group">
-          <legend>{t("plugins.title")}</legend>
           <p className="hint">{t("plugins.hint")}</p>
           <div className="plugin-actions">
             <button type="button" onClick={() => void refreshPlugins()}>
               {t("plugins.refresh")}
-            </button>
-            <button type="button" onClick={() => void openPluginDir()}>
-              {t("plugins.openFolder")}
             </button>
           </div>
           {pluginMessage && (
@@ -834,17 +906,26 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             <ul className="plugin-list">
               {pluginScan.plugins.map((plugin) => (
                 <li key={plugin.id} className="plugin-row">
-                  <span className="plugin-name">{plugin.name}</span>
-                  <span className="plugin-kind">
-                    {t(`plugins.kinds.${plugin.kind}`, {
-                      defaultValue: plugin.kind,
-                    })}
-                    {plugin.version ? ` · ${plugin.version}` : ""}
+                  <span className="plugin-icon">
+                    <PuzzleIcon size={16} />
+                  </span>
+                  <span className="plugin-main">
+                    <span className="plugin-name">
+                      {plugin.name}
+                      {plugin.version && (
+                        <span className="plugin-version"> {plugin.version}</span>
+                      )}
+                    </span>
+                    <span className="hint plugin-desc">
+                      {t(`plugins.kinds.${plugin.kind}`, {
+                        defaultValue: plugin.kind,
+                      })}
+                    </span>
                   </span>
                   {plugin.kind === "wasm" && (
                     <button
                       type="button"
-                      className="link-btn"
+                      className="plugin-action"
                       onClick={() => void runPlugin(plugin.id)}
                     >
                       {t("plugins.run")}
@@ -858,10 +939,18 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             <ul className="plugin-list">
               {pluginScan.commandPacks.map((pack) => (
                 <li key={pack.id} className="plugin-row">
-                  <span className="plugin-name">{pack.name}</span>
+                  <span className="plugin-icon">
+                    <PuzzleIcon size={16} />
+                  </span>
+                  <span className="plugin-main">
+                    <span className="plugin-name">{pack.name}</span>
+                    <span className="hint plugin-desc">
+                      {t("plugins.kinds.command-pack")}
+                    </span>
+                  </span>
                   <button
                     type="button"
-                    className="link-btn"
+                    className="plugin-action"
                     onClick={() => void importPack(pack.id)}
                   >
                     {t("plugins.importCommands")}

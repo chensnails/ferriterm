@@ -169,4 +169,59 @@ export function TerminalIcon({ size = 14 }: { size?: number }) {
   );
 }
 
+export function SlidersIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" />
+      <circle cx="6" cy="4.5" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="10" cy="8" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="5" cy="11.5" r="1.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function KeyboardIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <rect x="1.5" y="4" width="13" height="8" rx="1.5" />
+      <path d="M4 6.5h.01M6.5 6.5h.01M9 6.5h.01M11.5 6.5h.01M4 9h.01M6.5 9h.01M9 9h.01M11.5 9h.01M5.5 10.8h5" />
+    </svg>
+  );
+}
+
+export function PuzzleIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M3 3h4v1.2a1.3 1.3 0 1 0 2 0V3h4v4h-1.2a1.3 1.3 0 1 0 0 2H13v4H9v-1.2a1.3 1.3 0 1 0-2 0V13H3V9h1.2a1.3 1.3 0 1 0 0-2H3z" />
+    </svg>
+  );
+}
+
+export function CloudIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M4.5 12h7a2.7 2.7 0 0 0 .3-5.4A4 4 0 0 0 4.2 7.2 2.5 2.5 0 0 0 4.5 12z" />
+      <path d="M8 8v3M6.8 9.2L8 8l1.2 1.2" />
+    </svg>
+  );
+}
+
+export function InfoIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <circle cx="8" cy="8" r="6" />
+      <path d="M8 7v4M8 5h.01" />
+    </svg>
+  );
+}
+
+export function EyeIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M1.5 8s2.3-3.5 6.5-3.5S14.5 8 14.5 8 12.2 11.5 8 11.5 1.5 8 1.5 8z" />
+      <circle cx="8" cy="8" r="1.8" />
+    </svg>
+  );
+}
+
 

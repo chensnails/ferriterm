@@ -56,6 +56,8 @@
   --settings-w: 760px;
   --settings-h: 540px;
   --settings-nav-w: 156px;
+  --settings-label-w: 160px;
+  --settings-control-w: 280px;
   --recordings-list-w: 240px;
   --player-h: 360px;
   --split-gutter: 4px;
@@ -1570,11 +1572,16 @@ mark {
   flex-direction: column;
   gap: var(--space-1);
   overflow-y: auto;
+  padding-right: var(--space-2);
+  border-right: 1px solid var(--border);
 }
 
 .settings-nav button {
-  height: auto;
-  padding: var(--space-2) var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--row-h);
+  padding: 0 var(--space-2);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: transparent;
@@ -1590,8 +1597,8 @@ mark {
 }
 
 .settings-nav button.active {
-  background: var(--bg-elevated);
-  border-color: var(--border);
+  background: color-mix(in srgb, var(--accent) 26%, var(--bg-panel));
+  border-color: transparent;
   color: var(--fg-primary);
 }
 
@@ -1600,9 +1607,9 @@ mark {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
   overflow-y: auto;
-  padding-right: var(--space-1);
+  padding: 0 var(--space-1) 0 var(--space-2);
 }
 
 .about-name {
@@ -1728,21 +1735,31 @@ mark {
 }
 
 .shortcut-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.shortcut-row:last-child {
+  border-bottom: 0;
 }
 
 .shortcut-row dt {
-  color: var(--fg-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  color: var(--fg-primary);
 }
 
 .shortcut-row dd {
   margin: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
   flex-wrap: wrap;
   gap: var(--space-2);
 }
@@ -2227,6 +2244,341 @@ mark {
 
 .modal.settings {
   width: min(var(--settings-w), 100%);
+}
+
+/* Settings center — compact, label/control rows (Termora alignment) */
+.modal.settings .modal-head {
+  position: relative;
+  justify-content: center;
+  padding: var(--space-2) var(--space-4);
+}
+
+.modal.settings .modal-head h3 {
+  font-size: var(--font-ui);
+  font-weight: 600;
+}
+
+.modal.settings .modal-head .icon-btn {
+  position: absolute;
+  right: var(--space-3);
+  border-color: transparent;
+}
+
+.modal.settings .modal-body {
+  min-height: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
+.settings-nav button svg {
+  flex-shrink: 0;
+}
+
+.settings-pane .field {
+  display: grid;
+  grid-template-columns: var(--settings-label-w) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--font-ui);
+  color: var(--fg-primary);
+}
+
+.settings-pane .field > span:first-child {
+  white-space: nowrap;
+  text-align: right;
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+}
+
+.settings-pane .field > input,
+.settings-pane .field > select,
+.settings-pane .field > .password-field,
+.settings-pane .field > .field-inline {
+  width: 100%;
+}
+
+.settings-pane .field > input,
+.settings-pane .field > select,
+.settings-pane .field > .password-field {
+  max-width: var(--settings-control-w);
+}
+
+.settings-pane .field > input[type="number"] {
+  max-width: var(--settings-label-w);
+}
+
+.settings-pane .field > .hint {
+  grid-column: 2;
+  text-align: left;
+}
+
+.settings-pane .field .field-inline {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.settings-pane .field .field-inline > select {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: var(--settings-label-w);
+}
+
+.settings-pane .field .field-inline > input {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-pane .settings-inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.settings-pane .settings-inline .field {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2);
+}
+
+.settings-pane .settings-inline .field > span:first-child {
+  white-space: nowrap;
+}
+
+.settings-pane .settings-group {
+  gap: var(--space-2);
+  padding: var(--space-2) 0 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.settings-pane > .settings-group:first-child,
+.settings-pane > .settings-tabs + .settings-group {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.settings-pane .settings-group legend {
+  padding: 0;
+  font-size: var(--font-ui);
+  font-weight: 600;
+  color: var(--fg-primary);
+}
+
+.settings-pane .settings-group > .hint,
+.settings-pane .settings-group > .sync-message,
+.settings-pane .settings-group > .plugin-actions,
+.settings-pane .settings-group > .sync-actions,
+.settings-pane .settings-group > .highlight-form {
+  margin-left: calc(var(--settings-label-w) + var(--space-3));
+}
+
+.settings-pane .highlight-form .field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.settings-pane .highlight-form .field > span:first-child {
+  text-align: left;
+}
+
+.password-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.password-field input {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-pane .password-toggle {
+  border-color: transparent;
+}
+
+.settings-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-tab {
+  height: var(--control-h);
+  padding: 0 var(--space-1);
+  border: 0;
+  border-bottom: var(--tab-accent-w) solid transparent;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: var(--font-ui);
+  cursor: pointer;
+}
+
+.settings-tab.active {
+  border-bottom-color: var(--accent);
+  color: var(--fg-primary);
+}
+
+.settings-tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.settings-tabs-gear {
+  margin-left: auto;
+  border-color: transparent;
+}
+
+.settings-pane .plugin-row {
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-1);
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  font-size: var(--font-ui);
+}
+
+.plugin-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--button-h);
+  height: var(--button-h);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg-muted);
+}
+
+.plugin-main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.plugin-version,
+.plugin-desc {
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+}
+
+.plugin-action {
+  flex-shrink: 0;
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  font-size: var(--font-ui-sm);
+  cursor: pointer;
+}
+
+.plugin-action:hover {
+  border-color: var(--accent);
+}
+
+.settings-pane .plugin-actions button,
+.settings-pane .highlight-form button {
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  font-size: var(--font-ui-sm);
+  cursor: pointer;
+}
+
+.settings-pane .plugin-actions button:hover,
+.settings-pane .highlight-form button:hover {
+  border-color: var(--accent);
+}
+
+.settings-pane .sync-actions {
+  justify-content: center;
+}
+
+.settings-pane .sync-message {
+  text-align: center;
+}
+
+.shortcut-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.shortcut-toolbar button {
+  flex-shrink: 0;
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  font-size: var(--font-ui-sm);
+  cursor: pointer;
+}
+
+.shortcut-toolbar button:hover {
+  border-color: var(--accent);
+}
+
+.shortcut-table {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.shortcut-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+  font-weight: 600;
+}
+
+.shortcut-head span {
+  text-align: center;
+}
+
+.shortcut-table .shortcut-list {
+  gap: 0;
+}
+
+.shortcut-action {
+  color: var(--fg-primary);
+}
+
+/* Top tool row — borderless icon buttons */
+.tab-tools {
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--border);
+}
+
+.tab-tools .icon-btn {
+  border-color: transparent;
+  border-radius: var(--radius-sm);
+}
+
+.tab-tools .icon-btn:hover {
+  background: var(--bg-elevated);
+}
+
+.tab-tools .icon-btn[aria-pressed="true"],
+.tab-tools .icon-btn.active {
+  border-color: transparent;
+  background: var(--bg-elevated);
+  color: var(--accent);
 }
 
 .recordings-layout {

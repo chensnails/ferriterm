@@ -155,7 +155,9 @@
   "common": {
     "close": "关闭",
     "cancel": "取消",
-    "delete": "删除"
+    "delete": "删除",
+    "yes": "是",
+    "no": "否"
   },
   "settings": {
     "open": "设置",
@@ -359,7 +361,9 @@
     "kind_createDir": "文件夹",
     "kind_copyFile": "复制",
     "kind_deleteFile": "删除文件",
-    "kind_deleteDir": "删除文件夹"
+    "kind_deleteDir": "删除文件夹",
+    "showPassword": "显示密码",
+    "hidePassword": "隐藏密码"
   },
   "transfer": {
     "title": "文件传输",
@@ -517,7 +521,9 @@
     "cancelEdit": "取消",
     "disabled": "已禁用",
     "conflict": "已被“{action}”占用。",
-    "editHint": "点击“修改”后按下新的组合键。退格键可禁用该快捷键，Esc 取消。"
+    "editHint": "点击“修改”后按下新的组合键。退格键可禁用该快捷键，Esc 取消。",
+    "columnKeys": "快捷键",
+    "columnAction": "操作"
   },
   "session": {
     "localTitle": "本地终端"
@@ -628,6 +634,8 @@
       "theme": "主题",
       "command-pack": "命令包",
       "wasm": "WASM"
-    }
+    },
+    "market": "市场",
+    "installed": "已安装"
   }
 }

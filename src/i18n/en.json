@@ -155,7 +155,9 @@
   "common": {
     "close": "Close",
     "cancel": "Cancel",
-    "delete": "Delete"
+    "delete": "Delete",
+    "yes": "Yes",
+    "no": "No"
   },
   "settings": {
     "open": "Settings",
@@ -359,7 +361,9 @@
     "kind_createDir": "Folder",
     "kind_copyFile": "Copy",
     "kind_deleteFile": "Delete file",
-    "kind_deleteDir": "Delete folder"
+    "kind_deleteDir": "Delete folder",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "transfer": {
     "title": "File transfer",
@@ -517,7 +521,9 @@
     "cancelEdit": "Cancel",
     "disabled": "Disabled",
     "conflict": "Already used by \"{action}\".",
-    "editHint": "Click Change, then press the new key combination. Backspace disables the shortcut; Escape cancels."
+    "editHint": "Click Change, then press the new key combination. Backspace disables the shortcut; Escape cancels.",
+    "columnKeys": "Shortcut",
+    "columnAction": "Action"
   },
   "session": {
     "localTitle": "Local terminal"
@@ -628,6 +634,8 @@
       "theme": "Theme",
       "command-pack": "Command pack",
       "wasm": "WASM"
-    }
+    },
+    "market": "Marketplace",
+    "installed": "Installed"
   }
 }
