@@ -270,6 +270,16 @@
       "about": "About",
       "credentials": "Credentials"
     },
+    "desc": {
+      "general": "Theme, language and tab behaviour.",
+      "terminal": "Font, cursor, scrollback and highlight rules.",
+      "keyboard": "Shortcuts for every app action.",
+      "transfer": "Concurrency, hidden files and editor behaviour.",
+      "plugins": "Language packs, themes, command packs and optional transports.",
+      "sync": "Encrypted backups and remote sync profiles.",
+      "about": "Version, storage locations and disclaimer.",
+      "credentials": "Vault, SSH keys and known hosts."
+    },
     "tabsTitle": "Tabs",
     "tabNumbering": "Tab numbering",
     "tabNumberingAsNeed": "As needed",

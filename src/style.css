@@ -1839,9 +1839,35 @@ mark {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
   overflow-y: auto;
   padding: 0 var(--space-1) 0 var(--space-2);
+}
+
+.settings-page-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-page-head h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-title);
+  font-weight: 600;
+  color: var(--fg-primary);
+}
+
+.settings-page-head h2 svg {
+  color: var(--accent);
+}
+
+.settings-page-head .hint {
+  max-width: 64ch;
 }
 
 .about-name {
@@ -2770,12 +2796,13 @@ mark {
 
 .settings-pane .settings-group {
   gap: var(--space-2);
-  padding: var(--space-2) 0 0;
+  padding: var(--space-3) 0 0;
   border: 0;
   border-top: 1px solid var(--border);
   border-radius: 0;
 }
 
+.settings-pane > .settings-page-head + .settings-group,
 .settings-pane > .settings-group:first-child,
 .settings-pane > .settings-tabs + .settings-group {
   border-top: 0;
@@ -2794,7 +2821,7 @@ mark {
 .settings-pane .settings-group > .plugin-actions,
 .settings-pane .settings-group > .sync-actions,
 .settings-pane .settings-group > .highlight-form {
-  margin-left: calc(var(--settings-label-w) + var(--space-3));
+  margin-left: 0;
 }
 
 .settings-pane .highlight-form .field {
@@ -2943,11 +2970,11 @@ mark {
 }
 
 .settings-pane .sync-actions {
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .settings-pane .sync-message {
-  text-align: center;
+  text-align: left;
 }
 
 .shortcut-toolbar {

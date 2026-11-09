@@ -435,6 +435,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const CategoryIcon = CATEGORY_ICONS[category];
+
   return (
     <Modal
       title={t("settings.title")}
@@ -460,6 +462,13 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           })}
         </nav>
         <div className="settings-pane">
+          <div className="settings-page-head">
+            <h2>
+              <CategoryIcon size={15} />
+              {t(`settings.cat.${category}`)}
+            </h2>
+            <p className="hint">{t(`settings.desc.${category}`)}</p>
+          </div>
           {category === "general" && (
             <>
         <fieldset className="settings-group">

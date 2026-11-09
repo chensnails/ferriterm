@@ -270,6 +270,16 @@
       "about": "关于",
       "credentials": "凭据"
     },
+    "desc": {
+      "general": "主题、语言与标签页行为。",
+      "terminal": "字体、光标、回滚与高亮规则。",
+      "keyboard": "为每个应用动作设置快捷键。",
+      "transfer": "并发数、隐藏文件与编辑器行为。",
+      "plugins": "语言包、主题、命令包与可选传输方式。",
+      "sync": "加密备份与远程同步配置。",
+      "about": "版本、存储位置与免责声明。",
+      "credentials": "保险库、SSH 密钥与已知主机。"
+    },
     "tabsTitle": "标签页",
     "tabNumbering": "标签序号",
     "tabNumberingAsNeed": "需要时",
