@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri, type MonitorSnapshot } from "../api";
 import { useAppStore } from "../store";
-import { IconButton, PanelHeader } from "./ui";
 
 function formatBytes(bytes: number): string {
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -30,13 +29,11 @@ function usage(used: number, total: number): number {
 
 export function MonitorPanel() {
   const { t } = useTranslation();
-  const open = useAppStore((s) => s.monitorOpen);
-  const toggleMonitor = useAppStore((s) => s.toggleMonitor);
   const setStatus = useAppStore((s) => s.setStatus);
   const [snapshot, setSnapshot] = useState<MonitorSnapshot | null>(null);
 
   useEffect(() => {
-    if (!open || !isTauri) return;
+    if (!isTauri) return;
     let cancelled = false;
     const tick = async () => {
       try {
@@ -52,28 +49,13 @@ export function MonitorPanel() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [open, setStatus]);
-
-  if (!open) return null;
+  }, [setStatus]);
 
   const memory = snapshot ? usage(snapshot.memUsed, snapshot.memTotal) : 0;
   const swap = snapshot ? usage(snapshot.swapUsed, snapshot.swapTotal) : 0;
 
   return (
-    <section className="monitor-panel" aria-label={t("monitor.title")}>
-      <PanelHeader
-        title={t("monitor.title")}
-        compact
-        actions={
-          <IconButton
-            label={t("common.close")}
-            onClick={toggleMonitor}
-            size="sm"
-          >
-            ×
-          </IconButton>
-        }
-      />
+    <>
       {!isTauri ? (
         <p className="hint">{t("monitor.desktopOnly")}</p>
       ) : !snapshot ? (
@@ -160,6 +142,6 @@ export function MonitorPanel() {
           </div>
         </div>
       )}
-    </section>
+    </>
   );
 }

@@ -13,6 +13,11 @@
     "activeTask": "有进行中的传输任务",
     "showTools": "显示网络工具箱"
   },
+  "dock": {
+    "title": "面板停靠区",
+    "resizeWidth": "拖动调整面板列宽度",
+    "resizeHeight": "拖动调整该面板高度"
+  },
   "home": {
     "tagline": "跨平台 SSH 终端与文件传输"
   },

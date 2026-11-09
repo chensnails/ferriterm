@@ -13,6 +13,11 @@
     "activeTask": "A transfer is in progress",
     "showTools": "Show the network toolbox"
   },
+  "dock": {
+    "title": "Panels",
+    "resizeWidth": "Drag to resize the panel column",
+    "resizeHeight": "Drag to resize this panel"
+  },
   "home": {
     "tagline": "Cross-platform SSH terminal and file transfer"
   },

@@ -5,17 +5,14 @@ import { templateVariables } from "../commands";
 import { useAppStore } from "../store";
 import { terminalHandle } from "../terminal-registry";
 import { CommandVarsDialog } from "./CommandVarsDialog";
-import { IconButton, PanelHeader } from "./ui";
 
 export function CommandRail() {
   const { t } = useTranslation();
-  const open = useAppStore((s) => s.commandsOpen);
   const activeId = useAppStore((s) => s.activeId);
   const focusedSessionId = useAppStore((s) => s.focusedSessionId);
   const commandHistory = useAppStore((s) => s.commandHistory);
   const clearCommandHistory = useAppStore((s) => s.clearCommandHistory);
   const commandLibraryVersion = useAppStore((s) => s.commandLibraryVersion);
-  const toggleCommands = useAppStore((s) => s.toggleCommands);
   const setStatus = useAppStore((s) => s.setStatus);
   const [groups, setGroups] = useState<CommandGroup[]>([]);
   const [groupName, setGroupName] = useState("");
@@ -48,8 +45,6 @@ export function CommandRail() {
   useEffect(() => {
     if (!groupId && groups.length > 0) setGroupId(groups[0].id);
   }, [groups, groupId]);
-
-  if (!open) return null;
 
   const clearEdit = () => {
     setEditing(null);
@@ -139,20 +134,7 @@ export function CommandRail() {
   };
 
   return (
-    <aside id="command-rail" aria-label={t("commands.title")}>
-      <PanelHeader
-        title={t("commands.title")}
-        actions={
-          <IconButton
-            label={t("common.close")}
-            onClick={toggleCommands}
-            size="sm"
-          >
-            ×
-          </IconButton>
-        }
-      />
-
+    <div className="command-rail">
       <div className="rail-body">
         <section className="command-group command-history">
           <header className="command-group-head">
@@ -332,6 +314,6 @@ export function CommandRail() {
           }}
         />
       )}
-    </aside>
+    </div>
   );
 }

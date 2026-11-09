@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityRail } from "./components/ActivityRail";
+import { Dock } from "./components/Dock";
 import { RightStrip } from "./components/RightStrip";
 import { TabBar } from "./components/TabBar";
 import { HomeView } from "./components/HomeView";
@@ -9,11 +10,9 @@ import { NetTools } from "./components/NetTools";
 import { ToolList } from "./components/ToolList";
 import { TerminalArea } from "./components/TerminalArea";
 import { BrowserBanner } from "./components/BrowserBanner";
-import { ExecutionLog } from "./components/ExecutionLog";
 import { BroadcastDialog } from "./components/BroadcastDialog";
 import { CloseConfirmDialog } from "./components/CloseConfirmDialog";
 import { CommandPalette } from "./components/CommandPalette";
-import { CommandRail } from "./components/CommandRail";
 import { ConnectForm } from "./components/ConnectForm";
 import { HostKeyPrompt } from "./components/HostKeyPrompt";
 import { KeyboardInteractivePrompt } from "./components/KeyboardInteractivePrompt";
@@ -25,11 +24,6 @@ import { installShortcuts } from "./shortcuts";
 import { HOME_TAB, TRANSFER_TAB, useAppStore } from "./store";
 import { resolveWindowChrome } from "./window-chrome";
 
-const MonitorPanel = lazy(() =>
-  import("./components/MonitorPanel").then((module) => ({
-    default: module.MonitorPanel,
-  })),
-);
 const ForwardDialog = lazy(() =>
   import("./components/ForwardDialog").then((module) => ({
     default: module.ForwardDialog,
@@ -56,7 +50,6 @@ const initialConnect = new URLSearchParams(window.location.search).get("connect"
 export default function App() {
   const { t } = useTranslation();
   const broadcastRequested = useAppStore((s) => s.broadcastRequested);
-  const monitorOpen = useAppStore((s) => s.monitorOpen);
   const forwardOpen = useAppStore((s) => s.forwardOpen);
   const transferOpen = useAppStore((s) => s.transferOpen);
   const activeId = useAppStore((s) => s.activeId);
@@ -190,16 +183,14 @@ export default function App() {
               )}
               <div id="workspace" hidden={!isTerminalView}>
                 <TerminalArea />
-                <CommandRail />
               </div>
             </div>
+            <Dock />
           </div>
           <RightStrip />
         </div>
-        <ExecutionLog />
       </div>
       <BrowserBanner />
-      <Suspense fallback={null}>{monitorOpen && <MonitorPanel />}</Suspense>
       <CommandPalette />
       <Suspense fallback={null}>{forwardOpen && <ForwardDialog />}</Suspense>
       <HostKeyPrompt />

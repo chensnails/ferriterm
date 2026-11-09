@@ -1859,22 +1859,6 @@ mark {
   word-break: break-all;
 }
 
-.monitor-panel {
-  position: fixed;
-  right: var(--space-4);
-  top: calc(var(--tab-h) + var(--space-5));
-  z-index: 40;
-  width: 300px;
-  padding: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
-  backdrop-filter: blur(14px);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-panel);
-}
 
 .monitor-head {
   display: flex;
@@ -1965,15 +1949,11 @@ mark {
   display: block;
 }
 
-#command-rail {
-  width: 240px;
-  flex-shrink: 0;
-  margin: 0 var(--space-3) var(--space-3) 0;
+.command-rail {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--bg-panel);
   overflow: hidden;
 }
 
@@ -1998,6 +1978,7 @@ mark {
 
 .rail-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: var(--space-2);
   display: flex;
@@ -3275,34 +3256,6 @@ mark {
   word-break: break-all;
 }
 
-.exec-log {
-  flex: 0 0 176px;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  border-top: 1px solid var(--border);
-  background: var(--bg-panel);
-}
-
-.exec-log-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-1) var(--space-3);
-  border-bottom: 1px solid var(--border);
-}
-
-.exec-log-head h3 {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.exec-log-tools {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
 
 .exec-log-list {
   flex: 1;
@@ -3433,12 +3386,6 @@ mark {
   border: 0;
   border-radius: 0;
   overflow: visible;
-}
-
-.exec-log.ui-island {
-  border: 0;
-  border-top: 1px solid var(--divider);
-  border-radius: 0;
 }
 
 .ui-panel-header {
@@ -3801,13 +3748,6 @@ mark {
 #terminal-host {
   margin: var(--island-gap);
   border: 0;
-}
-
-#command-rail {
-  margin: var(--island-gap);
-  border: 0;
-  border-radius: var(--island-radius);
-  background: var(--sub-bg);
 }
 
 .section-head {
@@ -4474,4 +4414,98 @@ mark {
   font-family: var(--font-mono);
   font-size: var(--font-ui-sm);
   overflow-x: auto;
+}
+
+/* Right dock (S4): one card per companion panel. Cards stack vertically and
+   both the dock width and each card height are drag-resizable. */
+#dock {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--island-gap);
+  overflow: hidden;
+}
+
+.dock-gutter {
+  position: absolute;
+  left: calc(-1 * var(--island-gap));
+  top: 0;
+  bottom: 0;
+  width: calc(var(--island-gap) + 4px);
+  z-index: 3;
+  cursor: col-resize;
+}
+
+.dock-gutter::after {
+  content: "";
+  position: absolute;
+  left: calc(var(--island-gap) - 1px);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background var(--motion-fast);
+}
+
+.dock-gutter:hover::after,
+.dock-gutter:focus-visible::after {
+  background: var(--accent);
+}
+
+.dock-card {
+  min-height: 0;
+}
+
+.dock-card-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dock-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--island-pad);
+}
+
+.dock-resizer {
+  position: relative;
+  flex-shrink: 0;
+  height: 8px;
+  cursor: row-resize;
+}
+
+.dock-resizer::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 3px;
+  width: 30px;
+  height: 2px;
+  margin-left: -15px;
+  border-radius: 1px;
+  background: var(--divider);
+  transition: background var(--motion-fast);
+}
+
+.dock-resizer:hover::after {
+  background: var(--accent);
+}
+
+body.dock-resizing-x,
+body.dock-resizing-x * {
+  cursor: col-resize !important;
+  user-select: none;
+}
+
+body.dock-resizing-y,
+body.dock-resizing-y * {
+  cursor: row-resize !important;
+  user-select: none;
 }

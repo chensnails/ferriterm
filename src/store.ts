@@ -149,6 +149,61 @@ export type SidebarView = "hosts" | "tools";
 
 export type NetToolId = "ping" | "geoip" | "ipcalc";
 
+/** Companion panels that live in the right dock. */
+export type DockCardId = "commands" | "monitor" | "log";
+
+export const DOCK_WIDTH_MIN = 252;
+export const DOCK_WIDTH_MAX = 560;
+export const DOCK_CARD_MIN_H = 132;
+
+const DOCK_CARD_DEFAULT_H: Record<DockCardId, number> = {
+  commands: 300,
+  monitor: 296,
+  log: 208,
+};
+
+function clampDockWidth(width: number): number {
+  if (!Number.isFinite(width)) return 320;
+  return Math.min(DOCK_WIDTH_MAX, Math.max(DOCK_WIDTH_MIN, Math.round(width)));
+}
+
+function clampDockCardHeight(id: DockCardId, height: number): number {
+  if (!Number.isFinite(height)) return DOCK_CARD_DEFAULT_H[id];
+  return Math.min(900, Math.max(DOCK_CARD_MIN_H, Math.round(height)));
+}
+
+function parseDockHeights(raw: string | undefined): Record<DockCardId, number> {
+  const heights = { ...DOCK_CARD_DEFAULT_H };
+  if (!raw) return heights;
+  try {
+    const parsed = JSON.parse(raw) as Partial<Record<DockCardId, unknown>>;
+    if (!parsed || typeof parsed !== "object") return heights;
+    (Object.keys(heights) as DockCardId[]).forEach((id) => {
+      const value = parsed[id];
+      if (typeof value === "number") heights[id] = clampDockCardHeight(id, value);
+    });
+  } catch {
+    // a malformed blob just falls back to the defaults
+  }
+  return heights;
+}
+
+// Resizing a card fires on every pointer move, so persistence is debounced.
+let dockSaveTimer: number | undefined;
+
+function scheduleDockSave(read: () => {
+  dockWidth: number;
+  dockHeights: Record<DockCardId, number>;
+}): void {
+  if (!isTauri) return;
+  window.clearTimeout(dockSaveTimer);
+  dockSaveTimer = window.setTimeout(() => {
+    const { dockWidth, dockHeights } = read();
+    api.setSetting("dockWidth", String(dockWidth)).catch(() => {});
+    api.setSetting("dockHeights", JSON.stringify(dockHeights)).catch(() => {});
+  }, 320);
+}
+
 export const HOME_TAB = "home";
 export const TRANSFER_TAB = "transfer";
 
@@ -245,6 +300,11 @@ interface AppState {
   showSidebarView: (view: SidebarView) => void;
   netTool: NetToolId;
   setNetTool: (tool: NetToolId) => void;
+  /** Width of the right dock and the height of each card inside it. */
+  dockWidth: number;
+  dockHeights: Record<DockCardId, number>;
+  setDockWidth: (width: number) => void;
+  setDockCardHeight: (id: DockCardId, height: number) => void;
   /** Frame shape the header must draw around, resolved once at startup. */
   windowChrome: WindowChrome;
   setWindowChrome: (chrome: WindowChrome) => void;
@@ -402,6 +462,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   sidebarOpen: true,
   sidebarView: "hosts",
   netTool: "ping",
+  dockWidth: 320,
+  dockHeights: { ...DOCK_CARD_DEFAULT_H },
   windowChrome: initialWindowChrome,
   paletteOpen: false,
   searchOpen: false,
@@ -414,7 +476,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   newFolderRequested: false,
   connectRequestId: null,
 
-  toggleMonitor: () => set((s) => ({ monitorOpen: !s.monitorOpen })),
+  toggleMonitor: () =>
+    set((s) => {
+      const open = !s.monitorOpen;
+      if (isTauri) {
+        api.setSetting("monitorOpen", open ? "1" : "0").catch(() => {});
+      }
+      return { monitorOpen: open };
+    }),
   setForwardOpen: (open) => set({ forwardOpen: open }),
   toggleForward: () => set((s) => ({ forwardOpen: !s.forwardOpen })),
   openTransfer: (sessionId) =>
@@ -528,7 +597,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       api.setSetting("shortcuts", JSON.stringify(shortcuts)).catch(() => {});
     }
   },
-  toggleCommands: () => set((s) => ({ commandsOpen: !s.commandsOpen })),
+  toggleCommands: () =>
+    set((s) => {
+      const open = !s.commandsOpen;
+      if (isTauri) {
+        api.setSetting("commandsOpen", open ? "1" : "0").catch(() => {});
+      }
+      return { commandsOpen: open };
+    }),
   toggleSidebar: () =>
     set((s) => {
       const open = !s.sidebarOpen;
@@ -538,6 +614,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   showSidebarView: (view) =>
     set({ sidebarView: view, activeId: HOME_TAB, sidebarOpen: true }),
   setNetTool: (tool) => set({ netTool: tool }),
+  setDockWidth: (width) => {
+    set({ dockWidth: clampDockWidth(width) });
+    scheduleDockSave(get);
+  },
+  setDockCardHeight: (id, height) => {
+    set((s) => ({
+      dockHeights: { ...s.dockHeights, [id]: clampDockCardHeight(id, height) },
+    }));
+    scheduleDockSave(get);
+  },
   setWindowChrome: (chrome) => set({ windowChrome: chrome }),
   togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
   closePalette: () => set({ paletteOpen: false }),
@@ -709,7 +795,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (isTauri) api.setSetting("commandHistory", "[]").catch(() => {});
   },
 
-  toggleExecLog: () => set((s) => ({ execLogOpen: !s.execLogOpen })),
+  toggleExecLog: () =>
+    set((s) => {
+      const open = !s.execLogOpen;
+      if (isTauri) {
+        api.setSetting("execLogOpen", open ? "1" : "0").catch(() => {});
+      }
+      return { execLogOpen: open };
+    }),
 
   clearExecLog: () => set({ execLog: [] }),
 
@@ -1014,6 +1107,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       commandHistory: parseHistory(settings.commandHistory),
       shortcuts: parseShortcuts(settings.shortcuts),
       sidebarOpen: (settings.sidebarOpen ?? "1") !== "0",
+      dockWidth: clampDockWidth(Number(settings.dockWidth)),
+      dockHeights: parseDockHeights(settings.dockHeights),
+      // Older builds had no persisted panel state; keep their defaults.
+      commandsOpen: (settings.commandsOpen ?? "1") !== "0",
+      monitorOpen: (settings.monitorOpen ?? "0") === "1",
+      execLogOpen: (settings.execLogOpen ?? "0") === "1",
     });
   },
 
