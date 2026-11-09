@@ -21,6 +21,7 @@ import { Modal } from "./components/Modal";
 import { PromptDialog } from "./components/PromptDialog";
 import { SerialDialog } from "./components/SerialDialog";
 import { ShortcutsDialog } from "./components/ShortcutsDialog";
+import { ResizeHandles } from "./components/WindowControls";
 import { api, isTauri, onForwardError, onTransferUpdate } from "./api";
 import i18n from "./i18n";
 import { installShortcuts } from "./shortcuts";
@@ -237,6 +238,7 @@ export default function App() {
         </div>
         <StatusBar />
       </div>
+      {windowChrome === "custom" && <ResizeHandles />}
       <BrowserBanner />
       <CommandPalette />
       <Suspense fallback={null}>{forwardOpen && <ForwardDialog />}</Suspense>

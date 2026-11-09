@@ -63,3 +63,25 @@ export async function closeWindow(): Promise<void> {
     // ignore
   }
 }
+
+export type ResizeEdge =
+  | "North"
+  | "South"
+  | "East"
+  | "West"
+  | "NorthEast"
+  | "NorthWest"
+  | "SouthEast"
+  | "SouthWest";
+
+/**
+ * With the OS frame removed there is nothing left to grab, so the header draws
+ * eight invisible edges that hand the drag back to the window manager.
+ */
+export async function beginResize(edge: ResizeEdge): Promise<void> {
+  try {
+    await (await currentWindow()).startResizeDragging(edge);
+  } catch {
+    // the OS may refuse while maximized; the window is already at full size
+  }
+}

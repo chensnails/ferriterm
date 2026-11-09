@@ -1,9 +1,22 @@
 import { useTranslation } from "react-i18next";
 import {
+  beginResize,
   closeWindow,
   minimizeWindow,
   toggleMaximizeWindow,
+  type ResizeEdge,
 } from "../window-chrome";
+
+const EDGES: ResizeEdge[] = [
+  "North",
+  "South",
+  "East",
+  "West",
+  "NorthEast",
+  "NorthWest",
+  "SouthEast",
+  "SouthWest",
+];
 
 /**
  * Caption buttons for the frameless window. Only rendered when the frame was
@@ -58,6 +71,24 @@ export function WindowControls() {
           />
         </svg>
       </button>
+    </div>
+  );
+}
+
+/** Invisible borders and corners that resize the frameless window. */
+export function ResizeHandles() {
+  return (
+    <div className="resize-handles" aria-hidden>
+      {EDGES.map((edge) => (
+        <div
+          key={edge}
+          className={`resize-handle resize-${edge.toLowerCase()}`}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            void beginResize(edge);
+          }}
+        />
+      ))}
     </div>
   );
 }

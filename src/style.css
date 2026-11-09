@@ -4873,6 +4873,87 @@ label.sync-action {
   color: #ffffff;
 }
 
+/* Frameless windows lose the OS resize edges, so eight transparent strips
+   hand the drag back to the window manager. The container itself ignores
+   pointer events; only the 6px borders respond. */
+.resize-handles {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.resize-handle {
+  position: absolute;
+  pointer-events: auto;
+}
+
+.resize-north,
+.resize-south {
+  left: 8px;
+  right: 8px;
+  height: 6px;
+}
+
+.resize-north {
+  top: 0;
+  cursor: n-resize;
+}
+
+.resize-south {
+  bottom: 0;
+  cursor: s-resize;
+}
+
+.resize-east,
+.resize-west {
+  top: 8px;
+  bottom: 8px;
+  width: 6px;
+}
+
+.resize-east {
+  right: 0;
+  cursor: e-resize;
+}
+
+.resize-west {
+  left: 0;
+  cursor: w-resize;
+}
+
+.resize-northeast,
+.resize-northwest,
+.resize-southeast,
+.resize-southwest {
+  width: 10px;
+  height: 10px;
+}
+
+.resize-northeast {
+  top: 0;
+  right: 0;
+  cursor: ne-resize;
+}
+
+.resize-northwest {
+  top: 0;
+  left: 0;
+  cursor: nw-resize;
+}
+
+.resize-southeast {
+  bottom: 0;
+  right: 0;
+  cursor: se-resize;
+}
+
+.resize-southwest {
+  bottom: 0;
+  left: 0;
+  cursor: sw-resize;
+}
+
 /* Network toolbox (module: tools). Same island language as the host list:
    one scroll container per pane, tokens only. */
 
