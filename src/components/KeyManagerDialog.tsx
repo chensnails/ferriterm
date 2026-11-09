@@ -1,7 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, type KeyCandidate, type SshKey } from "../api";
+import { api, isTauri, type KeyCandidate, type SshKey } from "../api";
 import { Modal } from "./Modal";
+
+interface KeyPreview {
+  algorithm: string;
+  fingerprint: string;
+  comment: string;
+  encrypted: boolean;
+}
 
 export function KeyManagerDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
@@ -11,6 +18,10 @@ export function KeyManagerDialog({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState("");
   const [path, setPath] = useState("");
   const [pasted, setPasted] = useState("");
+  const [preview, setPreview] = useState<KeyPreview | null>(null);
+  const [previewError, setPreviewError] = useState("");
+  const [nameTouched, setNameTouched] = useState(false);
+  const previewRequest = useRef(0);
   const [passphrase, setPassphrase] = useState("");
   const [algorithm, setAlgorithm] = useState("ed25519");
   const [comment, setComment] = useState("");
@@ -36,6 +47,38 @@ export function KeyManagerDialog({ onClose }: { onClose: () => void }) {
     void reload();
   }, []);
 
+  // Inspect pasted key text so the user sees the algorithm, fingerprint and
+  // encryption state before the key is written to the vault.
+  useEffect(() => {
+    const text = pasted.trim();
+    if (!text || !isTauri) {
+      setPreview(null);
+      setPreviewError("");
+      return;
+    }
+    const request = previewRequest.current + 1;
+    previewRequest.current = request;
+    const timer = window.setTimeout(async () => {
+      try {
+        const info = await api.sshKeyInspect(text);
+        if (previewRequest.current !== request) return;
+        setPreview(info);
+        setPreviewError("");
+        if (!nameTouched) {
+          setName(
+            info.comment.trim() ||
+              `${info.algorithm} ${info.fingerprint.slice(0, 19)}`,
+          );
+        }
+      } catch (err) {
+        if (previewRequest.current !== request) return;
+        setPreview(null);
+        setPreviewError(String(err));
+      }
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [pasted, nameTouched]);
+
   const importKey = async (source: {
     path?: string;
     text?: string;
@@ -56,6 +99,10 @@ export function KeyManagerDialog({ onClose }: { onClose: () => void }) {
       setMessage(t("keys.imported", { name: key.name }));
       setPath("");
       setPasted("");
+      setPreview(null);
+      setPreviewError("");
+      setName("");
+      setNameTouched(false);
       setPassphrase("");
       await reload();
       setTab("library");
@@ -98,6 +145,21 @@ export function KeyManagerDialog({ onClose }: { onClose: () => void }) {
       await reload();
     } catch (err) {
       setError(String(err));
+    }
+  };
+
+  const pasteFromClipboard = async () => {
+    setError("");
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text.trim()) {
+        setMessage(t("keys.clipboardEmpty"));
+        return;
+      }
+      setNameTouched(false);
+      setPasted(text.trim());
+    } catch {
+      setError(t("keys.clipboardError"));
     }
   };
 
@@ -221,36 +283,88 @@ export function KeyManagerDialog({ onClose }: { onClose: () => void }) {
             </label>
           </fieldset>
           <fieldset className="settings-group">
-            <legend>{t("keys.manualTitle")}</legend>
-            <label className="field">
-              <span>{t("keys.name")}</span>
-              <input value={name} onChange={(e) => setName(e.target.value)} />
-            </label>
-            <label className="field">
-              <span>{t("keys.path")}</span>
-              <input
-                value={path}
-                onChange={(e) => setPath(e.target.value)}
-                placeholder="~/.ssh/id_ed25519"
-              />
-            </label>
+            <legend>{t("keys.pasteTitle")}</legend>
+            <p className="hint">{t("keys.pasteHint")}</p>
             <label className="field">
               <span>{t("keys.paste")}</span>
               <textarea
-                rows={4}
+                rows={6}
+                className="key-paste"
+                spellCheck={false}
                 value={pasted}
                 onChange={(e) => setPasted(e.target.value)}
                 placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
               />
             </label>
             <div className="plugin-actions">
+              <button type="button" onClick={() => void pasteFromClipboard()}>
+                {t("keys.pasteFromClipboard")}
+              </button>
+              {pasted.trim() && (
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => {
+                    setPasted("");
+                    setPreview(null);
+                    setPreviewError("");
+                  }}
+                >
+                  {t("common.clear")}
+                </button>
+              )}
+            </div>
+            {preview && (
+              <div className="key-preview">
+                <span className="plugin-name">
+                  {t("keys.previewOk")}
+                  {preview.encrypted && (
+                    <span className="badge warn">{t("keys.encrypted")}</span>
+                  )}
+                </span>
+                <span className="hint plugin-desc">
+                  {preview.algorithm} · {preview.fingerprint}
+                </span>
+                {preview.comment && (
+                  <span className="hint plugin-desc">{preview.comment}</span>
+                )}
+                {preview.encrypted && !passphrase && (
+                  <span className="hint">{t("keys.passphraseNeeded")}</span>
+                )}
+              </div>
+            )}
+            {previewError && (
+              <p className="hint error-text">{t("keys.previewError")}</p>
+            )}
+            <div className="settings-inline">
+              <label className="field">
+                <span>{t("keys.name")}</span>
+                <input
+                  value={name}
+                  onChange={(e) => {
+                    setNameTouched(true);
+                    setName(e.target.value);
+                  }}
+                  placeholder={t("keys.namePlaceholder")}
+                />
+              </label>
+              <label className="field">
+                <span>{t("keys.path")}</span>
+                <input
+                  value={path}
+                  onChange={(e) => setPath(e.target.value)}
+                  placeholder="~/.ssh/id_ed25519"
+                />
+              </label>
+            </div>
+            <div className="plugin-actions">
               <button
                 type="button"
-                disabled={busy || (!path.trim() && !pasted.trim())}
+                className="primary"
+                disabled={busy || !pasted.trim() || !preview}
                 onClick={() =>
                   void importKey({
-                    path: path.trim() || undefined,
-                    text: pasted.trim() || undefined,
+                    text: pasted.trim(),
                     name: name.trim(),
                     passphrase,
                   })
@@ -259,6 +373,23 @@ export function KeyManagerDialog({ onClose }: { onClose: () => void }) {
                 {t("keys.import")}
               </button>
             </div>
+            {path.trim() && (
+              <div className="plugin-actions">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    void importKey({
+                      path: path.trim(),
+                      name: name.trim(),
+                      passphrase,
+                    })
+                  }
+                >
+                  {t("keys.importFromPath")}
+                </button>
+              </div>
+            )}
           </fieldset>
         </>
       )}

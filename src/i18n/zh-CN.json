@@ -185,7 +185,8 @@
     "no": "否",
     "confirm": "确定",
     "loading": "加载中…",
-    "optional": "可选"
+    "optional": "可选",
+    "clear": "清空"
   },
   "settings": {
     "open": "设置",
@@ -903,6 +904,15 @@
     "scanHint": "导入本机已有的私钥文件。",
     "scanEmpty": "未找到私钥文件。",
     "manualTitle": "导入密钥",
+    "pasteTitle": "粘贴私钥",
+    "pasteHint": "粘贴完整的 OpenSSH 私钥，包含 BEGIN 与 END 行。密钥只在本机解析，不会上传。",
+    "pasteFromClipboard": "从剪贴板粘贴",
+    "clipboardEmpty": "剪贴板中没有文本。",
+    "clipboardError": "无法读取剪贴板，请直接粘贴到输入框。",
+    "previewOk": "私钥有效",
+    "previewError": "这段内容不是有效的 OpenSSH 私钥。",
+    "passphraseNeeded": "该密钥已加密，请在下方填写口令。",
+    "importFromPath": "从路径导入",
     "path": "密钥文件路径",
     "paste": "粘贴密钥内容",
     "passphraseForImport": "导入口令",

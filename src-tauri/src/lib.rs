@@ -102,6 +102,7 @@ pub fn run() {
             commands::vault_clear_entries,
             commands::ssh_key_list,
             commands::ssh_key_scan,
+            commands::ssh_key_inspect,
             commands::ssh_key_import,
             commands::ssh_key_generate,
             commands::ssh_key_delete,

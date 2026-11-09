@@ -1290,6 +1290,11 @@ pub fn ssh_key_scan(dir: Option<String>) -> Vec<ft_ssh::KeyCandidate> {
 }
 
 #[tauri::command]
+pub fn ssh_key_inspect(text: String) -> Result<ft_ssh::KeyInfo, String> {
+    ft_ssh::inspect_private_key(&text)
+}
+
+#[tauri::command]
 pub fn ssh_key_import(
     store: State<'_, Arc<ft_store::Store>>,
     credentials: State<'_, Credentials>,

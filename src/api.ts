@@ -620,6 +620,14 @@ export const api = {
 
   sshKeyList: () => invoke<SshKey[]>("ssh_key_list"),
   sshKeyScan: (dir?: string) => invoke<KeyCandidate[]>("ssh_key_scan", { dir }),
+  sshKeyInspect: (text: string) =>
+    invoke<{
+      algorithm: string;
+      fingerprint: string;
+      publicKey: string;
+      comment: string;
+      encrypted: boolean;
+    }>("ssh_key_inspect", { text }),
   sshKeyImport: (payload: {
     id: string;
     name: string;

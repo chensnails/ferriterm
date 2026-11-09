@@ -185,7 +185,8 @@
     "no": "No",
     "confirm": "Confirm",
     "loading": "Loading…",
-    "optional": "Optional"
+    "optional": "Optional",
+    "clear": "Clear"
   },
   "settings": {
     "open": "Settings",
@@ -903,6 +904,15 @@
     "scanHint": "Import a private key file that already exists on this device.",
     "scanEmpty": "No private key files found.",
     "manualTitle": "Import a key",
+    "pasteTitle": "Paste a private key",
+    "pasteHint": "Paste the full OpenSSH private key, including the BEGIN and END lines. The key is inspected locally and never leaves this device.",
+    "pasteFromClipboard": "Paste from clipboard",
+    "clipboardEmpty": "The clipboard does not contain text.",
+    "clipboardError": "Cannot read the clipboard; paste into the field instead.",
+    "previewOk": "Valid private key",
+    "previewError": "This text is not a valid OpenSSH private key.",
+    "passphraseNeeded": "A passphrase is required for this key; fill it in below.",
+    "importFromPath": "Import from path",
     "path": "Key file path",
     "paste": "Paste key text",
     "passphraseForImport": "Import passphrase",
