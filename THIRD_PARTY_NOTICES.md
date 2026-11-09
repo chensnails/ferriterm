@@ -69,6 +69,17 @@ listed above; no additional third-party crates are introduced.
 | @types/react | 19.3.0 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
 | @types/react-dom | 19.3.0 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
 
+## Bundled fonts
+
+Latin subsets in `public/fonts/`, under the SIL Open Font License 1.1
+(full text in `public/fonts/OFL.txt`).
+
+| Font | Upstream |
+| --- | --- |
+| JetBrains Mono | https://github.com/JetBrains/JetBrainsMono |
+| Fira Code | https://github.com/tonsky/FiraCode |
+| IBM Plex Mono | https://github.com/IBM/plex |
+
 ## Notes
 
 - Apache-2.0 components are used under the terms of the Apache License 2.0;

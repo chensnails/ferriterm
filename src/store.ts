@@ -22,11 +22,13 @@ import {
 import {
   applyTheme,
   applyThemePack,
+  builtinPalette,
   HIGHLIGHT_COLORS,
   setTerminalPalette,
   type Theme,
 } from "./theme";
 import { parseStoredThemes, type ImportedTheme } from "./scheme";
+import { DEFAULT_TERMINAL_FONT_STACK } from "./fonts";
 import { initialWindowChrome, type WindowChrome } from "./window-chrome";
 import i18n, {
   detectLanguage,
@@ -37,8 +39,7 @@ import i18n, {
 // Terminal appearance defaults live here (instead of terminal.ts) so the store
 // can own persisted settings without a circular import back into terminal.ts.
 export const DEFAULT_TERMINAL_FONT_SIZE = 14;
-export const DEFAULT_TERMINAL_FONT_FAMILY =
-  '"JetBrains Mono", "Cascadia Code", Menlo, Consolas, "Courier New", monospace';
+export const DEFAULT_TERMINAL_FONT_FAMILY = DEFAULT_TERMINAL_FONT_STACK;
 export const DEFAULT_TERMINAL_SCROLLBACK = 5000;
 
 export interface LanguageOption {
@@ -1264,7 +1265,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       setTerminalPalette(custom.palette);
     } else {
       applyTheme(theme);
-      setTerminalPalette(null);
+      setTerminalPalette(builtinPalette(theme));
     }
     set((s) => ({ theme, themeVersion: s.themeVersion + 1 }));
     if (isTauri) api.setSetting("theme", theme).catch(() => {});
@@ -1324,7 +1325,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       setTerminalPalette(custom.palette);
     } else {
       applyTheme(theme);
-      setTerminalPalette(null);
+      setTerminalPalette(builtinPalette(theme));
     }
     void i18n.changeLanguage(language);
     set({
@@ -1393,6 +1394,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     } else if (custom) {
       applyThemePack(current, custom.base, custom.tokens);
       setTerminalPalette(custom.palette);
+    } else {
+      setTerminalPalette(builtinPalette(current));
     }
   },
 

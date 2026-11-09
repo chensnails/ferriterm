@@ -4,6 +4,7 @@ import { api, isTauri, type RemoteConfig } from "../api";
 import { useAppStore, type TabNumbering } from "../store";
 import { BUILTIN_THEMES, HIGHLIGHT_COLORS } from "../theme";
 import { parseSchemeFile } from "../scheme";
+import { CUSTOM_FONT_ID, TERMINAL_FONTS, fontChoiceFor } from "../fonts";
 import { DEV_VERSION } from "../version";
 import { Modal } from "./Modal";
 import { CredentialVault } from "./CredentialVault";
@@ -99,6 +100,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const keepaliveSecs = useAppStore((s) => s.keepaliveSecs);
   const terminalFontFamily = useAppStore((s) => s.terminalFontFamily);
   const setTerminalFontFamily = useAppStore((s) => s.setTerminalFontFamily);
+  const storedFontChoice = fontChoiceFor(terminalFontFamily);
+  const [customFont, setCustomFont] = useState(
+    storedFontChoice === CUSTOM_FONT_ID,
+  );
   const terminalFontSize = useAppStore((s) => s.terminalFontSize);
   const setTerminalFontSize = useAppStore((s) => s.setTerminalFontSize);
   const terminalScrollback = useAppStore((s) => s.terminalScrollback);
@@ -585,11 +590,29 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           <div className="settings-inline">
             <label className="field">
               <span>{t("settings.fontFamily")}</span>
-              <input
-                value={terminalFontFamily}
-                spellCheck={false}
-                onChange={(e) => setTerminalFontFamily(e.target.value)}
-              />
+              <select
+                value={customFont ? CUSTOM_FONT_ID : storedFontChoice}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  if (id === CUSTOM_FONT_ID) {
+                    setCustomFont(true);
+                    return;
+                  }
+                  const font = TERMINAL_FONTS.find((item) => item.id === id);
+                  if (!font) return;
+                  setCustomFont(false);
+                  setTerminalFontFamily(font.stack);
+                }}
+              >
+                {TERMINAL_FONTS.map((font) => (
+                  <option key={font.id} value={font.id}>
+                    {font.label}
+                  </option>
+                ))}
+                <option value={CUSTOM_FONT_ID}>
+                  {t("settings.fontCustom")}
+                </option>
+              </select>
             </label>
             <label className="field">
               <span>{t("settings.fontSize")}</span>
@@ -605,6 +628,33 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 }
               />
             </label>
+          </div>
+          {customFont && (
+            <label className="field">
+              <span>{t("settings.fontStack")}</span>
+              <input
+                value={terminalFontFamily}
+                spellCheck={false}
+                placeholder={TERMINAL_FONTS[0].stack}
+                onChange={(e) => setTerminalFontFamily(e.target.value)}
+              />
+            </label>
+          )}
+          <div
+            className="font-preview"
+            style={{
+              fontFamily: terminalFontFamily,
+              fontSize: `${terminalFontSize}px`,
+            }}
+            aria-label={t("settings.fontPreview")}
+          >
+            <span className="font-preview-prompt">
+              user@ferriterm:~$ ls -la projects
+            </span>
+            <span>drwxr-xr-x  5 user staff  160 Nov  9 20:00 .</span>
+            <span>
+              -rw-r--r--  1 user staff 1024 Nov  9 20:00 README.md 0123 {} =&gt;
+            </span>
           </div>
           <span className="hint">{t("settings.fontFamilyHint")}</span>
           <label className="field">

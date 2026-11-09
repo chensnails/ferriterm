@@ -82,7 +82,7 @@ Single main window:
 | `--font-ui-sm` | `12px / 1.4` | table meta, badges |
 | `--font-title` | `15px / 1.4, 600` | dialog/section titles |
 | `--font-terminal` | `14px / 1.2` | terminal default, user-adjustable |
-| `--font-mono` | `"JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace` | terminal, paths |
+| `--font-mono` | `"Ferriterm JetBrains Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace` | terminal, paths (bundled latin subset) |
 | `--space-1..5` | `4, 8, 12, 16, 24px` | spacing scale |
 | `--radius-sm/md/lg` | `4, 6, 10px` | controls / cards / dialogs |
 | `--control-h` | `28px` | inputs |
@@ -124,9 +124,9 @@ Single main window:
 | ContextMenu | keyboard navigable, submenu support, customizable entries | `--bg-elevated`, `--radius-md` |
 | TagManagerDialog | create/rename/recolor/delete tags; deleting detaches from hosts | `--bg-panel`, `--tag-*` |
 | CommandPalette | fuzzy actions, Ctrl+Shift+P | `--bg-elevated` |
-| SettingsCenter | floating dialog; left category nav (General/Credentials/Terminal/Keyboard/Transfer/Plugins/Sync/About) + scrolling pane; theme section imports iTerm2/TOML schemes; credentials section manages the vault | `--settings-w`, `--settings-h`, `--settings-nav-w` |
+| SettingsCenter | floating dialog; left category nav (General/Credentials/Terminal/Keyboard/Transfer/Plugins/Sync/About) + scrolling pane; 12 built-in themes (each with a full ANSI palette) plus iTerm2/TOML scheme import; terminal pane offers bundled font presets, custom stacks and a live preview; credentials section manages the vault | `--settings-w`, `--settings-h`, `--settings-nav-w` |
 | CredentialVault | Settings › Credentials pane: vault mode badge (keychain / master password), lock state, unlock/enable/disable/change/reset actions, auto-lock selector, per-host stored-secret list with delete/clear, recent access log | `--bg-panel`, `--radius-md`, `--danger` |
-| KeyManagerDialog | list managed keys (name, algorithm, SHA256 fingerprint, comment, passphrase badge); import from `~/.ssh` scan or path; generate ed25519/RSA; copy public key; delete | `--dialog-w`, `--font-mono`, `--row-h` |
+| KeyManagerDialog | list managed keys (name, algorithm, SHA256 fingerprint, comment, passphrase badge); import from `~/.ssh` scan, a file path, pasted OpenSSH text with live inspection, or generate ed25519/RSA; copy public key; delete | `--dialog-w`, `--font-mono`, `--row-h` |
 | KnownHostsDialog | list trusted host keys (host, port, algorithm, fingerprint) with remove action, opened from the credentials section | `--dialog-w`, `--font-mono`, `--danger` |
 | UnlockDialog | master-password entry on startup or when a connect needs a locked vault; wrong-password feedback and cancel | `--dialog-w`, `--control-h`, `--danger` |
 | TerminalView | xterm.js host; theme mapped from tokens; inline history suggestion with ghost text and prompt-anchored dropdown; OSC 52 clipboard writes; configurable keyword tinting | `--font-terminal`, `--bg-base`, `--suggest-w`, `--tag-*` |

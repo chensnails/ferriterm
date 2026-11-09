@@ -1,3 +1,49 @@
+/* Bundled OFL monospace families (latin subset). The custom family names keep
+   the bundled files separate from any system copy of the same font. */
+@font-face {
+  font-family: "Ferriterm JetBrains Mono";
+  src: url("/fonts/jetbrains-mono-latin.woff2") format("woff2");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+    U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Ferriterm Fira Code";
+  src: url("/fonts/fira-code-latin.woff2") format("woff2");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+    U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Ferriterm IBM Plex Mono";
+  src: url("/fonts/ibm-plex-mono-regular-latin.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+    U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Ferriterm IBM Plex Mono";
+  src: url("/fonts/ibm-plex-mono-bold-latin.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+    U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 /* Design tokens — source of truth is docs/UI_SPEC.md §2. No color/size/spacing/
    radius/duration literals outside this block. */
 :root {
@@ -30,7 +76,8 @@
   --font-title: 15px;
   --font-terminal: 14px;
   --line-ui: 1.4;
-  --font-mono: "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  --font-mono: "Ferriterm JetBrains Mono", "JetBrains Mono", "Cascadia Code",
+    Menlo, Consolas, monospace;
   --font-ui-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
     "Microsoft YaHei", sans-serif;
 
@@ -173,6 +220,128 @@
   --selection: #b3d4e088;
   --overlay: rgb(0 0 0 / 0.45);
   --shadow-panel: 0 12px 32px rgb(88 110 117 / 0.18);
+
+  color-scheme: light;
+}
+
+:root[data-theme="tokyo-night"] {
+  --bg-base: #1a1b26;
+  --bg-panel: #16161e;
+  --bg-elevated: #24283b;
+  --border: #292e42;
+  --fg-primary: #c0caf5;
+  --fg-muted: #7f8bb0;
+  --fg-on-accent: #16161e;
+  --accent: #7aa2f7;
+  --accent-hover: #9ab8ff;
+  --danger: #f7768e;
+  --warning: #e0af68;
+  --success: #9ece6a;
+  --selection: #33467c88;
+  --overlay: rgb(0 0 0 / 0.5);
+}
+
+:root[data-theme="gruvbox"] {
+  --bg-base: #282828;
+  --bg-panel: #1d2021;
+  --bg-elevated: #3c3836;
+  --border: #504945;
+  --fg-primary: #ebdbb2;
+  --fg-muted: #a89984;
+  --fg-on-accent: #282828;
+  --accent: #83a598;
+  --accent-hover: #8ec07c;
+  --danger: #fb4934;
+  --warning: #fabd2f;
+  --success: #b8bb26;
+  --selection: #665c5488;
+  --overlay: rgb(0 0 0 / 0.5);
+}
+
+:root[data-theme="one-dark"] {
+  --bg-base: #282c34;
+  --bg-panel: #21252b;
+  --bg-elevated: #2f343d;
+  --border: #3b4048;
+  --fg-primary: #abb2bf;
+  --fg-muted: #7f848e;
+  --fg-on-accent: #1b1f24;
+  --accent: #61afef;
+  --accent-hover: #7cc0f5;
+  --danger: #e06c75;
+  --warning: #e5c07b;
+  --success: #98c379;
+  --selection: #3e445188;
+  --overlay: rgb(0 0 0 / 0.5);
+}
+
+:root[data-theme="catppuccin"] {
+  --bg-base: #1e1e2e;
+  --bg-panel: #181825;
+  --bg-elevated: #313244;
+  --border: #45475a;
+  --fg-primary: #cdd6f4;
+  --fg-muted: #a6adc8;
+  --fg-on-accent: #11111b;
+  --accent: #89b4fa;
+  --accent-hover: #b4befe;
+  --danger: #f38ba8;
+  --warning: #f9e2af;
+  --success: #a6e3a1;
+  --selection: #585b7088;
+  --overlay: rgb(0 0 0 / 0.5);
+}
+
+:root[data-theme="rose-pine"] {
+  --bg-base: #191724;
+  --bg-panel: #1f1d2e;
+  --bg-elevated: #26233a;
+  --border: #403d52;
+  --fg-primary: #e0def4;
+  --fg-muted: #908caa;
+  --fg-on-accent: #191724;
+  --accent: #c4a7e7;
+  --accent-hover: #d6bbf7;
+  --danger: #eb6f92;
+  --warning: #f6c177;
+  --success: #9ccfd8;
+  --selection: #403d5288;
+  --overlay: rgb(0 0 0 / 0.5);
+}
+
+:root[data-theme="solarized-dark"] {
+  --bg-base: #002b36;
+  --bg-panel: #073642;
+  --bg-elevated: #0b3f4b;
+  --border: #0f4b5a;
+  --fg-primary: #93a1a1;
+  --fg-muted: #839496;
+  --fg-on-accent: #fdf6e3;
+  --accent: #268bd2;
+  --accent-hover: #2aa198;
+  --danger: #dc322f;
+  --warning: #b58900;
+  --success: #859900;
+  --selection: #1f5a6699;
+  --overlay: rgb(0 0 0 / 0.5);
+}
+
+:root[data-theme="github-light"] {
+  --bg-base: #ffffff;
+  --bg-panel: #f6f8fa;
+  --bg-elevated: #eef1f4;
+  --border: #d0d7de;
+  --fg-primary: #1f2328;
+  --fg-muted: #656d76;
+  --fg-on-accent: #ffffff;
+  --accent: #0969da;
+  --accent-hover: #0a5fc2;
+  --danger: #cf222e;
+  --warning: #9a6700;
+  --success: #1a7f37;
+  --selection: #b6d7ff99;
+  --overlay: rgb(0 0 0 / 0.45);
+  --shadow-panel: 0 12px 32px rgb(31 35 40 / 0.16);
 
   color-scheme: light;
 }
@@ -2339,6 +2508,25 @@ mark {
 
 .settings-pane .settings-inline .field > span:first-child {
   white-space: nowrap;
+}
+
+.settings-pane .font-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--space-2) 0 0 calc(var(--settings-label-w) + var(--space-3));
+  padding: var(--space-2) var(--space-3);
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  line-height: 1.4;
+  white-space: pre;
+}
+
+.settings-pane .font-preview-prompt {
+  color: var(--accent);
 }
 
 .settings-pane .settings-group {
