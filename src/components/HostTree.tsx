@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { isTauri, type HostEntry, type HostInput } from "../api";
+import { planHostConnect } from "../connect";
 import { HostIcon } from "../host-icons";
 import { useAppStore } from "../store";
 import { ConnectHostDialog } from "./ConnectHostDialog";
@@ -124,6 +125,8 @@ export function HostTree() {
   const toggleFolder = useAppStore((s) => s.toggleFolder);
   const selectHost = useAppStore((s) => s.selectHost);
   const clearNewWindowHost = useAppStore((s) => s.clearNewWindowHost);
+  const openSession = useAppStore((s) => s.openSession);
+  const keepaliveSecs = useAppStore((s) => s.keepaliveSecs);
 
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
@@ -136,29 +139,53 @@ export function HostTree() {
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [treeCollapsed, setTreeCollapsed] = useState(false);
 
+  // SSH-family hosts go through the credential dialog; every other protocol
+  // knows everything it needs to open its tab right away.
+  const connectTo = useCallback(
+    (node: HostEntry) => {
+      selectHost(node.id);
+      if (node.protocol === "ssh" || node.protocol === "sftp") {
+        setConnectTarget(node);
+        return;
+      }
+      const plan = planHostConnect(node, hosts, keepaliveSecs);
+      const title =
+        node.name ||
+        (node.protocol === "local"
+          ? t("session.localTitle")
+          : node.protocol === "serial"
+            ? node.protocolOptions.serialPath
+            : `${node.host}:${node.port}`);
+      openSession(
+        plan.kind,
+        title,
+        plan.pending,
+        node.production,
+        node.id,
+      );
+    },
+    [hosts, keepaliveSecs, openSession, selectHost, t],
+  );
+
   useEffect(() => {
     if (!newWindowHostId) return;
     const host = hosts.find((entry) => entry.id === newWindowHostId && !entry.isFolder);
     if (host) {
-      selectHost(host.id);
-      setConnectTarget(host);
+      connectTo(host);
       clearNewWindowHost();
     } else if (hosts.length > 0) {
       clearNewWindowHost();
     }
-  }, [newWindowHostId, hosts, selectHost, clearNewWindowHost]);
+  }, [newWindowHostId, hosts, connectTo, clearNewWindowHost]);
 
   useEffect(() => {
     if (!connectRequestId) return;
     const host = hosts.find(
       (entry) => entry.id === connectRequestId && !entry.isFolder,
     );
-    if (host) {
-      selectHost(host.id);
-      setConnectTarget(host);
-    }
+    if (host) connectTo(host);
     clearConnectRequest();
-  }, [connectRequestId, hosts, selectHost, clearConnectRequest]);
+  }, [connectRequestId, hosts, connectTo, clearConnectRequest]);
 
   useEffect(() => {
     if (!importRequested) return;
@@ -347,7 +374,7 @@ export function HostTree() {
       ];
     }
     return [
-      { label: t("hosts.connect"), onSelect: () => setConnectTarget(node) },
+      { label: t("hosts.connect"), onSelect: () => connectTo(node) },
       { label: t("hosts.newWindow"), onSelect: () => void openInNewWindow(node) },
       { label: t("hosts.copy"), onSelect: () => copyAddress(node) },
       {
@@ -412,7 +439,7 @@ export function HostTree() {
                 if (node.isFolder) toggleFolder(node.id);
               }}
               onDoubleClick={() => {
-                if (!node.isFolder) setConnectTarget(node);
+                if (!node.isFolder) connectTo(node);
               }}
               onContextMenu={(e) => {
                 e.preventDefault();
@@ -422,7 +449,7 @@ export function HostTree() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   if (node.isFolder) toggleFolder(node.id);
-                  else setConnectTarget(node);
+                  else connectTo(node);
                 } else if (e.key === "F2") {
                   setDialog({
                     kind: node.isFolder ? "folder" : "host",
@@ -509,8 +536,7 @@ export function HostTree() {
                       disabled={!isTauri}
                       onClick={(e) => {
                         e.stopPropagation();
-                        selectHost(node.id);
-                        setConnectTarget(node);
+                        connectTo(node);
                       }}
                     >
                       <PlayIcon />

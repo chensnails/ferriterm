@@ -1,0 +1,10 @@
+[package]
+name = "ft-telnet"
+description = "Telnet sessions for Ferriterm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+ft-core.workspace = true
+tokio.workspace = true

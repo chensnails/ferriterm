@@ -1257,6 +1257,7 @@ dependencies = [
  "ft-ssh",
  "ft-store",
  "ft-sync",
+ "ft-telnet",
  "ft-transfer",
  "ft-vfs",
  "reqwest",
@@ -1478,6 +1479,14 @@ dependencies = [
  "ring",
  "serde",
  "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "ft-telnet"
+version = "0.1.0"
+dependencies = [
+ "ft-core",
  "tokio",
 ]
 

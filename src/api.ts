@@ -635,8 +635,14 @@ export const api = {
       plan,
     }),
 
-  ptySpawn: (id: string, cols: number, rows: number) =>
-    invoke<void>("pty_spawn", { id, cols, rows }),
+  ptySpawn: (id: string, cols: number, rows: number, shell?: string, cwd?: string) =>
+    invoke<void>("pty_spawn", {
+      id,
+      cols,
+      rows,
+      shell: shell || null,
+      cwd: cwd || null,
+    }),
   ptyWrite: (id: string, data: string) => invoke<void>("pty_write", { id, data }),
   ptyResize: (id: string, cols: number, rows: number) =>
     invoke<void>("pty_resize", { id, cols, rows }),
@@ -648,6 +654,14 @@ export const api = {
   serialWrite: (id: string, data: string) =>
     invoke<void>("serial_write", { id, data }),
   serialClose: (id: string) => invoke<void>("serial_close", { id }),
+
+  telnetOpen: (id: string, host: string, port: number, cols: number, rows: number) =>
+    invoke<void>("telnet_open", { id, host, port, cols, rows }),
+  telnetWrite: (id: string, data: string) =>
+    invoke<void>("telnet_write", { id, data }),
+  telnetResize: (id: string, cols: number, rows: number) =>
+    invoke<void>("telnet_resize", { id, cols, rows }),
+  telnetClose: (id: string) => invoke<void>("telnet_close", { id }),
 
   recordingStart: (id: string, title: string, cols: number, rows: number) =>
     invoke<string>("recording_start", { id, title, cols, rows }),
@@ -793,15 +807,18 @@ export const api = {
   write(kind: SessionKind, id: string, data: string) {
     if (kind === "ssh") return api.sshWrite(id, data);
     if (kind === "serial") return api.serialWrite(id, data);
+    if (kind === "telnet") return api.telnetWrite(id, data);
     return api.ptyWrite(id, data);
   },
   resize(kind: SessionKind, id: string, cols: number, rows: number) {
     if (kind === "ssh") return api.sshResize(id, cols, rows);
+    if (kind === "telnet") return api.telnetResize(id, cols, rows);
     if (kind === "serial") return Promise.resolve();
     return api.ptyResize(id, cols, rows);
   },
   close(kind: SessionKind, id: string) {
     if (kind === "ssh") return api.sshDisconnect(id);
+    if (kind === "telnet") return api.telnetClose(id);
     if (kind === "serial") return api.serialClose(id);
     return api.ptyKill(id);
   },

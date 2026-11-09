@@ -367,6 +367,7 @@ pub async fn forward_list(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn pty_spawn(
     app: AppHandle,
     state: State<'_, SessionRegistry>,
@@ -374,12 +375,14 @@ pub async fn pty_spawn(
     id: String,
     cols: u16,
     rows: u16,
+    shell: Option<String>,
+    cwd: Option<String>,
 ) -> Result<(), String> {
     let sink = Arc::new(TauriSink {
         app,
         recorders: recorders.inner().clone(),
     });
-    ft_pty::spawn(sink, &state, id, cols, rows).await
+    ft_pty::spawn(sink, &state, id, cols, rows, shell, cwd).await
 }
 
 #[tauri::command]
@@ -683,6 +686,52 @@ pub async fn serial_close(
     id: String,
 ) -> Result<(), String> {
     ft_serial::close(&state, &id).await
+}
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub async fn telnet_open(
+    app: AppHandle,
+    state: State<'_, ft_telnet::TelnetRegistry>,
+    recorders: State<'_, RecorderRegistry>,
+    id: String,
+    host: String,
+    port: u16,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
+    let sink = Arc::new(TauriSink {
+        app,
+        recorders: recorders.inner().clone(),
+    });
+    ft_telnet::open(sink, &state, id, host, port, cols, rows).await
+}
+
+#[tauri::command]
+pub async fn telnet_write(
+    state: State<'_, ft_telnet::TelnetRegistry>,
+    id: String,
+    data: String,
+) -> Result<(), String> {
+    ft_telnet::write(&state, &id, data).await
+}
+
+#[tauri::command]
+pub async fn telnet_resize(
+    state: State<'_, ft_telnet::TelnetRegistry>,
+    id: String,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
+    ft_telnet::resize(&state, &id, cols, rows).await
+}
+
+#[tauri::command]
+pub async fn telnet_close(
+    state: State<'_, ft_telnet::TelnetRegistry>,
+    id: String,
+) -> Result<(), String> {
+    ft_telnet::close(&state, &id).await
 }
 
 #[tauri::command]

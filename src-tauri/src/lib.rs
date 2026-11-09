@@ -14,6 +14,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(sessions.clone())
         .manage(ft_serial::SerialRegistry::default())
+        .manage(ft_telnet::TelnetRegistry::default())
         .manage(tokio::sync::Mutex::new(ft_monitor::Monitor::new()))
         .manage(std::sync::Arc::new(net_tools::NetToolState::default()))
         .setup(move |app| {
@@ -72,6 +73,10 @@ pub fn run() {
             commands::serial_open,
             commands::serial_write,
             commands::serial_close,
+            commands::telnet_open,
+            commands::telnet_write,
+            commands::telnet_resize,
+            commands::telnet_close,
             commands::recording_start,
             commands::recording_stop,
             commands::recording_list,

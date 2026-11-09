@@ -38,11 +38,19 @@ export function TerminalPanel({
       void view.ready.then(() => {
         const { cols, rows } = view.term;
         const connect =
-          pending.type === "ssh"
+          pending.type === "ssh" || pending.type === "sftp"
             ? api.sshConnect(session.id, { ...pending.args, cols, rows })
             : pending.type === "serial"
               ? api.serialOpen(session.id, pending.config)
-              : api.ptySpawn(session.id, cols, rows);
+              : pending.type === "telnet"
+                ? api.telnetOpen(
+                    session.id,
+                    pending.host,
+                    pending.port,
+                    cols,
+                    rows,
+                  )
+                : api.ptySpawn(session.id, cols, rows, pending.shell, pending.cwd);
         connect
           .then(() => setStatus(""))
           .catch((err) => {

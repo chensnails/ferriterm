@@ -1,6 +1,28 @@
-import { type HostEntry, type JumpHop, type SshConnectArgs } from "./api";
+import {
+  type HostEntry,
+  type JumpHop,
+  type SerialConfig,
+  type SessionKind,
+  type SshConnectArgs,
+} from "./api";
 
 export type ConnectArgs = Omit<SshConnectArgs, "cols" | "rows">;
+
+/** What a session needs when its tab mounts. Serial and telnet carry their
+    target directly; SSH-family tabs resolve credentials inside Rust. */
+export type PendingConnect =
+  | { type: "ssh"; args: ConnectArgs }
+  | { type: "sftp"; args: ConnectArgs }
+  | { type: "pty"; shell?: string; cwd?: string }
+  | { type: "serial"; config: SerialConfig }
+  | { type: "telnet"; host: string; port: number };
+
+export interface HostConnectPlan {
+  kind: SessionKind;
+  pending: PendingConnect;
+  /** SSH and SFTP first show the credential dialog. */
+  needsCredentials: boolean;
+}
 
 /** Resolves the jump chain for a host, outermost hop first. */
 export function resolveJumpChain(
@@ -70,4 +92,58 @@ export function buildConnectArgs(
     else if (host.keyPath) args.keyPath = host.keyPath;
   }
   return args;
+}
+
+/** Maps a saved host onto the session its protocol opens. */
+export function planHostConnect(
+  host: HostEntry,
+  hosts: HostEntry[],
+  keepalive?: number,
+): HostConnectPlan {
+  const options = host.protocolOptions;
+  switch (host.protocol) {
+    case "telnet":
+      return {
+        kind: "telnet",
+        pending: { type: "telnet", host: host.host, port: host.port },
+        needsCredentials: false,
+      };
+    case "serial": {
+      const config: SerialConfig = {
+        path: options.serialPath,
+        baudRate: options.baudRate,
+        dataBits: options.dataBits,
+        parity: options.parity,
+        stopBits: options.stopBits,
+        flowControl: options.flowControl,
+      };
+      return {
+        kind: "serial",
+        pending: { type: "serial", config },
+        needsCredentials: false,
+      };
+    }
+    case "local":
+      return {
+        kind: "pty",
+        pending: {
+          type: "pty",
+          shell: options.shell || undefined,
+          cwd: options.cwd || undefined,
+        },
+        needsCredentials: false,
+      };
+    case "sftp":
+      return {
+        kind: "sftp",
+        pending: { type: "sftp", args: buildConnectArgs(host, hosts, keepalive) },
+        needsCredentials: true,
+      };
+    default:
+      return {
+        kind: "ssh",
+        pending: { type: "ssh", args: buildConnectArgs(host, hosts, keepalive) },
+        needsCredentials: true,
+      };
+  }
 }

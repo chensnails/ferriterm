@@ -5,13 +5,11 @@ import {
   type HostEntry,
   type HostInput,
   type SessionKind,
-  type SshConnectArgs,
   type Tag,
   type PluginScan,
-  type SerialConfig,
   type TransferJob,
 } from "./api";
-import { buildConnectArgs } from "./connect";
+import { planHostConnect, type PendingConnect } from "./connect";
 import { isSensitiveCommand } from "./commands";
 import {
   normalizeCombo,
@@ -113,10 +111,7 @@ export interface ExecLogEntry {
   text: string;
 }
 
-export type PendingConnect =
-  | { type: "ssh"; args: Omit<SshConnectArgs, "cols" | "rows"> }
-  | { type: "pty" }
-  | { type: "serial"; config: SerialConfig };
+export type { PendingConnect } from "./connect";
 
 export interface SessionMeta {
   id: string;
@@ -933,7 +928,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     // the snapshot keep pointing at the right tab.
     const restored: (string | null)[] = [];
     for (const entry of snapshot.sessions) {
-      if (entry.kind === "pty") {
+      if (entry.kind === "pty" && !entry.hostId) {
         restored.push(
           get().openSession(
             "pty",
@@ -943,26 +938,24 @@ export const useAppStore = create<AppState>((set, get) => ({
         );
         continue;
       }
-      if (entry.kind !== "ssh" || !entry.hostId) {
-        restored.push(null);
-        continue;
-      }
-      const host = hosts.find((item) => item.id === entry.hostId);
+      const host = entry.hostId
+        ? hosts.find((item) => item.id === entry.hostId)
+        : undefined;
       if (!host) {
         restored.push(null);
         continue;
       }
-      if (secretsLocked) {
+      const plan = planHostConnect(host, hosts, get().keepaliveSecs);
+      if (plan.needsCredentials && secretsLocked) {
         restored.push(null);
         continue;
       }
       try {
-        const args = buildConnectArgs(host, hosts, get().keepaliveSecs);
         restored.push(
           get().openSession(
-            "ssh",
+            plan.kind,
             entry.title || host.name || `${host.username}@${host.host}`,
-            { type: "ssh", args },
+            plan.pending,
             entry.production ?? host.production,
             host.id,
           ),

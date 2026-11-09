@@ -6,6 +6,7 @@ members = [
   "crates/ft-ssh",
   "crates/ft-pty",
   "crates/ft-serial",
+  "crates/ft-telnet",
   "crates/ft-store",
   "crates/ft-security",
   "crates/ft-import",
@@ -26,6 +27,7 @@ ft-core = { path = "crates/ft-core" }
 ft-ssh = { path = "crates/ft-ssh" }
 ft-pty = { path = "crates/ft-pty" }
 ft-serial = { path = "crates/ft-serial" }
+ft-telnet = { path = "crates/ft-telnet" }
 ft-store = { path = "crates/ft-store" }
 ft-security = { path = "crates/ft-security" }
 ft-import = { path = "crates/ft-import" }

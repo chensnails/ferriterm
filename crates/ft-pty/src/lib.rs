@@ -10,6 +10,8 @@ pub async fn spawn(
     id: String,
     cols: u16,
     rows: u16,
+    shell: Option<String>,
+    cwd: Option<String>,
 ) -> Result<(), String> {
     let pty_system = native_pty_system();
     let pair = pty_system
@@ -21,13 +23,27 @@ pub async fn spawn(
         })
         .map_err(|e| e.to_string())?;
 
-    #[cfg(windows)]
-    let shell = std::env::var("COMSPEC").unwrap_or_else(|_| "powershell.exe".to_string());
-    #[cfg(not(windows))]
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string());
-
-    let mut cmd = CommandBuilder::new(shell);
+    let mut cmd = match shell.map(|line| line.trim().to_string()) {
+        Some(line) if !line.is_empty() => {
+            // A saved shell may carry flags ("/bin/zsh -l"); portable-pty
+            // wants the program and its arguments separately.
+            let mut parts = line.split_whitespace();
+            let program = parts.next().unwrap_or_default().to_string();
+            let mut cmd = CommandBuilder::new(program);
+            for arg in parts {
+                cmd.arg(arg);
+            }
+            cmd
+        }
+        _ => CommandBuilder::new(default_shell()),
+    };
     cmd.env("TERM", "xterm-256color");
+    if let Some(dir) = cwd
+        .map(|dir| dir.trim().to_string())
+        .filter(|dir| !dir.is_empty())
+    {
+        cmd.cwd(expand_home(&dir));
+    }
     let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     drop(pair.slave);
 
@@ -55,6 +71,36 @@ pub async fn spawn(
         }),
     );
     Ok(())
+}
+
+fn default_shell() -> String {
+    #[cfg(windows)]
+    {
+        std::env::var("COMSPEC").unwrap_or_else(|_| "powershell.exe".to_string())
+    }
+    #[cfg(not(windows))]
+    {
+        std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string())
+    }
+}
+
+fn expand_home(path: &str) -> String {
+    let home = if cfg!(windows) {
+        std::env::var("USERPROFILE")
+    } else {
+        std::env::var("HOME")
+    };
+    match home {
+        Ok(home) if path == "~" => home,
+        Ok(home) => match path.strip_prefix("~/") {
+            Some(rest) => std::path::Path::new(&home)
+                .join(rest)
+                .to_string_lossy()
+                .into_owned(),
+            None => path.to_string(),
+        },
+        Err(_) => path.to_string(),
+    }
 }
 
 pub async fn write(registry: &SessionRegistry, id: &str, data: String) -> Result<(), String> {
