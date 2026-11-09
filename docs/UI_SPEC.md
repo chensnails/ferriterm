@@ -132,6 +132,10 @@ Single main window:
 | TerminalView | xterm.js host; theme mapped from tokens; inline history suggestion with ghost text and prompt-anchored dropdown; OSC 52 clipboard writes; configurable keyword tinting | `--font-terminal`, `--bg-base`, `--suggest-w`, `--tag-*` |
 | RecordingsDialog | list of stored `.cast` files (title, date, length, size); read-only replay with play/pause, restart, seek and 1×/2×/4× speed | `--recordings-list-w`, `--player-h`, `--bg-base` |
 | SerialDialog | port picker from detected devices with refresh, baud-rate presets, 2×2 grid for data bits / stop bits / parity / flow control; warns when the serial plugin is missing or the app runs outside the desktop shell; Connect stays disabled without a port | `--dialog-w`, `--serial-grid`, `--control-h` |
+| HostDialog | protocol tabs (SSH/SFTP/Telnet/Serial/Local) that swap the fields and default port for the chosen protocol; host icon picker grouped into system, network and device badges with a live preview beside the name | `--dialog-w`, `--control-h`, `--radius-md` |
+| SftpPanel | tab for SFTP hosts: remote-first file browser with bookmarks, inline editor and permissions dialog; reuses the SSH runtime, has no terminal, and is excluded from broadcast targets and recording | `--row-h`, `--font-ui-sm`, `--bg-panel` |
+| MonitorPanel | floating panel with a target selector (local machine or a live SSH/SFTP session) driving CPU, memory, swap and disk meters plus load and uptime; remote probes are read-only | `--bg-elevated`, `--font-ui-sm`, `--accent` |
+| WindowChrome / ResizeHandles | frameless Windows/Linux windows draw caption buttons and eight edge/corner resize handles that start a native resize drag; macOS keeps the overlay traffic lights | `--tab-h`, `--bg-elevated`, `--accent` |
 | StatusStrip / Toast | connection state, transient errors | `--font-ui-sm` |
 
 ## 4. Screen specs and acceptance checklists
@@ -218,6 +222,21 @@ Acceptance = perform each path in Ferriterm and in the reference install; record
 - [ ] Install fetches the manifest, validates it, writes it to the plugin directory and refreshes the installed list; uninstall removes it after confirmation.
 - [ ] Marketplace fetches accept only https URLs, reject loopback hosts, cap the response size and validate every field before installing.
 - [ ] With the serial plugin installed, its Installed row offers Connect… which opens the serial dialog.
+
+### 4.8 Multi-protocol hosts, icons, SFTP tab, remote monitor and frameless resize
+
+- [ ] New host offers five protocol tabs (SSH, SFTP, Telnet, Serial, Local); switching protocol swaps the fields, and the port follows the protocol default unless it was typed by the user.
+- [ ] Telnet hosts show host and port only; SFTP hosts keep the SSH credential fields beside the address.
+- [ ] Serial hosts take a device path with the serial port picker plus baud, data-bit, stop-bit, parity and flow-control choices; Local hosts take an optional shell and working directory.
+- [ ] The icon picker groups badges into system (Ubuntu, Debian, Armbian, Raspberry Pi OS, CentOS, Red Hat, Fedora, Rocky, Alma, openSUSE, Arch, Alpine, Linux, macOS, Windows, FreeBSD), network (Huawei, H3C, Cisco, Ruijie, ZTE, TP-Link, MikroTik, Fortinet, Juniper) and device (router, switch, firewall, access point, server, NAS, printer).
+- [ ] The chosen icon previews beside the host name field, then renders in the host tree and the session tab; hosts without an icon fall back to the protocol badge (SSH/local terminal, SFTP files, serial port).
+- [ ] Double-clicking a Telnet host opens a terminal tab that carries keystrokes through the telnet transport.
+- [ ] Double-clicking an SFTP host opens a file-browser tab (no terminal) with remote panes, bookmarks, the inline editor and the permissions dialog; closing the tab releases the SSH session.
+- [ ] SFTP tabs never appear in broadcast targets and do not show the recording control.
+- [ ] The monitor panel target selector lists the local machine and every live SSH/SFTP session; switching targets reloads within two seconds and dropping a session returns the selector to the local machine.
+- [ ] Remote monitoring runs the fixed read-only probe over the session's exec channel with a 6 s timeout and a 64 KiB output cap; CPU usage comes from `/proc/stat` deltas between polls, and a host without `/proc` shows an explicit unsupported message instead of a zeroed panel.
+- [ ] Disconnecting a session forgets its cached CPU counters so a reconnect starts a fresh delta.
+- [ ] Frameless Windows and Linux windows expose resize handles on all four edges and four corners; dragging one starts a native resize, and macOS keeps its overlay traffic lights.
 
 ## 5. Phase maintenance rule
 
