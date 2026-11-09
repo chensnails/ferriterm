@@ -125,7 +125,7 @@ Single main window:
 | TagManagerDialog | create/rename/recolor/delete tags; deleting detaches from hosts | `--bg-panel`, `--tag-*` |
 | CommandPalette | fuzzy actions, Ctrl+Shift+P | `--bg-elevated` |
 | SettingsCenter | floating dialog; left category nav (General/Terminal/Keyboard/Transfer/Plugins/Sync/About) + scrolling pane; theme section imports iTerm2/TOML schemes | `--settings-w`, `--settings-h`, `--settings-nav-w` |
-| TerminalView | xterm.js host; theme mapped from tokens; inline history suggestion with ghost text and prompt-anchored dropdown | `--font-terminal`, `--bg-base`, `--suggest-w` |
+| TerminalView | xterm.js host; theme mapped from tokens; inline history suggestion with ghost text and prompt-anchored dropdown; OSC 52 clipboard writes; configurable keyword tinting | `--font-terminal`, `--bg-base`, `--suggest-w`, `--tag-*` |
 | RecordingsDialog | list of stored `.cast` files (title, date, length, size); read-only replay with play/pause, restart, seek and 1×/2×/4× speed | `--recordings-list-w`, `--player-h`, `--bg-base` |
 | StatusStrip / Toast | connection state, transient errors | `--font-ui-sm` |
 
@@ -155,6 +155,8 @@ Acceptance = perform each path in Ferriterm and in the reference install; record
 - [ ] Up to five matching commands appear in a dropdown below the prompt; clicking one replaces the current line.
 - [ ] Command history is per host when the session belongs to a host, otherwise per session.
 - [ ] Recordings dialog lists saved `.cast` files and replays output-only content with play/pause, restart, seek and speed control.
+- [ ] Remote programs writing an OSC 52 escape sequence update the local clipboard; the Terminal setting can block this.
+- [ ] Keywords configured in settings tint matching output text (case-insensitive) and take effect on open sessions immediately.
 - [ ] Closing a session tab prompts only when a process is running (configurable).
 - [ ] Floating SFTP/monitor panels open above terminal without hiding tabs.
 

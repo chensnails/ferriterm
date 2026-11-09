@@ -1,4 +1,9 @@
-import { Terminal } from "@xterm/xterm";
+import {
+  Terminal,
+  type IDecoration,
+  type IDisposable,
+  type IMarker,
+} from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
@@ -13,7 +18,8 @@ import {
 import { terminalTheme } from "./theme";
 import i18n from "./i18n";
 import { historyForHost, historyMatches } from "./history";
-import { useAppStore } from "./store";
+import { blendHex } from "./scheme";
+import { useAppStore, type KeywordRule } from "./store";
 
 interface SearchHit {
   row: number;
@@ -45,6 +51,11 @@ export class TerminalView implements TerminalHandle {
   private matches: { text: string }[] = [];
   private suggestion = "";
   private suggestVisible = false;
+  private keywords: KeywordRule[] = [];
+  private keywordTimer: number | undefined;
+  private keywordDecorations: { decoration: IDecoration; marker: IMarker }[] =
+    [];
+  private osc52: IDisposable;
 
   constructor(
     readonly id: string,
@@ -53,6 +64,7 @@ export class TerminalView implements TerminalHandle {
     onSessionClosed: () => void,
   ) {
     this.term = new Terminal({
+      allowProposedApi: true,
       cursorBlink: true,
       fontSize: TERMINAL_FONT_SIZE,
       fontFamily: TERMINAL_FONT_FAMILY,
@@ -76,6 +88,9 @@ export class TerminalView implements TerminalHandle {
       if (!this.menuEl.contains(event.target as Node)) this.hideOverlays();
     });
     this.term.attachCustomKeyEventHandler((event) => this.handleKey(event));
+    this.osc52 = this.term.parser.registerOscHandler(52, (data) =>
+      this.handleOsc52(data),
+    );
 
     this.term.onData((data) => {
       this.trackInput(data);
@@ -88,15 +103,22 @@ export class TerminalView implements TerminalHandle {
     });
     this.term.onResize(({ cols, rows }) => {
       this.hideOverlays();
+      this.scheduleKeywords();
       api.resize(this.kind, this.id, cols, rows).catch(() => {});
     });
+    const scrollSub = this.term.onScroll(() => this.scheduleKeywords());
+    this.unlisten.push(() => scrollSub.dispose());
+    this.keywords = useAppStore.getState().keywordHighlights;
+    this.scheduleKeywords(true);
 
     // 先注册事件监听，再发起连接，避免丢失服务端首批输出
     this.ready = Promise.all([
       onOutput(this.id, (bytes) => {
         if (this.disposed) return;
         this.term.write(bytes, () => {
-          if (!this.disposed) this.refreshOverlays();
+          if (this.disposed) return;
+          this.refreshOverlays();
+          this.scheduleKeywords();
         });
       }),
       onClosed(this.id, () => {
@@ -117,6 +139,12 @@ export class TerminalView implements TerminalHandle {
 
   refreshTheme() {
     this.term.options.theme = terminalTheme();
+    this.scheduleKeywords(true);
+  }
+
+  setKeywords(rules: KeywordRule[]) {
+    this.keywords = rules;
+    this.scheduleKeywords(true);
   }
 
   focus() {
@@ -393,8 +421,133 @@ export class TerminalView implements TerminalHandle {
     return { hits };
   }
 
+  // OSC 52 lets programs (tmux, vim, remote shells) write the local clipboard.
+  private handleOsc52(data: string): boolean {
+    if (!useAppStore.getState().osc52) return false;
+    let payload = data;
+    while (payload.length > 1 && payload[1] === ";") {
+      if (!/[cps0-7]/.test(payload[0])) break;
+      payload = payload.slice(2);
+    }
+    if (!payload || payload === "?") return true;
+    if (payload.length > 1_400_000) return true;
+    try {
+      const binary = atob(payload);
+      const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
+      const text = new TextDecoder().decode(bytes);
+      if (text) {
+        void navigator.clipboard.writeText(text).catch(() => {
+          useAppStore
+            .getState()
+            .setStatus(i18n.t("terminal.clipboardFailed"), true);
+        });
+      }
+    } catch {
+      // malformed base64 payload: swallow instead of printing it
+    }
+    return true;
+  }
+
+  private scheduleKeywords(immediate = false) {
+    window.clearTimeout(this.keywordTimer);
+    if (this.keywords.length === 0) {
+      this.clearKeywordDecorations();
+      return;
+    }
+    if (immediate) {
+      this.renderKeywords();
+      return;
+    }
+    this.keywordTimer = window.setTimeout(() => {
+      this.keywordTimer = undefined;
+      this.renderKeywords();
+    }, 160);
+  }
+
+  private clearKeywordDecorations() {
+    for (const item of this.keywordDecorations) {
+      item.decoration.dispose();
+      item.marker.dispose();
+    }
+    this.keywordDecorations = [];
+  }
+
+  private highlightColor(token: string): string {
+    const style = getComputedStyle(document.documentElement);
+    const pick = (name: string) => style.getPropertyValue(name).trim();
+    const background = pick("--bg-base");
+    const color = pick(token) || pick("--fg-muted") || pick("--accent");
+    const hex = /^#[0-9a-f]{6}$/i;
+    if (!hex.test(background) || !hex.test(color)) return color;
+    return blendHex(background, color, 0.28);
+  }
+
+  private renderKeywords() {
+    this.clearKeywordDecorations();
+    if (this.disposed) return;
+    const buffer = this.term.buffer.active;
+    if (buffer.type !== "normal") return;
+    const rules = this.keywords
+      .filter((rule) => rule.text.trim())
+      .map((rule) => ({
+        text: rule.text.trim().toLowerCase(),
+        color: this.highlightColor(rule.color),
+      }));
+    if (rules.length === 0) return;
+    const cursorLine = buffer.baseY + buffer.cursorY;
+    const lastRow = Math.min(buffer.length, buffer.baseY + this.term.rows);
+    let count = 0;
+    for (
+      let row = buffer.baseY;
+      row < lastRow && count < 200;
+      row += 1
+    ) {
+      const line = buffer.getLine(row);
+      if (!line) continue;
+      const text = line.translateToString(true).toLowerCase();
+      if (!text) continue;
+      let from = 0;
+      while (from < text.length && count < 200) {
+        let best: { at: number; rule: (typeof rules)[number] } | null = null;
+        for (const rule of rules) {
+          const at = text.indexOf(rule.text, from);
+          if (at < 0) continue;
+          if (
+            !best ||
+            at < best.at ||
+            (at === best.at && rule.text.length > best.rule.text.length)
+          ) {
+            best = { at, rule };
+          }
+        }
+        if (!best) break;
+        const marker = this.term.registerMarker(row - cursorLine);
+        if (!marker) break;
+        let decoration: IDecoration | undefined;
+        try {
+          decoration = this.term.registerDecoration({
+            marker,
+            x: best.at,
+            width: best.rule.text.length,
+            layer: "bottom",
+            backgroundColor: best.rule.color,
+          });
+        } catch {
+          decoration = undefined;
+        }
+        if (decoration) this.keywordDecorations.push({ decoration, marker });
+        else marker.dispose();
+        from = best.at + best.rule.text.length;
+        count += 1;
+      }
+    }
+  }
+
   dispose() {
     this.disposed = true;
+    window.clearTimeout(this.keywordTimer);
+    this.clearKeywordDecorations();
+    this.osc52.dispose();
     if (useAppStore.getState().focusedSessionId === this.id) {
       useAppStore.getState().setFocusedSession(null);
     }

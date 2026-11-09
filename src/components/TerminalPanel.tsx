@@ -17,6 +17,7 @@ export function TerminalPanel({
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<TerminalView | null>(null);
   const themeVersion = useAppStore((s) => s.themeVersion);
+  const keywordHighlights = useAppStore((s) => s.keywordHighlights);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -66,6 +67,10 @@ export function TerminalPanel({
   useEffect(() => {
     viewRef.current?.refreshTheme();
   }, [themeVersion]);
+
+  useEffect(() => {
+    viewRef.current?.setKeywords(keywordHighlights);
+  }, [keywordHighlights]);
 
   const menuItems = (): MenuItem[] => {
     const view = viewRef.current;

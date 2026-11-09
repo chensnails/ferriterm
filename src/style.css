@@ -3011,6 +3011,26 @@ mark {
   color: var(--fg-muted);
 }
 
+.highlight-form {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.highlight-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.highlight-dot {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-sm);
+  flex: none;
+}
+
 .plugin-errors {
   margin-top: var(--space-2);
   color: var(--danger, var(--fg-muted));

@@ -22,6 +22,7 @@ import {
 import {
   applyTheme,
   applyThemePack,
+  HIGHLIGHT_COLORS,
   setTerminalPalette,
   type Theme,
 } from "./theme";
@@ -45,6 +46,53 @@ export interface HistoryEntry {
   text: string;
   at: number;
   hostId?: string;
+}
+
+export interface KeywordRule {
+  text: string;
+  color: string;
+}
+
+const DEFAULT_KEYWORD_RULES: KeywordRule[] = [
+  { text: "ERROR", color: "--tag-red" },
+  { text: "WARN", color: "--tag-amber" },
+];
+
+function sanitizeKeywordRules(rules: KeywordRule[]): KeywordRule[] {
+  const seen = new Set<string>();
+  const cleaned: KeywordRule[] = [];
+  for (const rule of rules) {
+    const text = rule.text.trim();
+    const key = text.toLowerCase();
+    if (!text || text.length > 64 || seen.has(key)) continue;
+    seen.add(key);
+    cleaned.push({
+      text,
+      color: HIGHLIGHT_COLORS.includes(rule.color)
+        ? rule.color
+        : HIGHLIGHT_COLORS[0],
+    });
+    if (cleaned.length >= 20) break;
+  }
+  return cleaned;
+}
+
+function parseKeywordRules(raw: string | undefined): KeywordRule[] {
+  if (!raw) return DEFAULT_KEYWORD_RULES;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return DEFAULT_KEYWORD_RULES;
+    return sanitizeKeywordRules(
+      parsed.filter(
+        (entry): entry is KeywordRule =>
+          Boolean(entry) &&
+          typeof entry.text === "string" &&
+          typeof entry.color === "string",
+      ),
+    );
+  } catch {
+    return DEFAULT_KEYWORD_RULES;
+  }
 }
 
 export interface ExecLogEntry {
@@ -155,6 +203,10 @@ interface AppState {
   setTransfers: (jobs: TransferJob[]) => void;
   keepaliveSecs: number;
   setKeepalive: (seconds: number) => void;
+  osc52: boolean;
+  setOsc52: (enabled: boolean) => void;
+  keywordHighlights: KeywordRule[];
+  setKeywordHighlights: (rules: KeywordRule[]) => void;
   tabNumbering: TabNumbering;
   setTabNumbering: (mode: TabNumbering) => void;
   confirmClose: boolean;
@@ -304,6 +356,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   quickConnectOpen: false,
   transfers: [],
   keepaliveSecs: 30,
+  osc52: true,
+  keywordHighlights: DEFAULT_KEYWORD_RULES,
   tabNumbering: "asNeed",
   confirmClose: true,
   sftpShowHidden: false,
@@ -357,6 +411,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     const value = Math.max(0, Math.round(seconds));
     set({ keepaliveSecs: value });
     if (isTauri) api.setSetting("keepalive", String(value)).catch(() => {});
+  },
+  setOsc52: (enabled) => {
+    set({ osc52: enabled });
+    if (isTauri) api.setSetting("osc52", enabled ? "1" : "0").catch(() => {});
+  },
+  setKeywordHighlights: (rules) => {
+    const keywordHighlights = sanitizeKeywordRules(rules);
+    set({ keywordHighlights });
+    if (isTauri) {
+      api
+        .setSetting("keywordHighlights", JSON.stringify(keywordHighlights))
+        .catch(() => {});
+    }
   },
   setTabNumbering: (mode) => {
     set({ tabNumbering: mode });
@@ -809,6 +876,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       importedThemes,
       language,
       keepaliveSecs: Number.isFinite(keepalive) ? keepalive : get().keepaliveSecs,
+      osc52: (settings.osc52 ?? "1") !== "0",
+      keywordHighlights: parseKeywordRules(settings.keywordHighlights),
       tabNumbering,
       confirmClose: (settings.confirmClose ?? "1") !== "0",
       sftpShowHidden: settings.sftpShowHidden === "1",

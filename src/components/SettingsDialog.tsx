@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri, type RemoteConfig } from "../api";
 import { useAppStore, type TabNumbering } from "../store";
-import { BUILTIN_THEMES } from "../theme";
+import { BUILTIN_THEMES, HIGHLIGHT_COLORS } from "../theme";
 import { parseSchemeFile } from "../scheme";
 import { Modal } from "./Modal";
 import { ShortcutEditor } from "./ShortcutEditor";
@@ -33,6 +33,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const loadLanguagePacks = useAppStore((s) => s.loadLanguagePacks);
   const bumpCommandLibrary = useAppStore((s) => s.bumpCommandLibrary);
   const keepaliveSecs = useAppStore((s) => s.keepaliveSecs);
+  const osc52 = useAppStore((s) => s.osc52);
+  const setOsc52 = useAppStore((s) => s.setOsc52);
+  const keywordHighlights = useAppStore((s) => s.keywordHighlights);
+  const setKeywordHighlights = useAppStore((s) => s.setKeywordHighlights);
   const setTheme = useAppStore((s) => s.setTheme);
   const setLanguage = useAppStore((s) => s.setLanguage);
   const setKeepalive = useAppStore((s) => s.setKeepalive);
@@ -48,6 +52,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const [passphrase, setPassphrase] = useState("");
   const [pluginMessage, setPluginMessage] = useState("");
   const [themeMessage, setThemeMessage] = useState("");
+  const [keywordDraft, setKeywordDraft] = useState("");
+  const [colorDraft, setColorDraft] = useState(HIGHLIGHT_COLORS[0]);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [remoteKind, setRemoteKind] = useState<"gist" | "webdav">("gist");
@@ -200,6 +206,13 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     } catch (err) {
       setPluginMessage(String(err));
     }
+  };
+
+  const addHighlight = () => {
+    const text = keywordDraft.trim();
+    if (!text) return;
+    setKeywordHighlights([...keywordHighlights, { text, color: colorDraft }]);
+    setKeywordDraft("");
   };
 
   const importSchemeFile = async (file: File) => {
@@ -479,6 +492,89 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           />
           <span className="hint">{t("settings.keepaliveHint")}</span>
         </label>
+
+        <fieldset className="settings-group">
+          <legend>{t("settings.osc52Title")}</legend>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={osc52}
+              onChange={(e) => setOsc52(e.target.checked)}
+            />
+            <span>{t("settings.osc52")}</span>
+          </label>
+          <span className="hint">{t("settings.osc52Hint")}</span>
+        </fieldset>
+
+        <fieldset className="settings-group">
+          <legend>{t("settings.highlightsTitle")}</legend>
+          <p className="hint">{t("settings.highlightsHint")}</p>
+          <div className="highlight-form">
+            <label className="field grow">
+              <input
+                value={keywordDraft}
+                maxLength={64}
+                placeholder={t("settings.highlightPlaceholder")}
+                onChange={(e) => setKeywordDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addHighlight();
+                  }
+                }}
+              />
+            </label>
+            <label className="field">
+              <select
+                value={colorDraft}
+                onChange={(e) => setColorDraft(e.target.value)}
+              >
+                {HIGHLIGHT_COLORS.map((color) => (
+                  <option key={color} value={color}>
+                    {t(`settings.highlightColor_${color.replace("--tag-", "")}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={addHighlight}
+              disabled={!keywordDraft.trim()}
+            >
+              {t("settings.highlightAdd")}
+            </button>
+          </div>
+          {keywordHighlights.length === 0 ? (
+            <p className="hint">{t("settings.highlightEmpty")}</p>
+          ) : (
+            <ul className="plugin-list">
+              {keywordHighlights.map((rule) => (
+                <li key={rule.text} className="plugin-row">
+                  <span className="plugin-name highlight-name">
+                    <span
+                      className="highlight-dot"
+                      style={{ background: `var(${rule.color})` }}
+                    />
+                    {rule.text}
+                  </span>
+                  <button
+                    type="button"
+                    className="link-btn"
+                    onClick={() =>
+                      setKeywordHighlights(
+                        keywordHighlights.filter(
+                          (item) => item.text !== rule.text,
+                        ),
+                      )
+                    }
+                  >
+                    {t("settings.highlightRemove")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </fieldset>
             </>
           )}
           {category === "keyboard" && (

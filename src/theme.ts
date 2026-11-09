@@ -49,6 +49,17 @@ export function terminalTheme(): ITheme {
   return { ...base, ...ansi, selectionBackground: selection };
 }
 
+// Tag tokens offered for keyword highlight rules; resolved at render time so
+// highlights follow the active theme.
+export const HIGHLIGHT_COLORS = [
+  "--tag-red",
+  "--tag-amber",
+  "--tag-green",
+  "--tag-blue",
+  "--tag-purple",
+  "--tag-cyan",
+];
+
 export type Theme = string;
 export type ThemeBase = "dark" | "light";
 

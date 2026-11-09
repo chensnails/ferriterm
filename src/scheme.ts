@@ -64,7 +64,7 @@ function toHex(red: number, green: number, blue: number): string {
   return `#${channel(red)}${channel(green)}${channel(blue)}`;
 }
 
-function mix(from: string, to: string, ratio: number): string {
+export function blendHex(from: string, to: string, ratio: number): string {
   const a = channels(from);
   const b = channels(to);
   return toHex(
@@ -104,17 +104,17 @@ function schemeTokens(
   const shade = dark ? palette.foreground : "#000000";
   return {
     "--bg-base": palette.background,
-    "--bg-panel": mix(palette.background, shade, dark ? 0.06 : 0.04),
-    "--bg-elevated": mix(palette.background, shade, dark ? 0.1 : 0.07),
-    "--border": mix(palette.background, shade, dark ? 0.18 : 0.14),
+    "--bg-panel": blendHex(palette.background, shade, dark ? 0.06 : 0.04),
+    "--bg-elevated": blendHex(palette.background, shade, dark ? 0.1 : 0.07),
+    "--border": blendHex(palette.background, shade, dark ? 0.18 : 0.14),
     "--fg-primary": palette.foreground,
-    "--fg-muted": mix(palette.foreground, palette.background, 0.4),
+    "--fg-muted": blendHex(palette.foreground, palette.background, 0.4),
     "--fg-on-accent":
       luminance(palette.cursor) > 0.45
-        ? mix(palette.background, "#000000", 0.5)
+        ? blendHex(palette.background, "#000000", 0.5)
         : palette.foreground,
     "--accent": palette.cursor,
-    "--accent-hover": mix(palette.cursor, dark ? "#ffffff" : "#000000", 0.18),
+    "--accent-hover": blendHex(palette.cursor, dark ? "#ffffff" : "#000000", 0.18),
     "--danger": palette.red,
     "--warning": palette.yellow,
     "--success": palette.green,
@@ -197,7 +197,7 @@ export function parseItermColors(
   });
   const cursor = colors.get("Cursor Color") ?? foreground;
   const selection =
-    colors.get("Selection Color") ?? mix(cursor, background, 0.5);
+    colors.get("Selection Color") ?? blendHex(cursor, background, 0.5);
   const palette: TerminalPalette = {
     background,
     foreground,
@@ -303,7 +303,7 @@ export function parseTomlScheme(text: string, filename: string): ImportedTheme {
     background,
     foreground,
     cursor,
-    selection: colors.get("selection") ?? mix(cursor, background, 0.5),
+    selection: colors.get("selection") ?? blendHex(cursor, background, 0.5),
     black: read("black"),
     red: read("red"),
     green: read("green"),
