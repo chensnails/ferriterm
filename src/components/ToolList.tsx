@@ -18,6 +18,7 @@ export function ToolList() {
   return (
     <>
       <PanelHeader
+        dragRegion
         title={
           <>
             {t("tools.title")}

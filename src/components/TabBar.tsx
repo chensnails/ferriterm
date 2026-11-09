@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { isTauri } from "../api";
 import { HostIcon } from "../host-icons";
+import { beginWindowDrag, zoomWindowOnDoubleClick } from "../window-chrome";
 import { HOME_TAB, TRANSFER_TAB, useAppStore } from "../store";
 import { terminalHandle } from "../terminal-registry";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
@@ -137,7 +138,8 @@ export function TabBar() {
     <div
       id="tabbar"
       data-chrome={windowChrome}
-      data-tauri-drag-region={isTauri ? "deep" : undefined}
+      onMouseDown={beginWindowDrag}
+      onDoubleClick={zoomWindowOnDoubleClick}
     >
       {/* Home doubles as the brand once the OS title bar is gone, so it is a
           square icon slot rather than a labelled tab. */}
@@ -274,9 +276,9 @@ export function TabBar() {
           </div>
         )}
       </div>
-      {/* Spacer that keeps the tool cluster right-aligned. The whole header
-          carries the drag region, so tabs and buttons (which are interactive)
-          are the only parts that keep their own clicks. */}
+      {/* Spacer that keeps the tool cluster right-aligned. The header starts a
+          window drag on its own background, so tabs and buttons are the only
+          parts that keep their own clicks. */}
       <div className="tab-drag" />
       <div className="tab-tools">
         <button

@@ -1,3 +1,4 @@
+import type { MouseEvent as ReactMouseEvent } from "react";
 import { isTauri } from "./api";
 
 /**
@@ -48,6 +49,19 @@ export async function minimizeWindow(): Promise<void> {
   }
 }
 
+/**
+ * Hands a pointer press back to the OS so the whole window moves. Tauri's
+ * `data-tauri-drag-region` listener skips presses on interactive elements, so
+ * the header calls this itself for the empty gutters between tabs and tools.
+ */
+export async function startWindowDrag(): Promise<void> {
+  try {
+    await (await currentWindow()).startDragging();
+  } catch {
+    // start-dragging needs a real mouse button held; ignore stray calls
+  }
+}
+
 export async function toggleMaximizeWindow(): Promise<void> {
   try {
     await (await currentWindow()).toggleMaximize();
@@ -62,6 +76,36 @@ export async function closeWindow(): Promise<void> {
   } catch {
     // ignore
   }
+}
+
+/** Presses that belong to a control keep their click instead of moving the window. */
+const DRAG_BLOCKERS =
+  'button, a, input, select, textarea, label, summary, [role="tab"], [role="menuitem"], [role="option"], [contenteditable]:not([contenteditable="false"])';
+
+function pressedOnControl(event: ReactMouseEvent<HTMLElement>): boolean {
+  const target = event.target;
+  return !(target instanceof Element) || target.closest(DRAG_BLOCKERS) !== null;
+}
+
+/**
+ * Starts a window drag from a header press. Tauri's `data-tauri-drag-region`
+ * helper skips any press whose target is clickable, and on macOS presses on
+ * the transparent title-bar strip never reach the webview at all, so the
+ * header calls the window directly for its own background.
+ */
+export function beginWindowDrag(event: ReactMouseEvent<HTMLElement>): void {
+  if (!isTauri || event.button !== 0 || event.detail !== 1) return;
+  if (event.defaultPrevented || pressedOnControl(event)) return;
+  event.preventDefault();
+  void startWindowDrag();
+}
+
+/** Double-clicking bare header space follows the platform zoom gesture. */
+export function zoomWindowOnDoubleClick(
+  event: ReactMouseEvent<HTMLElement>,
+): void {
+  if (!isTauri || pressedOnControl(event)) return;
+  void toggleMaximizeWindow();
 }
 
 export type ResizeEdge =

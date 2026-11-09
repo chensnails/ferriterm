@@ -4,6 +4,7 @@ import type {
   KeyboardEvent,
   ReactNode,
 } from "react";
+import { beginWindowDrag, zoomWindowOnDoubleClick } from "../window-chrome";
 
 /**
  * Shared UI primitives for the design baseline. Views should compose these
@@ -39,6 +40,8 @@ interface PanelHeaderProps {
   actions?: ReactNode;
   compact?: boolean;
   className?: string;
+  /** Makes the bar's empty space a second way to move the window. */
+  dragRegion?: boolean;
 }
 
 export function PanelHeader({
@@ -46,12 +49,15 @@ export function PanelHeader({
   actions,
   compact = false,
   className,
+  dragRegion = false,
 }: PanelHeaderProps) {
   return (
     <header
       className={["ui-panel-header", compact ? "compact" : "", className ?? ""]
         .filter(Boolean)
         .join(" ")}
+      onMouseDown={dragRegion ? beginWindowDrag : undefined}
+      onDoubleClick={dragRegion ? zoomWindowOnDoubleClick : undefined}
     >
       <h3>{title}</h3>
       {actions && <div className="ui-panel-actions">{actions}</div>}

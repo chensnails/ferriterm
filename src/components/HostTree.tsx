@@ -582,6 +582,7 @@ export function HostTree() {
   return (
     <section className="host-section">
       <PanelHeader
+        dragRegion
         title={
           <>
             {t("hosts.title")}
