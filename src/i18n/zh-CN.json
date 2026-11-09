@@ -316,7 +316,10 @@
     "cpuModel": "处理器",
     "cores": "{count, plural, other {# 核}}",
     "gpu": "显卡",
-    "gpuNone": "未检测到显卡"
+    "gpuNone": "未检测到显卡",
+    "target": "监控目标",
+    "localTarget": "本机",
+    "disk": "磁盘"
   },
   "forward": {
     "open": "端口转发",

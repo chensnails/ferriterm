@@ -1,5 +1,6 @@
 //! Local system sampling for the monitor panel.
 
+use std::collections::HashMap;
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -110,6 +111,165 @@ impl Default for Monitor {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Read-only probe for remote Linux hosts. Every line is `key payload`; the
+/// script is a constant and nothing from the UI is interpolated into it.
+pub const REMOTE_PROBE: &str = r#"
+LC_ALL=C
+export LC_ALL
+echo "host $(uname -n 2>/dev/null)"
+echo "os $(sed -n 's/^PRETTY_NAME=//p' /etc/os-release 2>/dev/null | head -n 1)"
+echo "kernel $(uname -r 2>/dev/null)"
+echo "cores $(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 0)"
+echo "uptime $(cut -d' ' -f1 /proc/uptime 2>/dev/null)"
+echo "load $(cut -d' ' -f1-3 /proc/loadavg 2>/dev/null)"
+echo "mem $(awk '/^(MemTotal|MemAvailable|MemFree|Buffers|Cached|SwapTotal|SwapFree):/ {gsub(":", ""); printf "%s=%s ", $1, $2}' /proc/meminfo 2>/dev/null)"
+echo "cpu $(head -n 1 /proc/stat 2>/dev/null)"
+echo "disk $(df -Pk / 2>/dev/null | awk 'NR==2 {print $2, $3}')"
+"#;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteSnapshot {
+    pub cpu_usage: f32,
+    pub cpu_cores: usize,
+    pub mem_used: u64,
+    pub mem_total: u64,
+    pub swap_used: u64,
+    pub swap_total: u64,
+    pub load1: f64,
+    pub load5: f64,
+    pub load15: f64,
+    pub uptime_secs: u64,
+    pub host_name: String,
+    pub os_name: String,
+    pub kernel_version: String,
+    pub disk_used: u64,
+    pub disk_total: u64,
+}
+
+#[derive(Clone, Copy)]
+struct CpuCounters {
+    total: u64,
+    idle: u64,
+}
+
+/// Keeps the previous CPU counters per session so usage is the delta between
+/// polls instead of an average since boot.
+#[derive(Default)]
+pub struct RemoteMonitor {
+    previous: Mutex<HashMap<String, CpuCounters>>,
+}
+
+impl RemoteMonitor {
+    pub fn sample(&self, session_id: &str, output: &str) -> Result<RemoteSnapshot, String> {
+        let mut fields = HashMap::new();
+        for line in output.lines() {
+            if let Some((key, value)) = line.split_once(' ') {
+                fields.insert(key.trim(), value.trim());
+            }
+        }
+        let counters = parse_cpu(fields.get("cpu").copied().unwrap_or("")).ok_or_else(|| {
+            "the remote host does not report /proc/stat; remote monitoring supports Linux hosts"
+                .to_string()
+        })?;
+        let cpu_usage = {
+            let mut previous = self
+                .previous
+                .lock()
+                .map_err(|_| "monitor state is poisoned".to_string())?;
+            let usage = match previous.get(session_id) {
+                Some(before) if counters.total > before.total => {
+                    let total = counters.total - before.total;
+                    let idle = counters.idle.saturating_sub(before.idle);
+                    ((total.saturating_sub(idle)) as f32 / total as f32) * 100.0
+                }
+                _ => 0.0,
+            };
+            previous.insert(session_id.to_string(), counters);
+            usage.round()
+        };
+        let mem = parse_pairs(fields.get("mem").copied().unwrap_or(""));
+        let mem_total = mem.get("MemTotal").copied().unwrap_or(0) * 1024;
+        if mem_total == 0 {
+            return Err("the remote host did not report /proc/meminfo".to_string());
+        }
+        let available = mem.get("MemAvailable").copied().unwrap_or_else(|| {
+            mem.get("MemFree").copied().unwrap_or(0)
+                + mem.get("Buffers").copied().unwrap_or(0)
+                + mem.get("Cached").copied().unwrap_or(0)
+        }) * 1024;
+        let swap_total = mem.get("SwapTotal").copied().unwrap_or(0) * 1024;
+        let swap_free = mem.get("SwapFree").copied().unwrap_or(0) * 1024;
+        let load: Vec<f64> = numbers(fields.get("load").copied().unwrap_or(""));
+        let disk: Vec<u64> = numbers(fields.get("disk").copied().unwrap_or(""));
+        let os_name = fields
+            .get("os")
+            .copied()
+            .unwrap_or("")
+            .trim_matches('"')
+            .to_string();
+        Ok(RemoteSnapshot {
+            cpu_usage,
+            cpu_cores: fields
+                .get("cores")
+                .and_then(|value| value.parse().ok())
+                .unwrap_or(0),
+            mem_used: mem_total.saturating_sub(available),
+            mem_total,
+            swap_used: swap_total.saturating_sub(swap_free),
+            swap_total,
+            load1: load.first().copied().unwrap_or(0.0),
+            load5: load.get(1).copied().unwrap_or(0.0),
+            load15: load.get(2).copied().unwrap_or(0.0),
+            uptime_secs: fields
+                .get("uptime")
+                .and_then(|value| value.parse::<f64>().ok())
+                .unwrap_or(0.0) as u64,
+            host_name: fields.get("host").copied().unwrap_or("").to_string(),
+            os_name,
+            kernel_version: fields.get("kernel").copied().unwrap_or("").to_string(),
+            disk_used: disk.get(1).copied().unwrap_or(0) * 1024,
+            disk_total: disk.first().copied().unwrap_or(0) * 1024,
+        })
+    }
+
+    /// Called when a session closes so a later reconnect starts fresh.
+    pub fn forget(&self, session_id: &str) {
+        if let Ok(mut previous) = self.previous.lock() {
+            previous.remove(session_id);
+        }
+    }
+}
+
+/// `/proc/stat`'s first line: user nice system idle iowait irq softirq steal.
+fn parse_cpu(line: &str) -> Option<CpuCounters> {
+    let mut parts = line.split_whitespace();
+    if parts.next()? != "cpu" {
+        return None;
+    }
+    let values: Vec<u64> = parts.filter_map(|value| value.parse().ok()).collect();
+    if values.len() < 4 {
+        return None;
+    }
+    Some(CpuCounters {
+        idle: values[3] + values.get(4).copied().unwrap_or(0),
+        total: values.iter().take(8).sum(),
+    })
+}
+
+fn parse_pairs(line: &str) -> HashMap<String, u64> {
+    line.split_whitespace()
+        .filter_map(|pair| pair.split_once('='))
+        .filter_map(|(key, value)| value.parse().ok().map(|value| (key.to_string(), value)))
+        .collect()
+}
+
+fn numbers<T: std::str::FromStr>(line: &str) -> Vec<T> {
+    line.split_whitespace()
+        .filter_map(|value| value.parse().ok())
+        .collect()
 }
 
 fn run_probe(program: &str, args: &[&str]) -> Option<String> {
@@ -353,5 +513,72 @@ mod tests {
         assert_eq!(parse_memory_label("8 GB"), Some(8 * 1024 * 1024 * 1024));
         assert_eq!(parse_memory_label("512 MB"), Some(512 * 1024 * 1024));
         assert_eq!(parse_memory_label("n/a"), None);
+    }
+
+    const REMOTE_SAMPLE: &str = r#"host nas-01
+os "Armbian 24.8.1 bookworm"
+kernel 6.6.44-current-sunxi64
+cores 4
+uptime 3623.55
+load 0.15 0.09 0.04
+mem MemTotal=2031244 MemAvailable=1523100 MemFree=610500 Buffers=84032 Cached=822568 SwapTotal=1048572 SwapFree=1048572 
+cpu cpu  102030 800 15300 2010010 2400 0 320 0 0 0
+disk 30517344 7311104
+"#;
+
+    #[test]
+    fn parses_remote_probe_output() {
+        let monitor = RemoteMonitor::default();
+        let first = monitor.sample("s1", REMOTE_SAMPLE).expect("first sample");
+        assert_eq!(first.host_name, "nas-01");
+        assert_eq!(first.os_name, "Armbian 24.8.1 bookworm");
+        assert_eq!(first.kernel_version, "6.6.44-current-sunxi64");
+        assert_eq!(first.cpu_cores, 4);
+        assert_eq!(first.uptime_secs, 3623);
+        assert_eq!(first.mem_total, 2_031_244 * 1024);
+        assert_eq!(first.mem_used, (2_031_244 - 1_523_100) * 1024);
+        assert_eq!(first.swap_used, 0);
+        assert_eq!(first.swap_total, 1_048_572 * 1024);
+        assert_eq!(first.load1, 0.15);
+        assert_eq!(first.disk_total, 30_517_344 * 1024);
+        assert_eq!(first.disk_used, 7_311_104 * 1024);
+        // No previous counters yet, so the first poll reports no usage.
+        assert_eq!(first.cpu_usage, 0.0);
+    }
+
+    #[test]
+    fn cpu_usage_is_the_delta_between_polls() {
+        let monitor = RemoteMonitor::default();
+        monitor.sample("s1", REMOTE_SAMPLE).expect("first sample");
+        // user +200, idle +800 → 20% busy over the interval.
+        let next = REMOTE_SAMPLE.replace(
+            "cpu  102030 800 15300 2010010",
+            "cpu  102230 800 15300 2010810",
+        );
+        let second = monitor.sample("s1", &next).expect("second sample");
+        assert_eq!(second.cpu_usage, 20.0);
+        // A reconnect must not reuse counters from the old session.
+        monitor.forget("s1");
+        let fresh = monitor.sample("s1", &next).expect("fresh sample");
+        assert_eq!(fresh.cpu_usage, 0.0);
+    }
+
+    #[test]
+    fn remote_sample_requires_proc_metrics() {
+        let monitor = RemoteMonitor::default();
+        let err = monitor.sample("win", "host box\nos \n").unwrap_err();
+        assert!(err.contains("/proc/stat"));
+        let err = monitor.sample("memless", "cpu cpu 1 2 3 4\n").unwrap_err();
+        assert!(err.contains("/proc/meminfo"));
+    }
+
+    #[test]
+    fn remote_probe_only_reads() {
+        for forbidden in ["rm ", "sudo", "reboot", "shutdown", "mkfs", "dd if="] {
+            assert!(
+                !REMOTE_PROBE.contains(forbidden),
+                "probe must not contain {forbidden}"
+            );
+        }
     }
 }

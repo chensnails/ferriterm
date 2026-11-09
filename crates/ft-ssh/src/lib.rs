@@ -12,7 +12,7 @@ use russh::client::{self, Config};
 use russh::keys::{HashAlg, PrivateKey, PublicKey};
 use russh::{ChannelMsg, Disconnect};
 use serde::Deserialize;
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::net::TcpStream;
 
 mod forward;
@@ -614,6 +614,52 @@ pub async fn disconnect(registry: &SessionRegistry, id: &str) -> Result<(), Stri
             .await;
     }
     Ok(())
+}
+
+/// Runs one fixed command over an existing session and returns stdout. The
+/// caller supplies the timeout and output cap; nothing from user input is
+/// interpolated into the command. Used by the remote monitor.
+pub async fn exec(
+    registry: &SessionRegistry,
+    id: &str,
+    command: &str,
+    timeout: Duration,
+    cap: usize,
+) -> Result<String, String> {
+    let handle = {
+        let sessions = registry.sessions.lock().await;
+        match sessions.get(id) {
+            Some(Session::Ssh(s)) => s.handle.clone(),
+            _ => return Err("ssh session not found".to_string()),
+        }
+    };
+    let channel = tokio::time::timeout(timeout, handle.channel_open_session())
+        .await
+        .map_err(|_| "remote command timed out".to_string())?
+        .map_err(|e| format!("failed to open exec channel: {e}"))?;
+    channel
+        .exec(true, command.to_owned())
+        .await
+        .map_err(|e| format!("failed to run remote command: {e}"))?;
+    let mut stream = channel.into_stream();
+    let deadline = tokio::time::Instant::now() + timeout;
+    let mut out = Vec::new();
+    let mut buf = [0u8; 8192];
+    loop {
+        match tokio::time::timeout_at(deadline, stream.read(&mut buf)).await {
+            Err(_) => return Err("remote command timed out".to_string()),
+            Ok(Err(error)) => return Err(format!("remote command failed: {error}")),
+            Ok(Ok(0)) => break,
+            Ok(Ok(read)) => {
+                let room = cap.saturating_sub(out.len());
+                out.extend_from_slice(&buf[..read.min(room)]);
+                if out.len() >= cap {
+                    break;
+                }
+            }
+        }
+    }
+    Ok(String::from_utf8_lossy(&out).into_owned())
 }
 
 async fn authenticate_keyboard_interactive(

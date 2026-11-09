@@ -16,6 +16,7 @@ pub fn run() {
         .manage(ft_serial::SerialRegistry::default())
         .manage(ft_telnet::TelnetRegistry::default())
         .manage(tokio::sync::Mutex::new(ft_monitor::Monitor::new()))
+        .manage(Arc::new(ft_monitor::RemoteMonitor::default()))
         .manage(std::sync::Arc::new(net_tools::NetToolState::default()))
         .setup(move |app| {
             let dir = app.path().app_data_dir()?;
@@ -83,6 +84,7 @@ pub fn run() {
             commands::recording_read,
             commands::import_preview,
             commands::monitor_sample,
+            commands::monitor_remote,
             commands::export_backup,
             commands::import_backup,
             commands::sync_remote_test,

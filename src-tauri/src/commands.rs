@@ -338,10 +338,12 @@ pub async fn ssh_resize(
 pub async fn ssh_disconnect(
     state: State<'_, SessionRegistry>,
     runtime: State<'_, SshRuntimeState>,
+    remote: State<'_, Arc<ft_monitor::RemoteMonitor>>,
     id: String,
 ) -> Result<(), String> {
     runtime.forwards.stop_session(&id).await;
     runtime.sftp.invalidate(&id).await;
+    remote.forget(&id);
     ft_ssh::disconnect(&state, &id).await
 }
 
@@ -460,6 +462,25 @@ pub async fn monitor_sample(
 ) -> Result<ft_monitor::MonitorSnapshot, String> {
     let mut monitor = state.lock().await;
     Ok(monitor.sample().await)
+}
+
+/// Samples a connected SSH session with the fixed read-only probe. The output
+/// is capped and the call times out so a stalled host cannot wedge the panel.
+#[tauri::command]
+pub async fn monitor_remote(
+    sessions: State<'_, SessionRegistry>,
+    remote: State<'_, Arc<ft_monitor::RemoteMonitor>>,
+    session_id: String,
+) -> Result<ft_monitor::RemoteSnapshot, String> {
+    let output = ft_ssh::exec(
+        &sessions,
+        &session_id,
+        ft_monitor::REMOTE_PROBE,
+        std::time::Duration::from_secs(6),
+        64 * 1024,
+    )
+    .await?;
+    remote.sample(&session_id, &output)
 }
 
 #[derive(serde::Deserialize)]

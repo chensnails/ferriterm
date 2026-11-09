@@ -235,6 +235,26 @@ export interface MonitorSnapshot {
   gpus: GpuInfo[];
 }
 
+/** A remote Linux host sampled over an open SSH session. GPU probing is not
+ *  attempted remotely, so there is no brand or GPU list here. */
+export interface RemoteSnapshot {
+  cpuUsage: number;
+  cpuCores: number;
+  memUsed: number;
+  memTotal: number;
+  swapUsed: number;
+  swapTotal: number;
+  load1: number;
+  load5: number;
+  load15: number;
+  uptimeSecs: number;
+  hostName: string;
+  osName: string;
+  kernelVersion: string;
+  diskUsed: number;
+  diskTotal: number;
+}
+
 export interface CommandItem {
   id: string;
   groupId: string;
@@ -742,6 +762,8 @@ export const api = {
     invoke<void>("set_setting", { key, value }),
 
   monitorSample: () => invoke<MonitorSnapshot>("monitor_sample"),
+  monitorRemote: (sessionId: string) =>
+    invoke<RemoteSnapshot>("monitor_remote", { sessionId }),
 
   listCommandGroups: () => invoke<CommandGroup[]>("list_command_groups"),
   createCommandGroup: (id: string, name: string) =>

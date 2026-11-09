@@ -316,7 +316,10 @@
     "cpuModel": "CPU",
     "cores": "{count, plural, one {# core} other {# cores}}",
     "gpu": "GPU",
-    "gpuNone": "No GPU detected"
+    "gpuNone": "No GPU detected",
+    "target": "Target",
+    "localTarget": "This machine",
+    "disk": "Disk"
   },
   "forward": {
     "open": "Port forwarding",
