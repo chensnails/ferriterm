@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { api, isTauri, type RemoteConfig } from "../api";
 import { useAppStore, type TabNumbering } from "../store";
 import { BUILTIN_THEMES } from "../theme";
+import { parseSchemeFile } from "../scheme";
 import { Modal } from "./Modal";
 import { ShortcutEditor } from "./ShortcutEditor";
 
@@ -26,6 +27,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const languagePacks = useAppStore((s) => s.languagePacks);
   const pluginScan = useAppStore((s) => s.pluginScan);
   const themes = pluginScan?.themes ?? [];
+  const importedThemes = useAppStore((s) => s.importedThemes);
+  const importTheme = useAppStore((s) => s.importTheme);
+  const removeImportedTheme = useAppStore((s) => s.removeImportedTheme);
   const loadLanguagePacks = useAppStore((s) => s.loadLanguagePacks);
   const bumpCommandLibrary = useAppStore((s) => s.bumpCommandLibrary);
   const keepaliveSecs = useAppStore((s) => s.keepaliveSecs);
@@ -43,6 +47,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const loadTags = useAppStore((s) => s.loadTags);
   const [passphrase, setPassphrase] = useState("");
   const [pluginMessage, setPluginMessage] = useState("");
+  const [themeMessage, setThemeMessage] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [remoteKind, setRemoteKind] = useState<"gist" | "webdav">("gist");
@@ -56,6 +61,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const [remoteMessage, setRemoteMessage] = useState("");
   const [remoteBusy, setRemoteBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const themeFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isTauri) return;
@@ -196,6 +202,19 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const importSchemeFile = async (file: File) => {
+    try {
+      const scheme = parseSchemeFile(file.name, await file.text());
+      importTheme(scheme);
+      setThemeMessage(t("settings.themeImported", { name: scheme.name }));
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      setThemeMessage(t("settings.themeImportFailed", { error: detail }));
+    } finally {
+      if (themeFileRef.current) themeFileRef.current.value = "";
+    }
+  };
+
   const importPack = async (packId: string) => {
     try {
       const count = await api.pluginImportCommands(packId);
@@ -270,8 +289,69 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   ))}
                 </optgroup>
               )}
+              {importedThemes.length > 0 && (
+                <optgroup label={t("settings.themeCustom")}>
+                  {importedThemes.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </label>
+          <div className="plugin-actions">
+            <button
+              type="button"
+              onClick={() => themeFileRef.current?.click()}
+            >
+              {t("settings.themeImport")}
+            </button>
+            <input
+              ref={themeFileRef}
+              type="file"
+              accept=".itermcolors,.toml,.tml"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void importSchemeFile(file);
+              }}
+            />
+          </div>
+          <span className="hint">{t("settings.themeImportHint")}</span>
+          {themeMessage && (
+            <p className="hint sync-message">{themeMessage}</p>
+          )}
+          {importedThemes.length > 0 && (
+            <ul className="plugin-list">
+              {importedThemes.map((item) => (
+                <li key={item.id} className="plugin-row">
+                  <span className="plugin-name">{item.name}</span>
+                  <span className="plugin-kind">
+                    {t(`settings.theme_${item.base}`)}
+                  </span>
+                  {theme === item.id ? (
+                    <span className="hint">{t("settings.themeActive")}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="link-btn"
+                      onClick={() => setTheme(item.id)}
+                    >
+                      {t("settings.themeApply")}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="link-btn"
+                    onClick={() => removeImportedTheme(item.id)}
+                  >
+                    {t("settings.themeRemove")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
           {themes.length === 0 ? (
             <p className="hint">{t("settings.themePackHint")}</p>
           ) : (

@@ -124,7 +124,7 @@ Single main window:
 | ContextMenu | keyboard navigable, submenu support, customizable entries | `--bg-elevated`, `--radius-md` |
 | TagManagerDialog | create/rename/recolor/delete tags; deleting detaches from hosts | `--bg-panel`, `--tag-*` |
 | CommandPalette | fuzzy actions, Ctrl+Shift+P | `--bg-elevated` |
-| SettingsCenter | floating dialog; left category nav (General/Terminal/Keyboard/Transfer/Plugins/Sync/About) + scrolling pane | `--settings-w`, `--settings-h`, `--settings-nav-w` |
+| SettingsCenter | floating dialog; left category nav (General/Terminal/Keyboard/Transfer/Plugins/Sync/About) + scrolling pane; theme section imports iTerm2/TOML schemes | `--settings-w`, `--settings-h`, `--settings-nav-w` |
 | TerminalView | xterm.js host; theme mapped from tokens; inline history suggestion with ghost text and prompt-anchored dropdown | `--font-terminal`, `--bg-base`, `--suggest-w` |
 | RecordingsDialog | list of stored `.cast` files (title, date, length, size); read-only replay with play/pause, restart, seek and 1×/2×/4× speed | `--recordings-list-w`, `--player-h`, `--bg-base` |
 | StatusStrip / Toast | connection state, transient errors | `--font-ui-sm` |
@@ -178,6 +178,7 @@ Acceptance = perform each path in Ferriterm and in the reference install; record
 - [ ] Settings categories navigable by keyboard; search jumps to matching field.
 - [ ] Language switch en ↔ zh-CN applies without restart; missing keys fall back to en.
 - [ ] Theme switch updates all tokens live; terminal palette follows.
+- [ ] Importing an iTerm2 `.itermcolors` preset or a Ferriterm `.toml` scheme applies the full ANSI palette to open terminals, derives app chrome tokens and persists across restarts; imported schemes can be reapplied or removed.
 - [ ] Keyboard focus is visible on buttons, summaries and menu items.
 - [ ] Reduce-motion setting disables transitions and entrance animations.
 

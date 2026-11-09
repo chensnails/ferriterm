@@ -4,15 +4,49 @@ function token(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
+// Complete ANSI palette imported from iTerm2 or a Ferriterm TOML scheme. Built-in
+// themes only set the four base colors so xterm keeps its default ANSI table.
+export interface TerminalPalette {
+  background: string;
+  foreground: string;
+  cursor: string;
+  selection: string;
+  black: string;
+  red: string;
+  green: string;
+  yellow: string;
+  blue: string;
+  magenta: string;
+  cyan: string;
+  white: string;
+  brightBlack: string;
+  brightRed: string;
+  brightGreen: string;
+  brightYellow: string;
+  brightBlue: string;
+  brightMagenta: string;
+  brightCyan: string;
+  brightWhite: string;
+}
+
+let activePalette: TerminalPalette | null = null;
+
+export function setTerminalPalette(palette: TerminalPalette | null) {
+  activePalette = palette;
+}
+
 // xterm needs concrete colors; read them from the design tokens so the terminal
 // palette follows the active theme instead of hardcoding values.
 export function terminalTheme(): ITheme {
-  return {
+  const base: ITheme = {
     background: token("--bg-base"),
     foreground: token("--fg-primary"),
     cursor: token("--accent"),
     selectionBackground: token("--selection"),
   };
+  if (!activePalette) return base;
+  const { selection, ...ansi } = activePalette;
+  return { ...base, ...ansi, selectionBackground: selection };
 }
 
 export type Theme = string;

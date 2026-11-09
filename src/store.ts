@@ -19,7 +19,13 @@ import {
   type ShortcutAction,
   type ShortcutBindings,
 } from "./keybindings";
-import { applyTheme, applyThemePack, type Theme } from "./theme";
+import {
+  applyTheme,
+  applyThemePack,
+  setTerminalPalette,
+  type Theme,
+} from "./theme";
+import { parseStoredThemes, type ImportedTheme } from "./scheme";
 import i18n, {
   detectLanguage,
   registerLanguagePack,
@@ -115,6 +121,10 @@ interface AppState {
   setSplitDirection: (direction: SplitDirection) => void;
   setSplitRatio: (ratio: number) => void;
   theme: Theme;
+  themeVersion: number;
+  importedThemes: ImportedTheme[];
+  importTheme: (scheme: ImportedTheme) => void;
+  removeImportedTheme: (id: string) => void;
   language: Language;
   languagePacks: LanguageOption[];
   pluginScan: PluginScan | null;
@@ -274,6 +284,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   execLogOpen: false,
   layoutRestored: false,
   theme: "dark",
+  themeVersion: 0,
+  importedThemes: [],
   language: detectLanguage(),
   languagePacks: [],
   pluginScan: null,
@@ -722,10 +734,44 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setTheme: (theme) => {
     const pack = get().pluginScan?.themes.find((item) => item.id === theme);
-    if (pack) applyThemePack(theme, pack.base, pack.tokens);
-    else applyTheme(theme);
-    set({ theme });
+    const custom = get().importedThemes.find((item) => item.id === theme);
+    if (pack) {
+      applyThemePack(theme, pack.base, pack.tokens);
+      setTerminalPalette(null);
+    } else if (custom) {
+      applyThemePack(theme, custom.base, custom.tokens);
+      setTerminalPalette(custom.palette);
+    } else {
+      applyTheme(theme);
+      setTerminalPalette(null);
+    }
+    set((s) => ({ theme, themeVersion: s.themeVersion + 1 }));
     if (isTauri) api.setSetting("theme", theme).catch(() => {});
+  },
+
+  importTheme: (scheme) => {
+    const importedThemes = [
+      ...get().importedThemes.filter((item) => item.id !== scheme.id),
+      scheme,
+    ];
+    set({ importedThemes });
+    if (isTauri) {
+      api.setSetting("themes:imported", JSON.stringify(importedThemes)).catch(
+        () => {},
+      );
+    }
+    get().setTheme(scheme.id);
+  },
+
+  removeImportedTheme: (id) => {
+    const importedThemes = get().importedThemes.filter((item) => item.id !== id);
+    set({ importedThemes });
+    if (isTauri) {
+      api.setSetting("themes:imported", JSON.stringify(importedThemes)).catch(
+        () => {},
+      );
+    }
+    if (get().theme === id) get().setTheme("dark");
   },
 
   setLanguage: (lng) => {
@@ -743,12 +789,24 @@ export const useAppStore = create<AppState>((set, get) => ({
     const numbering = settings.tabNumbering;
     const tabNumbering: TabNumbering =
       numbering === "always" || numbering === "none" ? numbering : "asNeed";
+    const importedThemes = parseStoredThemes(settings["themes:imported"]);
     const pack = get().pluginScan?.themes.find((item) => item.id === theme);
-    if (pack) applyThemePack(theme, pack.base, pack.tokens);
-    else applyTheme(theme);
+    const custom = importedThemes.find((item) => item.id === theme);
+    if (pack) {
+      applyThemePack(theme, pack.base, pack.tokens);
+      setTerminalPalette(null);
+    } else if (custom) {
+      applyThemePack(theme, custom.base, custom.tokens);
+      setTerminalPalette(custom.palette);
+    } else {
+      applyTheme(theme);
+      setTerminalPalette(null);
+    }
     void i18n.changeLanguage(language);
     set({
       theme,
+      themeVersion: get().themeVersion + 1,
+      importedThemes,
       language,
       keepaliveSecs: Number.isFinite(keepalive) ? keepalive : get().keepaliveSecs,
       tabNumbering,
@@ -774,7 +832,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
     const current = get().theme;
     const pack = scan.themes.find((item) => item.id === current);
-    if (pack) applyThemePack(current, pack.base, pack.tokens);
+    const custom = get().importedThemes.find((item) => item.id === current);
+    if (pack) {
+      applyThemePack(current, pack.base, pack.tokens);
+      setTerminalPalette(null);
+    } else if (custom) {
+      applyThemePack(current, custom.base, custom.tokens);
+      setTerminalPalette(custom.palette);
+    }
   },
 
   bumpCommandLibrary: () =>
