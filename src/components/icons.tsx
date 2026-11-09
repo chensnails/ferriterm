@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 const base = (size: number) => ({
   width: size,
   height: size,
@@ -14,6 +16,42 @@ export function LogIcon({ size = 14 }: { size?: number }) {
     <svg {...base(size)}>
       <rect x="2.5" y="2" width="11" height="12" rx="1.5" />
       <path d="M5 5.5h6M5 8h6M5 10.5h4" />
+    </svg>
+  );
+}
+
+export function LogoMark({ size = 32 }: { size?: number }) {
+  const id = useId();
+  const bg = `ft-logo-bg-${id}`;
+  const fg = `ft-logo-fg-${id}`;
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+      <defs>
+        <linearGradient id={bg} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#081120" />
+          <stop offset="1" stopColor="#0d2c4a" />
+        </linearGradient>
+        <linearGradient id={fg} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#6ee7f9" />
+          <stop offset="1" stopColor="#4f8cff" />
+        </linearGradient>
+      </defs>
+      <rect width="32" height="32" rx="6.8" fill={`url(#${bg})`} />
+      <path
+        d="M10.2 9.9 16.2 16l-6 6.1"
+        fill="none"
+        stroke={`url(#${fg})`}
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M17.1 22.1h4.7"
+        fill="none"
+        stroke={`url(#${fg})`}
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }

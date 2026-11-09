@@ -21,6 +21,7 @@ import {
   InfoIcon,
   KeyboardIcon,
   KeyIcon,
+  LogoMark,
   PuzzleIcon,
   RefreshIcon,
   SlidersIcon,
@@ -1428,7 +1429,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             <>
         <fieldset className="settings-group">
           <legend>{t("settings.cat.about")}</legend>
-          <p className="about-name">{t("app.name")}</p>
+          <div className="about-brand">
+            <LogoMark size={26} />
+            <p className="about-name">{t("app.name")}</p>
+          </div>
           <p className="about-version">
             <span className="hint">{t("about.devVersion")}</span>
             <Chip tone="info">{DEV_VERSION}</Chip>

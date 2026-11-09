@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { isTauri } from "../api";
 import { useAppStore } from "../store";
-import { FolderPlusIcon, PlusIcon, TerminalIcon } from "./icons";
+import { FolderPlusIcon, LogoMark, PlusIcon, TerminalIcon } from "./icons";
 
 export function HomeView() {
   const { t } = useTranslation();
@@ -13,9 +13,7 @@ export function HomeView() {
     <div className="home-view">
       <div className="home-inner">
         <div className="home-logo">
-          <span className="home-logo-mark" aria-hidden="true">
-            &gt;_
-          </span>
+          <LogoMark size={36} />
           <span className="home-logo-name">{t("app.name")}</span>
         </div>
         <p className="home-tagline">{t("home.tagline")}</p>
