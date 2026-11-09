@@ -124,7 +124,11 @@ Single main window:
 | ContextMenu | keyboard navigable, submenu support, customizable entries | `--bg-elevated`, `--radius-md` |
 | TagManagerDialog | create/rename/recolor/delete tags; deleting detaches from hosts | `--bg-panel`, `--tag-*` |
 | CommandPalette | fuzzy actions, Ctrl+Shift+P | `--bg-elevated` |
-| SettingsCenter | floating dialog; left category nav (General/Terminal/Keyboard/Transfer/Plugins/Sync/About) + scrolling pane; theme section imports iTerm2/TOML schemes | `--settings-w`, `--settings-h`, `--settings-nav-w` |
+| SettingsCenter | floating dialog; left category nav (General/Credentials/Terminal/Keyboard/Transfer/Plugins/Sync/About) + scrolling pane; theme section imports iTerm2/TOML schemes; credentials section manages the vault | `--settings-w`, `--settings-h`, `--settings-nav-w` |
+| CredentialVault | Settings › Credentials pane: vault mode badge (keychain / master password), lock state, unlock/enable/disable/change/reset actions, auto-lock selector, per-host stored-secret list with delete/clear, recent access log | `--bg-panel`, `--radius-md`, `--danger` |
+| KeyManagerDialog | list managed keys (name, algorithm, SHA256 fingerprint, comment, passphrase badge); import from `~/.ssh` scan or path; generate ed25519/RSA; copy public key; delete | `--dialog-w`, `--font-mono`, `--row-h` |
+| KnownHostsDialog | list trusted host keys (host, port, algorithm, fingerprint) with remove action, opened from the credentials section | `--dialog-w`, `--font-mono`, `--danger` |
+| UnlockDialog | master-password entry on startup or when a connect needs a locked vault; wrong-password feedback and cancel | `--dialog-w`, `--control-h`, `--danger` |
 | TerminalView | xterm.js host; theme mapped from tokens; inline history suggestion with ghost text and prompt-anchored dropdown; OSC 52 clipboard writes; configurable keyword tinting | `--font-terminal`, `--bg-base`, `--suggest-w`, `--tag-*` |
 | RecordingsDialog | list of stored `.cast` files (title, date, length, size); read-only replay with play/pause, restart, seek and 1×/2×/4× speed | `--recordings-list-w`, `--player-h`, `--bg-base` |
 | StatusStrip / Toast | connection state, transient errors | `--font-ui-sm` |
@@ -183,6 +187,24 @@ Acceptance = perform each path in Ferriterm and in the reference install; record
 - [ ] Importing an iTerm2 `.itermcolors` preset or a Ferriterm `.toml` scheme applies the full ANSI palette to open terminals, derives app chrome tokens and persists across restarts; imported schemes can be reapplied or removed.
 - [ ] Keyboard focus is visible on buttons, summaries and menu items.
 - [ ] Reduce-motion setting disables transitions and entrance animations.
+
+### 4.6 Credentials, keys and host trust
+
+- [ ] Settings › Credentials shows the vault mode and lock state; keychain mode is the default.
+- [ ] Enabling a master password migrates stored secrets, requires the password on later launches and after auto-lock; cancelling the unlock dialog leaves the app usable but blocks SSH connects with a clear message.
+- [ ] Changing the master password re-encrypts existing entries; disabling it returns to keychain mode; resetting wipes secrets, managed keys and their host references after confirmation.
+- [ ] Auto-lock selects 0/5/15/30/60 minutes of inactivity and locks without a restart.
+- [ ] Stored-secret list shows one row per host with password and/or passphrase entries, each deletable; "clear all" asks for confirmation; deleting a host removes its secrets.
+- [ ] Recent access log lists the last credential reads, writes and deletes with timestamps.
+- [ ] Key manager imports a private key from a `~/.ssh` candidate or a typed path, rejects non-key files, and shows algorithm plus SHA256 fingerprint.
+- [ ] Key manager generates ed25519 and RSA keys with an optional passphrase, shows the public key and copies it to the clipboard.
+- [ ] Host properties can select a managed key or keep a key path; a managed key wins when both are set.
+- [ ] The connect dialog shows a saved badge instead of pre-filling passwords or passphrases; entering a new secret replaces it, "forget" deletes it.
+- [ ] SSH connects read secrets only in the Rust process; the webview never receives stored plaintext.
+- [ ] Authentication falls back key → agent → password when the previous method is rejected, without exceeding the server's failure limit.
+- [ ] Jump-host hops resolve their own saved password, passphrase or managed key.
+- [ ] Known-hosts dialog lists entries with fingerprints and removes a selected entry; the next connect prompts for that host again.
+- [ ] Backup and remote sync include secrets only when the "include credentials" option is on; importing restores them into the vault.
 
 ## 5. Phase maintenance rule
 

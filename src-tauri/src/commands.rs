@@ -1,11 +1,12 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
 
 use ft_core::{events, RecorderRegistry, SessionRegistry, TerminalSink};
 use ft_ssh::{
-    ConnectContext, HostKeyChallenge, HostKeyDecision, HostKeyPrompt, KeyboardInteractiveChallenge,
-    KeyboardInteractivePrompt, KnownHostsStore, TofuVerifier,
+    ConnectContext, CredentialProvider, HostKeyChallenge, HostKeyDecision, HostKeyPrompt,
+    KeyboardInteractiveChallenge, KeyboardInteractivePrompt, KnownHostsStore, SecretKind,
+    TofuVerifier,
 };
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::oneshot;
@@ -188,6 +189,7 @@ pub async fn ssh_connect(
     state: State<'_, SessionRegistry>,
     recorders: State<'_, RecorderRegistry>,
     runtime: State<'_, SshRuntimeState>,
+    credentials: State<'_, Arc<ft_security::CredentialStore>>,
     id: String,
     args: ft_ssh::SshConnectArgs,
 ) -> Result<(), String> {
@@ -213,11 +215,30 @@ pub async fn ssh_connect(
         runtime.forwards.clone(),
         id.clone(),
     ));
+    let provider = Arc::new(VaultProvider {
+        credentials: credentials.inner().clone(),
+    });
     let ctx = ConnectContext::new(verifier)
         .with_keyboard_interactive(keyboard_prompt)
-        .with_remote_forwards(router);
+        .with_remote_forwards(router)
+        .with_credentials(provider);
     let host_id = args.host_id.clone();
-    ft_ssh::connect(sink, &state, id.clone(), args, ctx).await?;
+    let audit_target = args
+        .host_id
+        .clone()
+        .unwrap_or_else(|| format!("{}@{}", args.username, args.host));
+    let result = ft_ssh::connect(sink, &state, id.clone(), args, ctx).await;
+    let detail = result.as_ref().err().cloned().unwrap_or_default();
+    let _ = runtime.store.append_audit(
+        if result.is_ok() {
+            "ssh.connect"
+        } else {
+            "ssh.connect.failed"
+        },
+        &audit_target,
+        &detail,
+    );
+    result?;
     if let Some(host_id) = host_id {
         auto_start_forwards(&app, &state, &runtime, &host_id, &id).await;
     }
@@ -444,6 +465,18 @@ struct BackupPayload {
     tags: Vec<ft_store::Tag>,
     #[serde(default)]
     hosts: Vec<ft_store::Host>,
+    #[serde(default)]
+    secrets: Vec<BackupSecret>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BackupSecret {
+    secret_ref: String,
+    kind: String,
+    label: String,
+    host_id: Option<String>,
+    secret: String,
 }
 
 #[tauri::command]
@@ -546,18 +579,57 @@ pub async fn plugin_run_wasm(
 pub fn export_backup(
     backups: State<'_, ft_sync::BackupStore>,
     store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
     passphrase: String,
+    include_secrets: bool,
 ) -> Result<String, String> {
-    let payload = backup_payload(&store)?;
+    let payload = backup_payload(&store, Some(&credentials), include_secrets)?;
     backups
         .export(&passphrase, &payload)
         .map(|path| path.display().to_string())
         .map_err(|e| e.to_string())
 }
 
-fn backup_payload(store: &ft_store::Store) -> Result<Vec<u8>, String> {
+fn backup_payload(
+    store: &ft_store::Store,
+    credentials: Option<&ft_security::CredentialStore>,
+    include_secrets: bool,
+) -> Result<Vec<u8>, String> {
     let hosts = store.list_hosts().map_err(|e| e.to_string())?;
     let tags = store.list_tags().map_err(|e| e.to_string())?;
+    let mut secrets = Vec::new();
+    if include_secrets {
+        if let Some(credentials) = credentials {
+            let labels = store
+                .list_vault_entries()
+                .map_err(|e| e.to_string())?
+                .into_iter()
+                .map(|entry| (entry.secret_ref.clone(), entry))
+                .collect::<std::collections::HashMap<_, _>>();
+            for reference in credentials.refs() {
+                if reference.starts_with("sync:") {
+                    continue;
+                }
+                let Some(secret) = credentials.get(&reference).map_err(|e| e.to_string())? else {
+                    continue;
+                };
+                let meta = labels.get(&reference);
+                secrets.push(BackupSecret {
+                    kind: meta
+                        .map(|entry| entry.kind.clone())
+                        .unwrap_or_else(|| infer_kind(&reference).to_string()),
+                    label: meta
+                        .map(|entry| entry.label.clone())
+                        .unwrap_or_else(|| reference.clone()),
+                    host_id: meta
+                        .and_then(|entry| entry.host_id.clone())
+                        .or_else(|| infer_host_id(&reference)),
+                    secret_ref: reference,
+                    secret,
+                });
+            }
+        }
+    }
     let exported_at = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -567,6 +639,7 @@ fn backup_payload(store: &ft_store::Store) -> Result<Vec<u8>, String> {
         "exportedAt": exported_at,
         "tags": tags,
         "hosts": hosts,
+        "secrets": secrets,
     }))
     .map_err(|e| e.to_string())
 }
@@ -574,15 +647,49 @@ fn backup_payload(store: &ft_store::Store) -> Result<Vec<u8>, String> {
 #[tauri::command]
 pub fn import_backup(
     store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
     payload: String,
     passphrase: String,
 ) -> Result<ft_store::ImportStats, String> {
     let plain = ft_sync::open(&passphrase, &payload).map_err(|e| e.to_string())?;
     let parsed: BackupPayload =
         serde_json::from_slice(&plain).map_err(|e| format!("invalid backup payload: {e}"))?;
-    store
+    let stats = store
         .import_snapshot(&parsed.hosts, &parsed.tags)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    import_backup_secrets(&store, &credentials, &parsed.secrets)?;
+    Ok(stats)
+}
+
+fn import_backup_secrets(
+    store: &ft_store::Store,
+    credentials: &ft_security::CredentialStore,
+    secrets: &[BackupSecret],
+) -> Result<(), String> {
+    for entry in secrets {
+        if entry.secret.is_empty() {
+            continue;
+        }
+        credentials
+            .set(&entry.secret_ref, &entry.secret)
+            .map_err(|e| e.to_string())?;
+        store
+            .upsert_vault_entry(
+                &entry.secret_ref,
+                &entry.kind,
+                &entry.label,
+                entry.host_id.as_deref(),
+            )
+            .map_err(|e| e.to_string())?;
+    }
+    if !secrets.is_empty() {
+        let _ = store.append_audit(
+            "backup.import.secrets",
+            "backup",
+            &secrets.len().to_string(),
+        );
+    }
+    Ok(())
 }
 
 #[derive(serde::Deserialize)]
@@ -609,6 +716,27 @@ pub enum RemoteConfig {
 }
 
 impl RemoteConfig {
+    /// Fills empty credentials from the vault so the webview never needs to
+    /// hold the stored token or password.
+    fn resolve_secrets(mut self, credentials: &Credentials) -> Result<Self, String> {
+        match &mut self {
+            RemoteConfig::Gist { token, .. } if token.trim().is_empty() => {
+                *token = credentials
+                    .get("sync:gist-token")
+                    .map_err(|e| e.to_string())?
+                    .unwrap_or_default();
+            }
+            RemoteConfig::Webdav { password, .. } if password.is_empty() => {
+                *password = credentials
+                    .get("sync:webdav-password")
+                    .map_err(|e| e.to_string())?
+                    .unwrap_or_default();
+            }
+            _ => {}
+        }
+        Ok(self)
+    }
+
     fn gist(&self) -> Option<ft_sync::GistConfig> {
         match self {
             RemoteConfig::Gist {
@@ -646,7 +774,11 @@ impl RemoteConfig {
 }
 
 #[tauri::command]
-pub async fn sync_remote_test(config: RemoteConfig) -> Result<String, String> {
+pub async fn sync_remote_test(
+    credentials: State<'_, Credentials>,
+    config: RemoteConfig,
+) -> Result<String, String> {
+    let config = config.resolve_secrets(&credentials)?;
     if let Some(gist) = config.gist() {
         ft_sync::gist_test(&gist)
             .await
@@ -664,10 +796,13 @@ pub async fn sync_remote_test(config: RemoteConfig) -> Result<String, String> {
 #[tauri::command]
 pub async fn sync_remote_upload(
     store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
     config: RemoteConfig,
     passphrase: String,
+    include_secrets: bool,
 ) -> Result<ft_sync::RemoteUpload, String> {
-    let payload = backup_payload(&store)?;
+    let config = config.resolve_secrets(&credentials)?;
+    let payload = backup_payload(&store, Some(&credentials), include_secrets)?;
     let sealed = ft_sync::seal(&passphrase, &payload).map_err(|e| e.to_string())?;
     if let Some(gist) = config.gist() {
         ft_sync::gist_upload(&gist, &sealed)
@@ -685,9 +820,11 @@ pub async fn sync_remote_upload(
 #[tauri::command]
 pub async fn sync_remote_download(
     store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
     config: RemoteConfig,
     passphrase: String,
 ) -> Result<ft_store::ImportStats, String> {
+    let config = config.resolve_secrets(&credentials)?;
     let sealed = if let Some(gist) = config.gist() {
         ft_sync::gist_download(&gist).await
     } else if let Some(webdav) = config.webdav() {
@@ -699,34 +836,625 @@ pub async fn sync_remote_download(
     let plain = ft_sync::open(&passphrase, &sealed).map_err(|e| e.to_string())?;
     let parsed: BackupPayload =
         serde_json::from_slice(&plain).map_err(|e| format!("invalid backup payload: {e}"))?;
-    store
+    let stats = store
         .import_snapshot(&parsed.hosts, &parsed.tags)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    import_backup_secrets(&store, &credentials, &parsed.secrets)?;
+    Ok(stats)
+}
+
+type Credentials = Arc<ft_security::CredentialStore>;
+
+/// Reads secrets from the vault inside the Rust process. The webview never
+/// receives stored plaintext.
+struct VaultProvider {
+    credentials: Credentials,
+}
+
+impl VaultProvider {
+    fn lookup(&self, references: &[String]) -> Option<String> {
+        for reference in references {
+            if let Ok(Some(secret)) = self.credentials.get(reference) {
+                if !secret.is_empty() {
+                    return Some(secret);
+                }
+            }
+        }
+        None
+    }
+}
+
+impl CredentialProvider for VaultProvider {
+    fn host_secret(&self, host_id: &str, kind: SecretKind) -> Option<String> {
+        match kind {
+            SecretKind::Password => self.lookup(&[format!("pwd:{host_id}"), host_id.to_string()]),
+            SecretKind::Passphrase => self.lookup(&[format!("pp:{host_id}"), host_id.to_string()]),
+        }
+    }
+
+    fn key_material(&self, key_id: &str) -> Option<(String, Option<String>)> {
+        let text = self
+            .credentials
+            .get(&format!("key:{key_id}"))
+            .ok()
+            .flatten()?;
+        let passphrase = self
+            .credentials
+            .get(&format!("keypp:{key_id}"))
+            .ok()
+            .flatten()
+            .filter(|value| !value.is_empty());
+        Some((text, passphrase))
+    }
+
+    fn locked(&self) -> bool {
+        self.credentials.is_locked()
+    }
+}
+
+fn password_ref(host_id: &str) -> String {
+    format!("pwd:{host_id}")
+}
+
+fn passphrase_ref(host_id: &str) -> String {
+    format!("pp:{host_id}")
+}
+
+fn key_ref(key_id: &str) -> String {
+    format!("key:{key_id}")
+}
+
+fn key_passphrase_ref(key_id: &str) -> String {
+    format!("keypp:{key_id}")
+}
+
+fn infer_kind(reference: &str) -> &'static str {
+    if reference.starts_with("pwd:") {
+        "password"
+    } else if reference.starts_with("pp:") {
+        "passphrase"
+    } else if reference.starts_with("keypp:") {
+        "keyPassphrase"
+    } else if reference.starts_with("key:") {
+        "key"
+    } else if reference.starts_with("sync:") {
+        "token"
+    } else {
+        "password"
+    }
+}
+
+fn infer_host_id(reference: &str) -> Option<String> {
+    reference
+        .strip_prefix("pwd:")
+        .or_else(|| reference.strip_prefix("pp:"))
+        .map(str::to_string)
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CredentialStatus {
+    pub password: bool,
+    pub passphrase: bool,
+    pub key: bool,
+    pub key_passphrase: bool,
+    pub locked: bool,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultEntryView {
+    pub secret_ref: String,
+    pub kind: String,
+    pub label: String,
+    pub host_id: Option<String>,
+    pub updated_at: String,
 }
 
 #[tauri::command]
+pub fn credential_status(
+    credentials: State<'_, Credentials>,
+    host_id: String,
+    key_id: Option<String>,
+) -> CredentialStatus {
+    CredentialStatus {
+        password: credentials.exists(&password_ref(&host_id)) || credentials.exists(&host_id),
+        passphrase: credentials.exists(&passphrase_ref(&host_id)) || credentials.exists(&host_id),
+        key: key_id
+            .as_deref()
+            .filter(|id| !id.is_empty())
+            .is_some_and(|id| credentials.exists(&key_ref(id))),
+        key_passphrase: key_id
+            .as_deref()
+            .filter(|id| !id.is_empty())
+            .is_some_and(|id| credentials.exists(&key_passphrase_ref(id))),
+        locked: credentials.is_locked(),
+    }
+}
+
+/// Legacy entry point kept for older payloads; stores a password under the
+/// new reference scheme.
+#[tauri::command]
 pub fn save_credential(
-    state: State<'_, ft_security::CredentialStore>,
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
     host_id: String,
     secret: String,
 ) -> Result<(), String> {
-    state.set(&host_id, &secret).map_err(|e| e.to_string())
+    apply_host_secrets(&store, &credentials, &host_id, Some(secret), None)
 }
 
+/// Deprecated: plaintext must stay in the Rust process. Kept temporarily for
+/// code paths that have not migrated yet.
 #[tauri::command]
 pub fn get_credential(
-    state: State<'_, ft_security::CredentialStore>,
+    credentials: State<'_, Credentials>,
     host_id: String,
 ) -> Result<Option<String>, String> {
-    state.get(&host_id).map_err(|e| e.to_string())
+    credentials.get(&host_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn delete_credential(
-    state: State<'_, ft_security::CredentialStore>,
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
     host_id: String,
 ) -> Result<(), String> {
-    state.delete(&host_id).map_err(|e| e.to_string())
+    for reference in [
+        password_ref(&host_id),
+        passphrase_ref(&host_id),
+        host_id.clone(),
+    ] {
+        credentials.delete(&reference).map_err(|e| e.to_string())?;
+        let _ = store.delete_vault_entry(&reference);
+    }
+    let _ = store.append_audit("secret.delete", &host_id, "");
+    Ok(())
+}
+
+/// Saves or clears a host's password/passphrase. `None` leaves the slot
+/// untouched; an empty string removes it.
+#[tauri::command]
+pub fn save_host_credential(
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+    host_id: String,
+    password: Option<String>,
+    passphrase: Option<String>,
+) -> Result<(), String> {
+    apply_host_secrets(&store, &credentials, &host_id, password, passphrase)
+}
+
+fn apply_host_secrets(
+    store: &ft_store::Store,
+    credentials: &ft_security::CredentialStore,
+    host_id: &str,
+    password: Option<String>,
+    passphrase: Option<String>,
+) -> Result<(), String> {
+    let host = store
+        .list_hosts()
+        .ok()
+        .and_then(|hosts| hosts.into_iter().find(|host| host.id == host_id));
+    let label = host
+        .as_ref()
+        .map(|host| host.name.clone())
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| host_id.to_string());
+    let refs = [
+        (password_ref(host_id), "password", password),
+        (passphrase_ref(host_id), "passphrase", passphrase),
+    ];
+    for (reference, kind, value) in refs {
+        match value {
+            None => {}
+            Some(secret) if secret.is_empty() => {
+                credentials.delete(&reference).map_err(|e| e.to_string())?;
+                let _ = store.delete_vault_entry(&reference);
+            }
+            Some(secret) => {
+                credentials
+                    .set(&reference, &secret)
+                    .map_err(|e| e.to_string())?;
+                store
+                    .upsert_vault_entry(&reference, kind, &label, Some(host_id))
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+    }
+    let _ = store.append_audit("secret.save", host_id, "");
+    Ok(())
+}
+
+#[tauri::command]
+pub fn save_secret(
+    credentials: State<'_, Credentials>,
+    secret_ref: String,
+    secret: String,
+) -> Result<(), String> {
+    credentials
+        .set(&secret_ref, &secret)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn secret_saved(credentials: State<'_, Credentials>, secret_ref: String) -> bool {
+    credentials.exists(&secret_ref)
+}
+
+#[tauri::command]
+pub fn delete_secret(
+    credentials: State<'_, Credentials>,
+    secret_ref: String,
+) -> Result<(), String> {
+    credentials.delete(&secret_ref).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn vault_status(credentials: State<'_, Credentials>) -> ft_security::VaultStatus {
+    credentials.status()
+}
+
+#[tauri::command]
+pub fn vault_unlock(
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+    password: String,
+) -> Result<(), String> {
+    let result = credentials.unlock(&password);
+    let detail = result
+        .as_ref()
+        .err()
+        .map(|e| e.to_string())
+        .unwrap_or_default();
+    let _ = store.append_audit(
+        if result.is_ok() {
+            "vault.unlock"
+        } else {
+            "vault.unlock.failed"
+        },
+        "vault",
+        &detail,
+    );
+    result.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn vault_lock(
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+) -> Result<(), String> {
+    credentials.lock();
+    let _ = store.append_audit("vault.lock", "vault", "");
+    Ok(())
+}
+
+#[tauri::command]
+pub fn vault_enable_master_password(
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+    password: String,
+) -> Result<usize, String> {
+    let migrated = credentials
+        .enable_master_password(&password, &known_secret_refs(&store))
+        .map_err(|e| e.to_string())?;
+    let _ = store.append_audit("vault.enable", "vault", &format!("{migrated} secrets"));
+    Ok(migrated)
+}
+
+#[tauri::command]
+pub fn vault_disable_master_password(
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+    password: String,
+) -> Result<(), String> {
+    credentials
+        .disable_master_password(&password)
+        .map_err(|e| e.to_string())?;
+    let _ = store.append_audit("vault.disable", "vault", "");
+    Ok(())
+}
+
+#[tauri::command]
+pub fn vault_change_master_password(
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+    current: String,
+    next: String,
+) -> Result<(), String> {
+    credentials
+        .change_master_password(&current, &next)
+        .map_err(|e| e.to_string())?;
+    let _ = store.append_audit("vault.password.change", "vault", "");
+    Ok(())
+}
+
+/// Destroys the master password and every stored secret. Unrecoverable.
+#[tauri::command]
+pub fn vault_reset(
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+) -> Result<(), String> {
+    credentials
+        .reset(&known_secret_refs(&store))
+        .map_err(|e| e.to_string())?;
+    let _ = store.clear_vault_entries();
+    let _ = store.append_audit("vault.reset", "vault", "all secrets removed");
+    Ok(())
+}
+
+#[tauri::command]
+pub fn vault_list_entries(
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+) -> Result<Vec<VaultEntryView>, String> {
+    let hosts = store.list_hosts().unwrap_or_default();
+    let keys = store.list_ssh_keys().unwrap_or_default();
+    let mut views: Vec<VaultEntryView> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+    for entry in store.list_vault_entries().unwrap_or_default() {
+        seen.insert(entry.secret_ref.clone());
+        views.push(VaultEntryView {
+            secret_ref: entry.secret_ref,
+            kind: entry.kind,
+            label: entry.label,
+            host_id: entry.host_id,
+            updated_at: entry.updated_at,
+        });
+    }
+    for reference in credentials.refs() {
+        if !seen.insert(reference.clone()) {
+            continue;
+        }
+        let host_id = infer_host_id(&reference);
+        let key_id = reference
+            .strip_prefix("keypp:")
+            .or_else(|| reference.strip_prefix("key:"))
+            .map(str::to_string);
+        let label = host_id
+            .as_ref()
+            .and_then(|id| hosts.iter().find(|host| &host.id == id))
+            .map(|host| host.name.clone())
+            .or_else(|| {
+                key_id
+                    .as_ref()
+                    .and_then(|id| keys.iter().find(|key| &key.id == id))
+                    .map(|key| key.name.clone())
+            })
+            .unwrap_or_else(|| reference.clone());
+        views.push(VaultEntryView {
+            kind: infer_kind(&reference).to_string(),
+            label,
+            host_id,
+            updated_at: String::new(),
+            secret_ref: reference,
+        });
+    }
+    Ok(views)
+}
+
+#[tauri::command]
+pub fn vault_delete_entry(
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+    secret_ref: String,
+) -> Result<(), String> {
+    credentials.delete(&secret_ref).map_err(|e| e.to_string())?;
+    let _ = store.delete_vault_entry(&secret_ref);
+    let _ = store.append_audit("secret.delete", &secret_ref, "");
+    Ok(())
+}
+
+#[tauri::command]
+pub fn vault_clear_entries(
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+) -> Result<usize, String> {
+    let mut refs = credentials.refs();
+    for entry in store.list_vault_entries().unwrap_or_default() {
+        if !refs.contains(&entry.secret_ref) {
+            refs.push(entry.secret_ref);
+        }
+    }
+    let mut removed = 0;
+    for reference in refs {
+        if credentials.delete(&reference).is_ok() {
+            removed += 1;
+        }
+    }
+    let _ = store.clear_vault_entries();
+    let _ = store.append_audit("vault.clear", "vault", &format!("{removed} secrets"));
+    Ok(removed)
+}
+
+fn known_secret_refs(store: &ft_store::Store) -> Vec<String> {
+    let mut refs = Vec::new();
+    if let Ok(hosts) = store.list_hosts() {
+        for host in hosts {
+            refs.push(host.id.clone());
+            refs.push(password_ref(&host.id));
+            refs.push(passphrase_ref(&host.id));
+        }
+    }
+    if let Ok(keys) = store.list_ssh_keys() {
+        for key in keys {
+            refs.push(key_ref(&key.id));
+            refs.push(key_passphrase_ref(&key.id));
+        }
+    }
+    refs.push("sync:gist-token".to_string());
+    refs.push("sync:webdav-password".to_string());
+    refs
+}
+
+#[tauri::command]
+pub fn ssh_key_list(
+    store: State<'_, Arc<ft_store::Store>>,
+) -> Result<Vec<ft_store::SshKey>, String> {
+    store.list_ssh_keys().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn ssh_key_scan(dir: Option<String>) -> Vec<ft_ssh::KeyCandidate> {
+    ft_ssh::scan_key_candidates(dir.as_deref())
+}
+
+#[tauri::command]
+pub fn ssh_key_import(
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+    id: String,
+    name: String,
+    path: Option<String>,
+    text: Option<String>,
+    passphrase: Option<String>,
+) -> Result<ft_store::SshKey, String> {
+    let raw = match (path.as_deref(), text.as_deref()) {
+        (Some(path), _) if !path.trim().is_empty() => ft_ssh::read_key_file(path)?,
+        (_, Some(text)) if !text.trim().is_empty() => text.to_string(),
+        _ => return Err("provide a key file path or pasted key content".to_string()),
+    };
+    let info = ft_ssh::inspect_private_key(&raw)?;
+    let fallback_name = path
+        .as_deref()
+        .and_then(|path| std::path::Path::new(path).file_name())
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_else(|| info.fingerprint.chars().take(19).collect());
+    let key = ft_store::SshKey {
+        id: id.clone(),
+        name: if name.trim().is_empty() {
+            fallback_name
+        } else {
+            name.trim().to_string()
+        },
+        algorithm: info.algorithm,
+        fingerprint: info.fingerprint,
+        public_key: info.public_key,
+        comment: info.comment,
+        source_path: path.unwrap_or_default(),
+        has_passphrase: info.encrypted,
+        created_at: String::new(),
+        updated_at: String::new(),
+    };
+    credentials
+        .set(&key_ref(&id), &raw)
+        .map_err(|e| e.to_string())?;
+    if let Some(passphrase) = passphrase.filter(|value| !value.is_empty()) {
+        credentials
+            .set(&key_passphrase_ref(&id), &passphrase)
+            .map_err(|e| e.to_string())?;
+    }
+    store.save_ssh_key(&key).map_err(|e| e.to_string())?;
+    store
+        .upsert_vault_entry(&key_ref(&id), "key", &key.name, None)
+        .map_err(|e| e.to_string())?;
+    if key.has_passphrase {
+        let _ =
+            store.upsert_vault_entry(&key_passphrase_ref(&id), "keyPassphrase", &key.name, None);
+    }
+    let _ = store.append_audit("key.import", &key.name, &key.fingerprint);
+    Ok(key)
+}
+
+#[tauri::command]
+pub fn ssh_key_generate(
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+    id: String,
+    name: String,
+    algorithm: String,
+    passphrase: Option<String>,
+    comment: String,
+) -> Result<ft_store::SshKey, String> {
+    let passphrase = passphrase.filter(|value| !value.is_empty());
+    let (private, info) = ft_ssh::generate_key(&algorithm, passphrase.as_deref(), &comment)?;
+    let key = ft_store::SshKey {
+        id: id.clone(),
+        name: if name.trim().is_empty() {
+            format!("{} key", info.algorithm)
+        } else {
+            name.trim().to_string()
+        },
+        algorithm: info.algorithm,
+        fingerprint: info.fingerprint,
+        public_key: info.public_key,
+        comment: info.comment,
+        source_path: String::new(),
+        has_passphrase: info.encrypted,
+        created_at: String::new(),
+        updated_at: String::new(),
+    };
+    credentials
+        .set(&key_ref(&id), &private)
+        .map_err(|e| e.to_string())?;
+    if let Some(passphrase) = passphrase {
+        credentials
+            .set(&key_passphrase_ref(&id), &passphrase)
+            .map_err(|e| e.to_string())?;
+    }
+    store.save_ssh_key(&key).map_err(|e| e.to_string())?;
+    let _ = store.upsert_vault_entry(&key_ref(&id), "key", &key.name, None);
+    if key.has_passphrase {
+        let _ =
+            store.upsert_vault_entry(&key_passphrase_ref(&id), "keyPassphrase", &key.name, None);
+    }
+    let _ = store.append_audit("key.generate", &key.name, &key.algorithm);
+    Ok(key)
+}
+
+#[tauri::command]
+pub fn ssh_key_delete(
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+    id: String,
+) -> Result<(), String> {
+    let label = store
+        .list_ssh_keys()
+        .ok()
+        .and_then(|keys| keys.into_iter().find(|key| key.id == id))
+        .map(|key| key.name)
+        .unwrap_or_else(|| id.clone());
+    for reference in [key_ref(&id), key_passphrase_ref(&id)] {
+        if let Err(err) = credentials.delete(&reference) {
+            let _ = store.append_audit("key.delete.failed", &label, &err.to_string());
+        }
+        let _ = store.delete_vault_entry(&reference);
+    }
+    store.delete_ssh_key(&id).map_err(|e| e.to_string())?;
+    let _ = store.append_audit("key.delete", &label, "");
+    Ok(())
+}
+
+#[tauri::command]
+pub fn known_hosts_list(
+    runtime: State<'_, SshRuntimeState>,
+) -> Result<Vec<ft_ssh::HostKeyEntry>, String> {
+    runtime.known_hosts.entries().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn known_hosts_remove(
+    store: State<'_, Arc<ft_store::Store>>,
+    runtime: State<'_, SshRuntimeState>,
+    host: String,
+    port: u16,
+) -> Result<(), String> {
+    runtime
+        .known_hosts
+        .remove(&host, port)
+        .map_err(|e| e.to_string())?;
+    let _ = store.append_audit("known_hosts.remove", &host, &port.to_string());
+    Ok(())
+}
+
+#[tauri::command]
+pub fn credential_audit_list(
+    store: State<'_, Arc<ft_store::Store>>,
+    limit: Option<usize>,
+) -> Result<Vec<ft_store::AuditRecord>, String> {
+    store
+        .list_audit(limit.unwrap_or(100))
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -834,8 +1562,21 @@ pub fn update_host(
 }
 
 #[tauri::command]
-pub fn delete_host(state: State<'_, Arc<ft_store::Store>>, id: String) -> Result<(), String> {
-    state.delete_host(&id).map_err(|e| e.to_string())
+pub fn delete_host(
+    state: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+    id: String,
+) -> Result<(), String> {
+    for reference in [password_ref(&id), passphrase_ref(&id), id.clone()] {
+        // Best effort: a failing keychain must not block removing the host.
+        if let Err(err) = credentials.delete(&reference) {
+            let _ = state.append_audit("secret.delete.failed", &id, &err.to_string());
+        }
+        let _ = state.delete_vault_entry(&reference);
+    }
+    state.delete_host(&id).map_err(|e| e.to_string())?;
+    let _ = state.append_audit("host.delete", &id, "");
+    Ok(())
 }
 
 #[tauri::command]
@@ -933,7 +1674,8 @@ impl ft_transfer::JobLog for StoreJobLog {
             };
             let store = self.store.clone();
             let id = job.id.clone();
-            let _ = tokio::task::spawn_blocking(move || store.save_transfer_job(&id, &payload)).await;
+            let _ =
+                tokio::task::spawn_blocking(move || store.save_transfer_job(&id, &payload)).await;
             Ok(())
         })
     }

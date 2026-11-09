@@ -10,3 +10,6 @@ ft-core.workspace = true
 russh.workspace = true
 tokio = { workspace = true, features = ["net", "io-util"] }
 serde.workspace = true
+rand = "0.10"
+[dev-dependencies]
+serde_json.workspace = true

@@ -88,11 +88,14 @@ fn validate_target(raw: &str) -> Result<String, String> {
     if target.len() > 253 {
         return Err("target is too long".to_string());
     }
-    let allowed = target.chars().all(|c| {
-        c.is_ascii_alphanumeric() || matches!(c, '.' | ':' | '-' | '_' | '[' | ']' | '%')
-    });
+    let allowed = target
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | ':' | '-' | '_' | '[' | ']' | '%'));
     if !allowed {
-        return Err("target may only contain letters, digits, dots, dashes, underscores and colons".to_string());
+        return Err(
+            "target may only contain letters, digits, dots, dashes, underscores and colons"
+                .to_string(),
+        );
     }
     Ok(target.to_string())
 }
@@ -106,7 +109,12 @@ fn platform_command(
     match kind {
         "ping" => Ok((
             "ping",
-            vec!["-n".to_string(), count.to_string(), "-w".to_string(), "1000".to_string()],
+            vec![
+                "-n".to_string(),
+                count.to_string(),
+                "-w".to_string(),
+                "1000".to_string(),
+            ],
         )),
         "traceroute" => Ok((
             "tracert",
@@ -131,7 +139,12 @@ fn platform_command(
     match kind {
         "ping" => Ok((
             "ping",
-            vec!["-c".to_string(), count.to_string(), "-W".to_string(), "2".to_string()],
+            vec![
+                "-c".to_string(),
+                count.to_string(),
+                "-W".to_string(),
+                "2".to_string(),
+            ],
         )),
         "traceroute" => Ok((
             "traceroute",
@@ -185,10 +198,7 @@ pub async fn net_tool_start(
     let hops = hops.unwrap_or(20).clamp(1, 64);
     let (program, args) = platform_command(&kind, count, hops)?;
 
-    let id = format!(
-        "{kind}-{}",
-        state.next.fetch_add(1, Ordering::Relaxed) + 1
-    );
+    let id = format!("{kind}-{}", state.next.fetch_add(1, Ordering::Relaxed) + 1);
 
     let mut command = Command::new(program);
     command
@@ -306,7 +316,10 @@ fn text_of(value: &serde_json::Value, key: &str) -> String {
 }
 
 fn number_of(value: &serde_json::Value, key: &str) -> f64 {
-    value.get(key).and_then(|item| item.as_f64()).unwrap_or_default()
+    value
+        .get(key)
+        .and_then(|item| item.as_f64())
+        .unwrap_or_default()
 }
 
 async fn lookup_ipwho(client: &reqwest::Client, target: &str) -> Result<GeoInfo, String> {
@@ -355,7 +368,10 @@ async fn lookup_ipapi(client: &reqwest::Client, target: &str) -> Result<GeoInfo,
     let url = if target.is_empty() {
         "http://ip-api.com/json/?lang=zh-CN".to_string()
     } else {
-        format!("http://ip-api.com/json/{}?lang=zh-CN", encode_segment(target))
+        format!(
+            "http://ip-api.com/json/{}?lang=zh-CN",
+            encode_segment(target)
+        )
     };
     let response = client
         .get(url)
@@ -372,7 +388,11 @@ async fn lookup_ipapi(client: &reqwest::Client, target: &str) -> Result<GeoInfo,
     }
     let ip = text_of(&payload, "query");
     Ok(GeoInfo {
-        version: if ip.contains(':') { "IPv6".to_string() } else { "IPv4".to_string() },
+        version: if ip.contains(':') {
+            "IPv6".to_string()
+        } else {
+            "IPv4".to_string()
+        },
         ip,
         country: text_of(&payload, "country"),
         country_code: text_of(&payload, "countryCode"),

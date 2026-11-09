@@ -1,6 +1,12 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import type { HostEntry, HostInput } from "../api";
+import {
+  api,
+  isTauri,
+  type HostEntry,
+  type HostInput,
+  type SshKey,
+} from "../api";
 import { useAppStore } from "../store";
 import { Modal } from "./Modal";
 import { TagChip } from "./TagChip";
@@ -25,6 +31,8 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
   const [username, setUsername] = useState(host?.username ?? "");
   const [authMethod, setAuthMethod] = useState(host?.authMethod ?? "password");
   const [keyPath, setKeyPath] = useState(host?.keyPath ?? "");
+  const [keyId, setKeyId] = useState(host?.keyId ?? "");
+  const [keys, setKeys] = useState<SshKey[]>([]);
   const [jumpHostId, setJumpHostId] = useState(host?.jumpHostId ?? "");
   const [x11, setX11] = useState(host?.x11 ?? false);
   const [production, setProduction] = useState(host?.production ?? false);
@@ -32,6 +40,20 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
   const [tagIds, setTagIds] = useState<string[]>(host?.tags.map((tag) => tag.id) ?? []);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isTauri) return;
+    let cancelled = false;
+    void api
+      .sshKeyList()
+      .then((list) => {
+        if (!cancelled) setKeys(list);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const title = host
     ? isFolder
@@ -55,7 +77,9 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
       port: Number(port) || 22,
       username: isFolder ? "" : username.trim(),
       authMethod: isFolder ? "password" : authMethod,
-      keyPath: isFolder || authMethod !== "key" ? "" : keyPath.trim(),
+      keyPath:
+        isFolder || authMethod !== "key" || keyId ? "" : keyPath.trim(),
+      keyId: isFolder || authMethod !== "key" ? "" : keyId,
       jumpHostId: isFolder ? "" : jumpHostId,
       x11: isFolder ? false : x11,
       parentId: host ? host.parentId : parentId,
@@ -166,14 +190,33 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
             )}
 
             {authMethod === "key" && (
-              <label className="field">
-                <span>{t("hostDialog.keyPath")}</span>
-                <input
-                  value={keyPath}
-                  onChange={(e) => setKeyPath(e.target.value)}
-                  placeholder="~/.ssh/id_ed25519"
-                />
-              </label>
+              <>
+                <label className="field">
+                  <span>{t("hostDialog.keySource")}</span>
+                  <select
+                    value={keyId}
+                    onChange={(e) => setKeyId(e.target.value)}
+                  >
+                    <option value="">{t("hostDialog.keySourcePath")}</option>
+                    {keys.map((key) => (
+                      <option key={key.id} value={key.id}>
+                        {key.name} · {key.fingerprint}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="hint">{t("hostDialog.keySourceHint")}</span>
+                </label>
+                {!keyId && (
+                  <label className="field">
+                    <span>{t("hostDialog.keyPath")}</span>
+                    <input
+                      value={keyPath}
+                      onChange={(e) => setKeyPath(e.target.value)}
+                      placeholder="~/.ssh/id_ed25519"
+                    />
+                  </label>
+                )}
+              </>
             )}
 
             <label className="field">

@@ -1,18 +1,12 @@
-import { api, type HostEntry, type JumpHop, type SshConnectArgs } from "./api";
+import { type HostEntry, type JumpHop, type SshConnectArgs } from "./api";
 
 export type ConnectArgs = Omit<SshConnectArgs, "cols" | "rows">;
 
-export interface HostSecret {
-  password?: string;
-  keyPath?: string;
-  passphrase?: string;
-}
-
 /** Resolves the jump chain for a host, outermost hop first. */
-export async function resolveJumpChain(
+export function resolveJumpChain(
   host: HostEntry,
   hosts: HostEntry[],
-): Promise<JumpHop[]> {
+): JumpHop[] {
   const hops: JumpHop[] = [];
   const seen = new Set<string>([host.id]);
   let current = host;
@@ -25,25 +19,20 @@ export async function resolveJumpChain(
       throw new Error("jump chain contains a loop");
     }
     seen.add(next.id);
-    const secret = await api.getCredential(next.id).catch(() => null);
     const hop: JumpHop = {
       host: next.host,
       port: next.port,
       username: next.username,
+      hostId: next.id,
+      authMethod: next.authMethod,
     };
     if (next.authMethod === "agent") {
       hop.agent = true;
     } else if (next.authMethod === "keyboard-interactive") {
       hop.keyboardInteractive = true;
-    } else if (next.authMethod === "key" && next.keyPath) {
-      hop.privateKey = next.keyPath;
-      if (secret) hop.keyPassphrase = secret;
-    } else if (secret) {
-      hop.password = secret;
-    } else {
-      throw new Error(
-        `jump host ${next.name || next.host} has no saved credential; connect to it once and remember the secret`,
-      );
+    } else if (next.authMethod === "key") {
+      if (next.keyId) hop.keyId = next.keyId;
+      else if (next.keyPath) hop.keyPath = next.keyPath;
     }
     hops.unshift(hop);
     current = next;
@@ -51,18 +40,23 @@ export async function resolveJumpChain(
   return hops;
 }
 
-export async function buildConnectArgs(
+/**
+ * Builds connection arguments. Stored passwords and passphrases are resolved
+ * inside the Rust process from the vault; the webview only names the host and
+ * the managed key.
+ */
+export function buildConnectArgs(
   host: HostEntry,
   hosts: HostEntry[],
-  secret: HostSecret = {},
   keepalive?: number,
-): Promise<ConnectArgs> {
-  const jump = await resolveJumpChain(host, hosts);
+): ConnectArgs {
+  const jump = resolveJumpChain(host, hosts);
   const args: ConnectArgs = {
     host: host.host,
     port: host.port,
     username: host.username,
     hostId: host.id,
+    authMethod: host.authMethod,
     x11: host.x11,
   };
   if (jump.length > 0) args.jump = jump;
@@ -72,10 +66,8 @@ export async function buildConnectArgs(
   } else if (host.authMethod === "keyboard-interactive") {
     args.keyboardInteractive = true;
   } else if (host.authMethod === "key") {
-    args.privateKey = secret.keyPath ?? host.keyPath;
-    if (secret.passphrase) args.keyPassphrase = secret.passphrase;
-  } else {
-    args.password = secret.password;
+    if (host.keyId) args.keyId = host.keyId;
+    else if (host.keyPath) args.keyPath = host.keyPath;
   }
   return args;
 }

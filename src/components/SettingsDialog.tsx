@@ -6,6 +6,7 @@ import { BUILTIN_THEMES, HIGHLIGHT_COLORS } from "../theme";
 import { parseSchemeFile } from "../scheme";
 import { DEV_VERSION } from "../version";
 import { Modal } from "./Modal";
+import { CredentialVault } from "./CredentialVault";
 import { ShortcutEditor } from "./ShortcutEditor";
 import { VersionHistory } from "./VersionHistory";
 import { Chip } from "./ui";
@@ -16,6 +17,7 @@ import {
   GearIcon,
   InfoIcon,
   KeyboardIcon,
+  KeyIcon,
   PuzzleIcon,
   SlidersIcon,
   TerminalIcon,
@@ -23,6 +25,7 @@ import {
 
 const SETTINGS_CATEGORIES = [
   "general",
+  "credentials",
   "terminal",
   "keyboard",
   "transfer",
@@ -35,6 +38,7 @@ type SettingsCategory = (typeof SETTINGS_CATEGORIES)[number];
 
 const CATEGORY_ICONS: Record<SettingsCategory, typeof SlidersIcon> = {
   general: SlidersIcon,
+  credentials: KeyIcon,
   terminal: TerminalIcon,
   keyboard: KeyboardIcon,
   transfer: FilesIcon,
@@ -123,6 +127,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const loadHosts = useAppStore((s) => s.loadHosts);
   const loadTags = useAppStore((s) => s.loadTags);
   const [passphrase, setPassphrase] = useState("");
+  const [includeSecrets, setIncludeSecrets] = useState(false);
   const [pluginMessage, setPluginMessage] = useState("");
   const [themeMessage, setThemeMessage] = useState("");
   const [keywordDraft, setKeywordDraft] = useState("");
@@ -140,6 +145,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const [remoteMessage, setRemoteMessage] = useState("");
   const [remoteBusy, setRemoteBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [gistTokenSaved, setGistTokenSaved] = useState(false);
+  const [davPassSaved, setDavPassSaved] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const themeFileRef = useRef<HTMLInputElement>(null);
 
@@ -155,11 +162,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         setDavUser(settings["sync:webdav-user"] ?? "");
         setDavFile(settings["sync:webdav-file"] || "ferriterm-backup.ftbak");
         const [token, password] = await Promise.all([
-          api.getCredential("sync:gist-token"),
-          api.getCredential("sync:webdav-password"),
+          api.secretSaved("sync:gist-token"),
+          api.secretSaved("sync:webdav-password"),
         ]);
-        setGistToken(token ?? "");
-        setDavPass(password ?? "");
+        setGistTokenSaved(token);
+        setDavPassSaved(password);
       } catch (err) {
         setRemoteMessage(String(err));
       }
@@ -185,9 +192,31 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       api.setSetting("sync:webdav-url", davUrl),
       api.setSetting("sync:webdav-user", davUser),
       api.setSetting("sync:webdav-file", davFile),
-      api.saveCredential("sync:gist-token", gistToken),
-      api.saveCredential("sync:webdav-password", davPass),
     ]);
+    if (gistToken) {
+      await api.saveSecret("sync:gist-token", gistToken);
+      setGistToken("");
+      setGistTokenSaved(true);
+    }
+    if (davPass) {
+      await api.saveSecret("sync:webdav-password", davPass);
+      setDavPass("");
+      setDavPassSaved(true);
+    }
+  };
+
+  const forgetSecret = async (
+    secretRef: string,
+    kind: "gist" | "webdav",
+  ) => {
+    try {
+      await api.deleteSecret(secretRef);
+      if (kind === "gist") setGistTokenSaved(false);
+      else setDavPassSaved(false);
+      setRemoteMessage(t("sync.secretCleared"));
+    } catch (err) {
+      setRemoteMessage(String(err));
+    }
   };
 
   const runRemote = async (action: "test" | "upload" | "download") => {
@@ -207,7 +236,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         const detail = await api.syncRemoteTest(remoteConfig());
         setRemoteMessage(t("sync.testOk", { detail }));
       } else if (action === "upload") {
-        const result = await api.syncRemoteUpload(remoteConfig(), passphrase);
+        const result = await api.syncRemoteUpload(remoteConfig(), passphrase, includeSecrets);
         if (remoteKind === "gist" && result.id && result.id !== gistId) {
           setGistId(result.id);
           await api.setSetting("sync:gist-id", result.id);
@@ -236,7 +265,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     if (!passphrase) return;
     setBusy(true);
     try {
-      const path = await api.exportBackup(passphrase);
+      const path = await api.exportBackup(passphrase, includeSecrets);
       setMessage(t("sync.exported", { path }));
     } catch (err) {
       setMessage(t("sync.failed", { error: String(err) }));
@@ -545,13 +574,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           </label>
           <span className="hint">{t("settings.confirmCloseHint")}</span>
         </fieldset>
-
-        <fieldset className="settings-group">
-          <legend>{t("settings.credentials")}</legend>
-          <p className="hint">{t("settings.credentialsHint")}</p>
-        </fieldset>
             </>
           )}
+          {category === "credentials" && <CredentialVault />}
           {category === "terminal" && (
             <>
         <fieldset className="settings-group">
@@ -772,6 +797,15 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               onToggle={() => setShowPassword(!showPassword)}
             />
           </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={includeSecrets}
+              onChange={(e) => setIncludeSecrets(e.target.checked)}
+            />
+            <span>{t("sync.includeSecrets")}</span>
+          </label>
+          <span className="hint">{t("sync.includeSecretsHint")}</span>
           <div className="sync-actions">
             <button
               type="button"
@@ -830,9 +864,25 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 <PasswordInput
                   value={gistToken}
                   onChange={setGistToken}
+                  placeholder={
+                    gistTokenSaved ? t("sync.secretPlaceholder") : undefined
+                  }
                   shown={showPassword}
                   onToggle={() => setShowPassword(!showPassword)}
                 />
+                {gistTokenSaved && (
+                  <span className="saved-secret">
+                    <span className="badge ok">{t("sync.secretSaved")}</span>
+                    <button
+                      type="button"
+                      className="link-btn"
+                      onClick={() => void forgetSecret("sync:gist-token", "gist")}
+                    >
+                      {t("sync.forget")}
+                    </button>
+                  </span>
+                )}
+                <span className="hint">{t("sync.secretHint")}</span>
               </label>
               <label className="field">
                 <span>{t("sync.gistId")}</span>
@@ -865,9 +915,26 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 <PasswordInput
                   value={davPass}
                   onChange={setDavPass}
+                  placeholder={
+                    davPassSaved ? t("sync.secretPlaceholder") : undefined
+                  }
                   shown={showPassword}
                   onToggle={() => setShowPassword(!showPassword)}
                 />
+                {davPassSaved && (
+                  <span className="saved-secret">
+                    <span className="badge ok">{t("sync.secretSaved")}</span>
+                    <button
+                      type="button"
+                      className="link-btn"
+                      onClick={() =>
+                        void forgetSecret("sync:webdav-password", "webdav")
+                      }
+                    >
+                      {t("sync.forget")}
+                    </button>
+                  </span>
+                )}
               </label>
               <label className="field">
                 <span>{t("sync.fileName")}</span>

@@ -18,6 +18,15 @@ pub enum HostKeyStatus {
     Mismatch,
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HostKeyEntry {
+    pub host: String,
+    pub port: u16,
+    pub algorithm: String,
+    pub fingerprint: String,
+}
+
 pub struct KnownHostsStore {
     path: PathBuf,
     system_path: Option<PathBuf>,
@@ -34,6 +43,66 @@ impl KnownHostsStore {
 
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// Lists plain (non-hashed) entries from the app-managed file only; the
+    /// user's OpenSSH file stays read-only.
+    pub fn entries(&self) -> io::Result<Vec<HostKeyEntry>> {
+        let raw = match fs::read_to_string(&self.path) {
+            Ok(raw) => raw,
+            Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(err) => return Err(err),
+        };
+        let mut entries = Vec::new();
+        for line in raw.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+            if trimmed.starts_with("|1|") || trimmed.starts_with("|2|") {
+                continue;
+            }
+            let mut parts = trimmed.split_whitespace();
+            let Some(names) = parts.next() else { continue };
+            let Some(key_type) = parts.next() else {
+                continue;
+            };
+            let Some(key_data) = parts.next() else {
+                continue;
+            };
+            let fingerprint = PublicKey::from_openssh(&format!("{key_type} {key_data}"))
+                .map(|key| key.fingerprint(russh::keys::HashAlg::Sha256).to_string())
+                .unwrap_or_default();
+            for name in names.split(',') {
+                let (host, port) = parse_host_field(name);
+                entries.push(HostKeyEntry {
+                    host,
+                    port,
+                    algorithm: key_type.to_string(),
+                    fingerprint: fingerprint.clone(),
+                });
+            }
+        }
+        Ok(entries)
+    }
+
+    /// Drops every app-managed entry for `host`/`port`. Hashed lines and other
+    /// hosts are preserved.
+    pub fn remove(&self, host: &str, port: u16) -> io::Result<()> {
+        let host_field = host_field(host, port);
+        let existing = match fs::read_to_string(&self.path) {
+            Ok(raw) => raw,
+            Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(()),
+            Err(err) => return Err(err),
+        };
+        let mut kept = String::with_capacity(existing.len());
+        for line in existing.lines() {
+            if keeps_line(line, &host_field) {
+                kept.push_str(line);
+                kept.push('\n');
+            }
+        }
+        write_private(&self.path, kept.as_bytes())
     }
 
     pub fn check(&self, host: &str, port: u16, key: &PublicKey) -> HostKeyStatus {
@@ -56,7 +125,7 @@ impl KnownHostsStore {
         let existing = fs::read_to_string(&self.path).unwrap_or_default();
         let mut kept = String::with_capacity(existing.len() + openssh.len() + 32);
         for line in existing.lines() {
-            if keeps_line(line, &host_field, host) {
+            if keeps_line(line, &host_field) {
                 kept.push_str(line);
                 kept.push('\n');
             }
@@ -90,7 +159,16 @@ fn host_field(host: &str, port: u16) -> String {
     }
 }
 
-fn keeps_line(line: &str, host_field: &str, host: &str) -> bool {
+fn parse_host_field(field: &str) -> (String, u16) {
+    if let Some(rest) = field.strip_prefix('[') {
+        if let Some((host, port)) = rest.split_once("]:") {
+            return (host.to_string(), port.parse().unwrap_or(22));
+        }
+    }
+    (field.to_string(), 22)
+}
+
+fn keeps_line(line: &str, host_field: &str) -> bool {
     let trimmed = line.trim();
     if trimmed.is_empty() || trimmed.starts_with('#') {
         return true;
@@ -100,9 +178,7 @@ fn keeps_line(line: &str, host_field: &str, host: &str) -> bool {
         return true;
     }
     match trimmed.split_whitespace().next() {
-        Some(names) => !names
-            .split(',')
-            .any(|name| name == host_field || name == host),
+        Some(names) => !names.split(',').any(|name| name == host_field),
         None => true,
     }
 }
@@ -225,5 +301,34 @@ mod tests {
         assert!(raw.contains("# managed"));
         assert!(raw.contains("other.test,alias.test"));
         assert!(!raw.contains("OLD_KEY_FOR_EXAMPLE"));
+    }
+
+    #[test]
+    fn entries_and_remove_target_one_host() {
+        let (_guard, store) = temp_store("entries");
+        store.remember("example.com", 22, &key(1)).unwrap();
+        store.remember("example.com", 2222, &key(1)).unwrap();
+
+        let entries = store.entries().unwrap();
+        assert_eq!(entries.len(), 2);
+        assert!(entries.iter().all(|entry| entry.algorithm == "ssh-ed25519"));
+        assert!(entries
+            .iter()
+            .all(|entry| entry.fingerprint.starts_with("SHA256:")));
+        assert!(entries
+            .iter()
+            .any(|entry| entry.host == "example.com" && entry.port == 2222));
+
+        store.remove("example.com", 2222).unwrap();
+        let entries = store.entries().unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].port, 22);
+
+        store.remove("example.com", 22).unwrap();
+        assert!(store.entries().unwrap().is_empty());
+        assert_eq!(
+            store.check("example.com", 22, &key(1)),
+            HostKeyStatus::Unknown
+        );
     }
 }

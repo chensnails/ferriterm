@@ -20,12 +20,13 @@ pub fn run() {
             std::fs::create_dir_all(&dir)?;
             let store = Arc::new(ft_store::Store::open(&dir.join("ferriterm.db"))?);
             app.manage(store.clone());
-            app.manage(ft_security::CredentialStore::new(dir.clone()));
+            app.manage(Arc::new(ft_security::CredentialStore::new(dir.clone())));
             app.manage(ft_sync::BackupStore::new(dir.join("backups")));
             app.manage(ft_plugin::PluginRegistry::new(dir.join("plugins")));
             app.manage(ft_core::RecorderRegistry::new(dir.join("recordings")));
             let sftp = Arc::new(ft_vfs::SftpRegistry::default());
-            let transfers = commands::transfer_manager(store.clone(), sessions.clone(), sftp.clone());
+            let transfers =
+                commands::transfer_manager(store.clone(), sessions.clone(), sftp.clone());
             // Jobs the last run left unfinished come back paused; nothing
             // reconnects on its own, so this is only a list.
             let restored = commands::restored_transfers(&store);
@@ -83,8 +84,31 @@ pub fn run() {
             commands::plugin_import_commands,
             commands::plugin_run_wasm,
             commands::save_credential,
+            commands::save_host_credential,
             commands::get_credential,
             commands::delete_credential,
+            commands::credential_status,
+            commands::save_secret,
+            commands::secret_saved,
+            commands::delete_secret,
+            commands::vault_status,
+            commands::vault_unlock,
+            commands::vault_lock,
+            commands::vault_enable_master_password,
+            commands::vault_disable_master_password,
+            commands::vault_change_master_password,
+            commands::vault_reset,
+            commands::vault_list_entries,
+            commands::vault_delete_entry,
+            commands::vault_clear_entries,
+            commands::ssh_key_list,
+            commands::ssh_key_scan,
+            commands::ssh_key_import,
+            commands::ssh_key_generate,
+            commands::ssh_key_delete,
+            commands::known_hosts_list,
+            commands::known_hosts_remove,
+            commands::credential_audit_list,
             commands::get_settings,
             commands::set_setting,
             commands::list_command_groups,

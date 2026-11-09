@@ -175,8 +175,8 @@ mod tests {
     #[tokio::test]
     async fn a_stored_buffer_can_be_forced_over_a_newer_file() {
         let fs = LocalFs;
-        let path = std::env::temp_dir()
-            .join(format!("ft-vfs-overwrite-{}.txt", std::process::id()));
+        let path =
+            std::env::temp_dir().join(format!("ft-vfs-overwrite-{}.txt", std::process::id()));
         let path = path.to_string_lossy().into_owned();
 
         write_text(&fs, &path, "opened", None).await.unwrap();

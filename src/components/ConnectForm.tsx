@@ -93,7 +93,7 @@ export function ConnectForm({
     } else if (auth === "keyboard-interactive") {
       args.keyboardInteractive = true;
     } else if (auth === "key") {
-      args.privateKey = String(data.get("keyPath") ?? "").trim() || undefined;
+      args.keyPath = String(data.get("keyPath") ?? "").trim() || undefined;
       const passphrase = String(data.get("keyPassphrase") ?? "");
       if (passphrase) args.keyPassphrase = passphrase;
     } else {

@@ -242,3 +242,12 @@ export function SignalIcon({ size = 14 }: { size?: number }) {
     </svg>
   );
 }
+
+export function KeyIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <circle cx="5" cy="8" r="2.6" />
+      <path d="M7.4 8h6.1M11.2 8v2.4M13 8v1.8" />
+    </svg>
+  );
+}

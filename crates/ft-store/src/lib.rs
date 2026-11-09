@@ -12,6 +12,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0004_host_key.sql"),
     include_str!("../migrations/0005_host_jump_forward_rules.sql"),
     include_str!("../migrations/0006_transfer_jobs.sql"),
+    include_str!("../migrations/0007_vault.sql"),
 ];
 
 pub struct Store {
@@ -29,6 +30,8 @@ pub struct Host {
     pub auth_method: String,
     #[serde(default)]
     pub key_path: String,
+    #[serde(default)]
+    pub key_id: String,
     #[serde(default)]
     pub jump_host_id: String,
     #[serde(default)]
@@ -60,6 +63,8 @@ pub struct HostInput {
     pub auth_method: String,
     #[serde(default)]
     pub key_path: String,
+    #[serde(default)]
+    pub key_id: String,
     #[serde(default)]
     pub jump_host_id: String,
     #[serde(default)]
@@ -106,6 +111,46 @@ pub struct ImportStats {
     pub hosts_added: usize,
     pub hosts_skipped: usize,
     pub tags_added: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SshKey {
+    pub id: String,
+    pub name: String,
+    pub algorithm: String,
+    pub fingerprint: String,
+    pub public_key: String,
+    #[serde(default)]
+    pub comment: String,
+    #[serde(default)]
+    pub source_path: String,
+    #[serde(default)]
+    pub has_passphrase: bool,
+    #[serde(default)]
+    pub created_at: String,
+    #[serde(default)]
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultEntry {
+    pub secret_ref: String,
+    pub kind: String,
+    pub label: String,
+    pub host_id: Option<String>,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuditRecord {
+    pub id: i64,
+    pub at: String,
+    pub action: String,
+    pub target: String,
+    pub detail: String,
 }
 
 #[derive(Debug)]
@@ -233,8 +278,8 @@ impl Store {
     pub fn list_hosts(&self) -> rusqlite::Result<Vec<Host>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, host, port, username, auth_method, key_path, jump_host_id, x11,
-                    parent_id, is_folder, production, sort_order, notes
+            "SELECT id, name, host, port, username, auth_method, key_path, key_id, jump_host_id,
+                    x11, parent_id, is_folder, production, sort_order, notes
              FROM hosts ORDER BY is_folder DESC, sort_order, name",
         )?;
         let mut hosts: Vec<Host> = stmt
@@ -247,13 +292,14 @@ impl Store {
                     username: row.get(4)?,
                     auth_method: row.get(5)?,
                     key_path: row.get(6)?,
-                    jump_host_id: row.get(7)?,
-                    x11: row.get(8)?,
-                    parent_id: row.get(9)?,
-                    is_folder: row.get(10)?,
-                    production: row.get(11)?,
-                    sort_order: row.get(12)?,
-                    notes: row.get(13)?,
+                    key_id: row.get(7)?,
+                    jump_host_id: row.get(8)?,
+                    x11: row.get(9)?,
+                    parent_id: row.get(10)?,
+                    is_folder: row.get(11)?,
+                    production: row.get(12)?,
+                    sort_order: row.get(13)?,
+                    notes: row.get(14)?,
                     tags: Vec::new(),
                 })
             })?
@@ -295,9 +341,9 @@ impl Store {
             |row| row.get(0),
         )?;
         tx.execute(
-            "INSERT INTO hosts(id, name, host, port, username, auth_method, key_path, jump_host_id,
-                               x11, parent_id, is_folder, production, sort_order, notes)
-             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+            "INSERT INTO hosts(id, name, host, port, username, auth_method, key_path, key_id,
+                               jump_host_id, x11, parent_id, is_folder, production, sort_order, notes)
+             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             params![
                 input.id,
                 input.name,
@@ -306,6 +352,7 @@ impl Store {
                 input.username,
                 input.auth_method,
                 input.key_path,
+                input.key_id,
                 input.jump_host_id,
                 input.x11,
                 input.parent_id,
@@ -332,8 +379,8 @@ impl Store {
         let changed = tx.execute(
             "UPDATE hosts
              SET name = ?2, host = ?3, port = ?4, username = ?5, auth_method = ?6,
-                 key_path = ?7, jump_host_id = ?8, x11 = ?9, parent_id = ?10,
-                 production = ?11, notes = ?12, updated_at = datetime('now')
+                 key_path = ?7, key_id = ?8, jump_host_id = ?9, x11 = ?10, parent_id = ?11,
+                 production = ?12, notes = ?13, updated_at = datetime('now')
              WHERE id = ?1",
             params![
                 input.id,
@@ -343,6 +390,7 @@ impl Store {
                 input.username,
                 input.auth_method,
                 input.key_path,
+                input.key_id,
                 input.jump_host_id,
                 input.x11,
                 input.parent_id,
@@ -633,9 +681,9 @@ impl Store {
                 continue;
             }
             tx.execute(
-                "INSERT INTO hosts(id, name, host, port, username, auth_method, key_path,
+                "INSERT INTO hosts(id, name, host, port, username, auth_method, key_path, key_id,
                                    parent_id, is_folder, production, sort_order, notes)
-                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                 params![
                     host.id,
                     host.name,
@@ -644,6 +692,7 @@ impl Store {
                     host.username,
                     host.auth_method,
                     host.key_path,
+                    host.key_id,
                     host.parent_id,
                     host.is_folder,
                     host.production,
@@ -668,6 +717,149 @@ impl Store {
             hosts_skipped,
             tags_added,
         })
+    }
+
+    pub fn list_ssh_keys(&self) -> rusqlite::Result<Vec<SshKey>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, name, algorithm, fingerprint, public_key, comment, source_path,
+                    has_passphrase, created_at, updated_at
+             FROM ssh_keys ORDER BY name",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(SshKey {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                algorithm: row.get(2)?,
+                fingerprint: row.get(3)?,
+                public_key: row.get(4)?,
+                comment: row.get(5)?,
+                source_path: row.get(6)?,
+                has_passphrase: row.get(7)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    pub fn save_ssh_key(&self, key: &SshKey) -> rusqlite::Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO ssh_keys(id, name, algorithm, fingerprint, public_key, comment,
+                                  source_path, has_passphrase, created_at, updated_at)
+             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
+                    COALESCE(NULLIF(?9, ''), datetime('now')), datetime('now'))
+             ON CONFLICT(id) DO UPDATE SET
+                 name = excluded.name,
+                 algorithm = excluded.algorithm,
+                 fingerprint = excluded.fingerprint,
+                 public_key = excluded.public_key,
+                 comment = excluded.comment,
+                 source_path = excluded.source_path,
+                 has_passphrase = excluded.has_passphrase,
+                 updated_at = datetime('now')",
+            params![
+                key.id,
+                key.name,
+                key.algorithm,
+                key.fingerprint,
+                key.public_key,
+                key.comment,
+                key.source_path,
+                key.has_passphrase,
+                key.created_at,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_ssh_key(&self, id: &str) -> rusqlite::Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("UPDATE hosts SET key_id = '' WHERE key_id = ?1", [id])?;
+        conn.execute("DELETE FROM ssh_keys WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    pub fn list_vault_entries(&self) -> rusqlite::Result<Vec<VaultEntry>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT secret_ref, kind, label, host_id, updated_at
+             FROM vault_entries ORDER BY host_id IS NULL, label, kind",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(VaultEntry {
+                secret_ref: row.get(0)?,
+                kind: row.get(1)?,
+                label: row.get(2)?,
+                host_id: row.get(3)?,
+                updated_at: row.get(4)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    pub fn upsert_vault_entry(
+        &self,
+        secret_ref: &str,
+        kind: &str,
+        label: &str,
+        host_id: Option<&str>,
+    ) -> rusqlite::Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO vault_entries(secret_ref, kind, label, host_id)
+             VALUES(?1, ?2, ?3, ?4)
+             ON CONFLICT(secret_ref) DO UPDATE SET
+                 kind = excluded.kind,
+                 label = excluded.label,
+                 host_id = excluded.host_id,
+                 updated_at = datetime('now')",
+            params![secret_ref, kind, label, host_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_vault_entry(&self, secret_ref: &str) -> rusqlite::Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "DELETE FROM vault_entries WHERE secret_ref = ?1",
+            [secret_ref],
+        )?;
+        Ok(())
+    }
+
+    pub fn clear_vault_entries(&self) -> rusqlite::Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM vault_entries", [])?;
+        Ok(())
+    }
+
+    pub fn append_audit(&self, action: &str, target: &str, detail: &str) -> rusqlite::Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO credential_audit(action, target, detail) VALUES(?1, ?2, ?3)",
+            params![action, target, detail],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_audit(&self, limit: usize) -> rusqlite::Result<Vec<AuditRecord>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, at, action, target, detail FROM credential_audit
+             ORDER BY id DESC LIMIT ?1",
+        )?;
+        let rows = stmt.query_map([limit as i64], |row| {
+            Ok(AuditRecord {
+                id: row.get(0)?,
+                at: row.get(1)?,
+                action: row.get(2)?,
+                target: row.get(3)?,
+                detail: row.get(4)?,
+            })
+        })?;
+        rows.collect()
     }
 }
 
@@ -724,6 +916,7 @@ mod tests {
             username: "test".into(),
             auth_method: "password".into(),
             key_path: String::new(),
+            key_id: String::new(),
             jump_host_id: String::new(),
             x11: false,
             parent_id: parent.map(Into::into),
@@ -743,6 +936,7 @@ mod tests {
             username: String::new(),
             auth_method: "password".into(),
             key_path: String::new(),
+            key_id: String::new(),
             jump_host_id: String::new(),
             x11: false,
             parent_id: parent.map(Into::into),
@@ -850,6 +1044,7 @@ mod tests {
                 username: String::new(),
                 auth_method: "password".into(),
                 key_path: String::new(),
+                key_id: String::new(),
                 jump_host_id: String::new(),
                 x11: false,
                 parent_id: None,
@@ -867,6 +1062,7 @@ mod tests {
                 username: "root".into(),
                 auth_method: "password".into(),
                 key_path: String::new(),
+                key_id: String::new(),
                 jump_host_id: String::new(),
                 x11: false,
                 parent_id: Some("f1".into()),
@@ -1021,7 +1217,9 @@ mod tests {
         store.save_transfer_job("a", "{\"id\":\"a\"}").unwrap();
         store.save_transfer_job("b", "{\"id\":\"b\"}").unwrap();
         // Saving the same id again must replace, not duplicate.
-        store.save_transfer_job("a", "{\"id\":\"a\",\"x\":1}").unwrap();
+        store
+            .save_transfer_job("a", "{\"id\":\"a\",\"x\":1}")
+            .unwrap();
         assert_eq!(
             store.list_transfer_jobs().unwrap(),
             vec![
@@ -1051,5 +1249,52 @@ mod tests {
         assert_eq!(store.list_tags().unwrap(), vec![tag]);
         store.delete_tag("t1").unwrap();
         assert!(store.list_tags().unwrap().is_empty());
+    }
+
+    #[test]
+    fn managed_keys_vault_metadata_and_audit() {
+        let store = Store::open_in_memory().unwrap();
+        let key = SshKey {
+            id: "k1".into(),
+            name: "work".into(),
+            algorithm: "ssh-ed25519".into(),
+            fingerprint: "SHA256:abc".into(),
+            public_key: "ssh-ed25519 AAAA work".into(),
+            comment: "work".into(),
+            source_path: "~/.ssh/id_ed25519".into(),
+            has_passphrase: false,
+            created_at: String::new(),
+            updated_at: String::new(),
+        };
+        store.save_ssh_key(&key).unwrap();
+        let listed = store.list_ssh_keys().unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].name, "work");
+        store.delete_ssh_key("k1").unwrap();
+        assert!(store.list_ssh_keys().unwrap().is_empty());
+
+        let host = host_input("h1", "web", None);
+        store.create_host(&host).unwrap();
+        store
+            .upsert_vault_entry("pwd:h1", "password", "web", Some("h1"))
+            .unwrap();
+        store
+            .upsert_vault_entry("key:k1", "key", "work", None)
+            .unwrap();
+        let entries = store.list_vault_entries().unwrap();
+        assert_eq!(entries.len(), 2);
+        assert!(entries.iter().any(|entry| entry.secret_ref == "key:k1"));
+        store.delete_vault_entry("key:k1").unwrap();
+        assert_eq!(store.list_vault_entries().unwrap().len(), 1);
+
+        store.append_audit("read", "pwd:h1", "connect").unwrap();
+        store.append_audit("write", "pwd:h1", "saved").unwrap();
+        let audit = store.list_audit(10).unwrap();
+        assert_eq!(audit.len(), 2);
+        assert_eq!(audit[0].action, "write");
+
+        // Deleting the host removes its metadata through the trigger.
+        store.delete_host("h1").unwrap();
+        assert!(store.list_vault_entries().unwrap().is_empty());
     }
 }

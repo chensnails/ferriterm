@@ -9,19 +9,24 @@ use ft_core::{
     TerminalSink, X11ChannelHandler,
 };
 use russh::client::{self, Config};
-use russh::keys::{HashAlg, PublicKey};
+use russh::keys::{HashAlg, PrivateKey, PublicKey};
 use russh::{ChannelMsg, Disconnect};
 use serde::Deserialize;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 
 mod forward;
+mod keys;
 mod known_hosts;
 
 pub use forward::{
     start_forward, ForwardInfo, ForwardKind, ForwardRegistry, ForwardRequest, ForwardRouter,
 };
-pub use known_hosts::{HostKeyStatus, KnownHostsStore};
+pub use keys::{
+    decrypt_for_use, generate_key, inspect_private_key, read_key_file, scan_key_candidates,
+    KeyCandidate, KeyInfo,
+};
+pub use known_hosts::{HostKeyEntry, HostKeyStatus, KnownHostsStore};
 
 #[derive(Debug, Clone)]
 pub struct HostKeyChallenge {
@@ -67,10 +72,27 @@ pub trait KeyboardInteractivePrompt: Send + Sync {
     );
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SecretKind {
+    Password,
+    Passphrase,
+}
+
+/// Resolves stored secrets inside the Rust process so plaintext never crosses
+/// into the webview. Implementations read from the credential vault.
+pub trait CredentialProvider: Send + Sync {
+    fn host_secret(&self, host_id: &str, kind: SecretKind) -> Option<String>;
+    fn key_material(&self, key_id: &str) -> Option<(String, Option<String>)>;
+    fn locked(&self) -> bool {
+        false
+    }
+}
+
 pub struct ConnectContext {
     pub server_key: Arc<dyn ServerKeyVerifier>,
     pub keyboard_interactive: Option<Arc<dyn KeyboardInteractivePrompt>>,
     pub remote_forwards: Option<Arc<dyn RemoteForwardHandler>>,
+    pub credentials: Option<Arc<dyn CredentialProvider>>,
 }
 
 impl ConnectContext {
@@ -79,6 +101,7 @@ impl ConnectContext {
             server_key,
             keyboard_interactive: None,
             remote_forwards: None,
+            credentials: None,
         }
     }
 
@@ -89,6 +112,11 @@ impl ConnectContext {
 
     pub fn with_remote_forwards(mut self, handler: Arc<dyn RemoteForwardHandler>) -> Self {
         self.remote_forwards = Some(handler);
+        self
+    }
+
+    pub fn with_credentials(mut self, provider: Arc<dyn CredentialProvider>) -> Self {
+        self.credentials = Some(provider);
         self
     }
 }
@@ -146,9 +174,15 @@ pub struct JumpHop {
     pub port: u16,
     pub username: String,
     #[serde(default)]
-    pub password: Option<String>,
+    pub host_id: Option<String>,
     #[serde(default)]
-    pub private_key: Option<String>,
+    pub key_id: Option<String>,
+    #[serde(default, alias = "privateKey")]
+    pub key_path: Option<String>,
+    #[serde(default)]
+    pub auth_method: String,
+    #[serde(default)]
+    pub password: Option<String>,
     #[serde(default)]
     pub key_passphrase: Option<String>,
     #[serde(default)]
@@ -165,10 +199,14 @@ pub struct SshConnectArgs {
     pub username: String,
     #[serde(default)]
     pub password: Option<String>,
-    #[serde(default)]
-    pub private_key: Option<String>,
+    #[serde(default, alias = "privateKey")]
+    pub key_path: Option<String>,
     #[serde(default)]
     pub key_passphrase: Option<String>,
+    #[serde(default)]
+    pub key_id: Option<String>,
+    #[serde(default)]
+    pub auth_method: String,
     #[serde(default)]
     pub keyboard_interactive: bool,
     #[serde(default)]
@@ -209,8 +247,11 @@ pub async fn connect(
         host: args.host.clone(),
         port: args.port,
         username: args.username.clone(),
+        host_id: args.host_id.clone(),
+        key_id: args.key_id.clone(),
+        key_path: args.key_path.clone(),
+        auth_method: args.auth_method.clone(),
         password: args.password.clone(),
-        private_key: args.private_key.clone(),
         key_passphrase: args.key_passphrase.clone(),
         agent: args.agent,
         keyboard_interactive: args.keyboard_interactive,
@@ -330,7 +371,7 @@ async fn authenticate_hop(
     hop: &JumpHop,
     ctx: &ConnectContext,
 ) -> Result<(), String> {
-    if hop.keyboard_interactive {
+    if hop.keyboard_interactive || hop.auth_method.eq_ignore_ascii_case("keyboard-interactive") {
         let authenticated = authenticate_keyboard_interactive(
             handle,
             &hop.username,
@@ -342,39 +383,124 @@ async fn authenticate_hop(
         }
         return Err(auth_failed(hop));
     }
-    if let Some(key_path) = hop
-        .private_key
+
+    let methods = auth_methods(hop);
+    let mut last_error: Option<String> = None;
+    for method in methods {
+        let result = match method {
+            AuthMethod::Key => authenticate_key(handle, hop, ctx).await,
+            AuthMethod::Agent => authenticate_agent(handle, &hop.username).await,
+            AuthMethod::Password => authenticate_password(handle, hop, ctx).await,
+        };
+        match result {
+            Ok(true) => return Ok(()),
+            Ok(false) => {}
+            Err(err) => last_error = Some(err),
+        }
+    }
+    Err(last_error.unwrap_or_else(|| auth_failed(hop)))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AuthMethod {
+    Key,
+    Agent,
+    Password,
+}
+
+/// Ordered fallback chain, capped so a misconfigured host cannot loop over
+/// every method twice.
+fn auth_methods(hop: &JumpHop) -> Vec<AuthMethod> {
+    let has_key = hop
+        .key_id
         .as_deref()
-        .filter(|path| !path.trim().is_empty())
+        .is_some_and(|id| !id.trim().is_empty())
+        || hop
+            .key_path
+            .as_deref()
+            .is_some_and(|path| !path.trim().is_empty());
+    let methods = match hop.auth_method.to_ascii_lowercase().as_str() {
+        "key" => vec![AuthMethod::Key, AuthMethod::Agent, AuthMethod::Password],
+        "agent" => vec![AuthMethod::Agent, AuthMethod::Key, AuthMethod::Password],
+        "password" => vec![AuthMethod::Password, AuthMethod::Key, AuthMethod::Agent],
+        _ if has_key => vec![AuthMethod::Key, AuthMethod::Agent, AuthMethod::Password],
+        _ => vec![AuthMethod::Password, AuthMethod::Agent],
+    };
+    methods.into_iter().take(3).collect()
+}
+
+async fn authenticate_key(
+    handle: &mut client::Handle<SshHandler>,
+    hop: &JumpHop,
+    ctx: &ConnectContext,
+) -> Result<bool, String> {
+    let provider = ctx.credentials.as_ref();
+    let (text, passphrase) = if let Some(key_id) = hop
+        .key_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
     {
-        let key =
-            russh::keys::load_secret_key(expand_home(key_path), hop.key_passphrase.as_deref())
-                .map_err(|e| format!("failed to load private key: {e}"))?;
-        let hash = handle
-            .best_supported_rsa_hash()
-            .await
-            .map_err(|e| e.to_string())?
-            .flatten();
-        let key = russh::keys::PrivateKeyWithHashAlg::new(std::sync::Arc::new(key), hash);
-        let result = handle
-            .authenticate_publickey(&hop.username, key)
-            .await
-            .map_err(|e| e.to_string())?;
-        if result.success() {
-            return Ok(());
+        let Some((text, stored)) = provider.and_then(|p| p.key_material(key_id)) else {
+            return Err(format!(
+                "managed key is unavailable for {}@{} (unlock the vault or import a key)",
+                hop.username, hop.host
+            ));
+        };
+        (
+            text,
+            stored.or_else(|| host_secret(ctx, hop, SecretKind::Passphrase)),
+        )
+    } else if let Some(path) = hop
+        .key_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|path| !path.is_empty())
+    {
+        let text = keys::read_key_file(path)?;
+        let passphrase =
+            host_secret(ctx, hop, SecretKind::Passphrase).or_else(|| hop.key_passphrase.clone());
+        (text, passphrase)
+    } else {
+        return Ok(false);
+    };
+    let key = keys::decrypt_for_use(&text, passphrase.as_deref())?;
+    authenticate_public_key(handle, &hop.username, key).await
+}
+
+async fn authenticate_public_key(
+    handle: &mut client::Handle<SshHandler>,
+    username: &str,
+    key: PrivateKey,
+) -> Result<bool, String> {
+    let hash = handle
+        .best_supported_rsa_hash()
+        .await
+        .map_err(|e| e.to_string())?
+        .flatten();
+    let key = russh::keys::PrivateKeyWithHashAlg::new(Arc::new(key), hash);
+    let result = handle
+        .authenticate_publickey(username, key)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(result.success())
+}
+
+async fn authenticate_password(
+    handle: &mut client::Handle<SshHandler>,
+    hop: &JumpHop,
+    ctx: &ConnectContext,
+) -> Result<bool, String> {
+    let password = hop
+        .password
+        .as_deref()
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| host_secret(ctx, hop, SecretKind::Password));
+    let Some(password) = password else {
+        if ctx.credentials.as_ref().is_some_and(|p| p.locked()) {
+            return Err("credential vault is locked; unlock it before connecting".to_string());
         }
-        return Err(auth_failed(hop));
-    }
-    if hop.agent {
-        if authenticate_agent(handle, &hop.username).await? {
-            return Ok(());
-        }
-        return Err(format!(
-            "ssh-agent authentication failed for {}@{}",
-            hop.username, hop.host
-        ));
-    }
-    let Some(password) = hop.password.as_deref() else {
         return Err(format!(
             "credentials are required for {}@{}",
             hop.username, hop.host
@@ -384,11 +510,16 @@ async fn authenticate_hop(
         .authenticate_password(&hop.username, password)
         .await
         .map_err(|e| e.to_string())?;
-    if result.success() {
-        Ok(())
-    } else {
-        Err(auth_failed(hop))
-    }
+    Ok(result.success())
+}
+
+fn host_secret(ctx: &ConnectContext, hop: &JumpHop, kind: SecretKind) -> Option<String> {
+    let host_id = hop
+        .host_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|id| !id.is_empty())?;
+    ctx.credentials.as_ref()?.host_secret(host_id, kind)
 }
 
 fn auth_failed(hop: &JumpHop) -> String {
@@ -537,18 +668,6 @@ async fn authenticate_keyboard_interactive(
     }
 }
 
-fn expand_home(path: &str) -> String {
-    if let Some(rest) = path.strip_prefix("~/") {
-        let home = std::env::var("HOME")
-            .ok()
-            .or_else(|| std::env::var("USERPROFILE").ok());
-        if let Some(home) = home {
-            return format!("{home}/{rest}");
-        }
-    }
-    path.to_string()
-}
-
 #[derive(Debug, Clone)]
 enum X11Target {
     Unix(PathBuf),
@@ -616,5 +735,68 @@ impl X11ChannelHandler for X11Router {
                 }
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn hop(auth_method: &str, key_id: Option<&str>) -> JumpHop {
+        JumpHop {
+            host: "example.com".into(),
+            port: 22,
+            username: "root".into(),
+            host_id: Some("h1".into()),
+            key_id: key_id.map(str::to_string),
+            key_path: None,
+            auth_method: auth_method.into(),
+            password: None,
+            key_passphrase: None,
+            agent: false,
+            keyboard_interactive: false,
+        }
+    }
+
+    #[test]
+    fn auth_chain_follows_declared_method() {
+        assert_eq!(
+            auth_methods(&hop("key", None)),
+            vec![AuthMethod::Key, AuthMethod::Agent, AuthMethod::Password]
+        );
+        assert_eq!(
+            auth_methods(&hop("agent", None)),
+            vec![AuthMethod::Agent, AuthMethod::Key, AuthMethod::Password]
+        );
+        assert_eq!(
+            auth_methods(&hop("password", None)),
+            vec![AuthMethod::Password, AuthMethod::Key, AuthMethod::Agent]
+        );
+    }
+
+    #[test]
+    fn missing_method_prefers_key_when_key_configured() {
+        assert_eq!(auth_methods(&hop("", Some("k1")))[0], AuthMethod::Key);
+        assert_eq!(auth_methods(&hop("", None))[0], AuthMethod::Password);
+        assert!(auth_methods(&hop("", None)).len() <= 3);
+    }
+
+    #[test]
+    fn unknown_auth_method_payload_still_parses() {
+        let args: SshConnectArgs = serde_json::from_str(
+            r#"{"host":"h","port":22,"username":"u","authMethod":"key","keyId":"k1","cols":80,"rows":24}"#,
+        )
+        .expect("deserialize");
+        assert_eq!(args.auth_method, "key");
+        assert_eq!(args.key_id.as_deref(), Some("k1"));
+    }
+
+    #[test]
+    fn legacy_private_key_payload_is_accepted_as_path() {
+        let args: SshConnectArgs = serde_json::from_str(
+            r#"{"host":"h","port":22,"username":"u","privateKey":"~/.ssh/id_ed25519","cols":80,"rows":24}"#,
+        )
+        .expect("deserialize");
+        assert_eq!(args.key_path.as_deref(), Some("~/.ssh/id_ed25519"));
     }
 }

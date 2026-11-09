@@ -44,6 +44,7 @@ function toInput(node: HostEntry, parentId: string | null): HostInput {
     username: node.username,
     authMethod: node.authMethod,
     keyPath: node.keyPath,
+    keyId: node.keyId,
     jumpHostId: node.jumpHostId,
     x11: node.x11,
     parentId,

@@ -114,7 +114,10 @@
     "noTags": "No tags yet. Use Manage tags to create some.",
     "folderHint": "Folders can contain hosts and other folders.",
     "save": "Save",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "keySource": "Key source",
+    "keySourcePath": "Local key file",
+    "keySourceHint": "Managed keys are stored in the credential vault and can carry their passphrase."
   },
   "tags": {
     "title": "Manage tags",
@@ -142,7 +145,18 @@
     "viaJump": "via {jump}",
     "x11Enabled": "X11 forwarding enabled",
     "submit": "Connect",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "vaultLocked": "The credential vault is locked. Unlock it to use the saved secrets.",
+    "passwordSaved": "Password saved",
+    "useSaved": "Use saved password",
+    "passphraseSaved": "Passphrase saved",
+    "passphraseSavedHint": "A passphrase is stored for this key. Leave the field empty to use it.",
+    "rememberPassphrase": "Remember passphrase",
+    "managedKey": "Managed key: {name} ({fingerprint})",
+    "keyMissing": "Select a managed key or enter a private key path.",
+    "passwordRequired": "Enter a password or use the saved one.",
+    "passphraseRequired": "Enter the key passphrase.",
+    "unlockNeeded": "Unlock the vault to use saved secrets."
   },
   "import": {
     "title": "Import hosts",
@@ -169,7 +183,9 @@
     "delete": "Delete",
     "yes": "Yes",
     "no": "No",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "loading": "Loading…",
+    "optional": "Optional"
   },
   "settings": {
     "open": "Settings",
@@ -228,7 +244,8 @@
       "transfer": "Transfer",
       "plugins": "Plugins",
       "sync": "Sync",
-      "about": "About"
+      "about": "About",
+      "credentials": "Credentials"
     },
     "tabsTitle": "Tabs",
     "tabNumbering": "Tab numbering",
@@ -400,7 +417,14 @@
     "selectAll": "Select all",
     "selectNone": "Select none",
     "showLess": "Show less",
-    "continueButton": "Continue without deleting"
+    "continueButton": "Continue without deleting",
+    "secretSaved": "Saved",
+    "secretHint": "Stored encrypted; the value is never shown again.",
+    "secretPlaceholder": "Saved — enter a new value to replace",
+    "forget": "Forget",
+    "secretCleared": "Stored secret removed.",
+    "includeSecrets": "Include saved credentials (passwords, passphrases, managed key secrets)",
+    "includeSecretsHint": "Off by default. When enabled they are encrypted inside the same passphrase-protected backup."
   },
   "transfer": {
     "title": "File transfer",
@@ -792,5 +816,104 @@
     "transferIdle": "No transfers",
     "production": "Prod",
     "focusTerminal": "Back to the terminal"
+  },
+  "knownHosts": {
+    "title": "Known hosts",
+    "manage": "Manage known hosts",
+    "hint": "Host keys are pinned on first connection. Remove an entry to trust the next key that server presents.",
+    "empty": "No pinned host keys yet.",
+    "remove": "Remove",
+    "refresh": "Refresh"
+  },
+  "vault": {
+    "action": {
+      "unlock": "Unlock",
+      "enable": "Enable master password",
+      "change": "Change master password",
+      "disable": "Disable master password",
+      "reset": "Reset vault"
+    },
+    "actionHint": {
+      "unlock": "Enter the master password to make stored secrets available for this session.",
+      "enable": "Stored secrets move from the system keychain into a vault encrypted with this password.",
+      "change": "Re-encrypt the vault with a new master password.",
+      "disable": "Stored secrets move back to the system keychain.",
+      "reset": "Deletes every stored secret and returns to keychain mode. Host and key metadata stays."
+    },
+    "unlock": "Unlock",
+    "masterPassword": "Master password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "passwordHint": "At least 8 characters. There is no recovery if you forget it.",
+    "passwordTooShort": "Use at least 8 characters.",
+    "passwordMismatch": "The passwords do not match.",
+    "resetWarning": "This deletes every stored password, passphrase and key secret. It cannot be undone.",
+    "resetUnderstood": "I understand stored secrets will be deleted",
+    "resetConfirmRequired": "Confirm that you understand stored secrets will be deleted.",
+    "resetHint": "Resetting keeps hosts and keys but deletes every stored secret.",
+    "enabledDetail": "Master password enabled; {count} secrets migrated.",
+    "statusTitle": "Credential vault",
+    "stateLocked": "Locked",
+    "stateUnlocked": "Unlocked",
+    "stateKeychain": "System keychain",
+    "modeMaster": "Secrets are encrypted with your master password and only decrypted after you unlock.",
+    "modeKeychain": "Secrets are protected by the operating system keychain.",
+    "keychainUnavailable": "The system keychain is unavailable; secrets fall back to an encrypted file on this device.",
+    "entriesCount": "{count} stored secrets",
+    "lock": "Lock now",
+    "enableMasterPassword": "Enable master password",
+    "masterHint": "Without a master password, secrets unlock automatically with your OS session.",
+    "autoLockTitle": "Auto-lock",
+    "autoLock": "Lock after inactivity",
+    "autoLockOff": "Never",
+    "autoLockMinutes": "{count} minutes",
+    "autoLockHint": "Only applies with a master password. Detection uses keyboard and pointer activity.",
+    "autoLocked": "Vault locked after inactivity.",
+    "libraryTitle": "Stored secrets and keys",
+    "entriesEmpty": "Nothing stored yet.",
+    "clearAll": "Clear all stored secrets",
+    "clearConfirm": "Delete every stored secret",
+    "cleared": "Deleted {count} secrets.",
+    "auditTitle": "Recent credential activity",
+    "auditEmpty": "No activity recorded yet.",
+    "desktopOnly": "Credential management is available in the desktop app.",
+    "updated": "Vault updated.",
+    "locked": "Vault locked.",
+    "unlocked": "Vault unlocked."
+  },
+  "keys": {
+    "title": "SSH keys",
+    "manage": "Manage SSH keys",
+    "tab": {
+      "library": "Library",
+      "import": "Import",
+      "generate": "Generate"
+    },
+    "libraryHint": "Keys imported or generated here live in the credential vault. Assign one to a host in the host properties.",
+    "empty": "No managed keys yet.",
+    "encrypted": "Passphrase",
+    "copyPublic": "Copy public key",
+    "copied": "Public key copied.",
+    "deleted": "Key {name} deleted.",
+    "import": "Import",
+    "imported": "Key {name} imported.",
+    "generated": "Key {name} generated.",
+    "scanTitle": "Found in ~/.ssh",
+    "scanHint": "Import a private key file that already exists on this device.",
+    "scanEmpty": "No private key files found.",
+    "manualTitle": "Import a key",
+    "path": "Key file path",
+    "paste": "Paste key text",
+    "passphraseForImport": "Import passphrase",
+    "passphrase": "Passphrase",
+    "passphraseOptional": "Optional; stored if provided",
+    "name": "Display name",
+    "namePlaceholder": "Work key",
+    "algorithm": "Algorithm",
+    "comment": "Comment",
+    "commentPlaceholder": "user@host",
+    "generate": "Generate key",
+    "publicKey": "Public key"
   }
 }

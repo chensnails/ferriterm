@@ -114,7 +114,10 @@
     "noTags": "还没有标签，可在“管理标签”中创建。",
     "folderHint": "文件夹可以包含主机和其他文件夹。",
     "save": "保存",
-    "saving": "保存中…"
+    "saving": "保存中…",
+    "keySource": "密钥来源",
+    "keySourcePath": "本地密钥文件",
+    "keySourceHint": "托管密钥保存在凭据保险库中，可同时保存口令。"
   },
   "tags": {
     "title": "管理标签",
@@ -142,7 +145,18 @@
     "viaJump": "经由 {jump}",
     "x11Enabled": "已启用 X11 转发",
     "submit": "连接",
-    "cancel": "取消"
+    "cancel": "取消",
+    "vaultLocked": "凭据保险库已锁定，请先解锁再使用已保存的凭据。",
+    "passwordSaved": "已保存密码",
+    "useSaved": "使用已保存密码",
+    "passphraseSaved": "已保存口令",
+    "passphraseSavedHint": "此密钥已保存口令，留空即使用已保存口令。",
+    "rememberPassphrase": "记住口令",
+    "managedKey": "托管密钥：{name}（{fingerprint}）",
+    "keyMissing": "请选择托管密钥或填写私钥路径。",
+    "passwordRequired": "请输入密码或使用已保存密码。",
+    "passphraseRequired": "请输入密钥口令。",
+    "unlockNeeded": "解锁保险库后才能使用已保存的凭据。"
   },
   "import": {
     "title": "导入主机",
@@ -169,7 +183,9 @@
     "delete": "删除",
     "yes": "是",
     "no": "否",
-    "confirm": "确定"
+    "confirm": "确定",
+    "loading": "加载中…",
+    "optional": "可选"
   },
   "settings": {
     "open": "设置",
@@ -228,7 +244,8 @@
       "transfer": "传输",
       "plugins": "插件",
       "sync": "同步",
-      "about": "关于"
+      "about": "关于",
+      "credentials": "凭据"
     },
     "tabsTitle": "标签页",
     "tabNumbering": "标签序号",
@@ -400,7 +417,14 @@
     "selectAll": "全选",
     "selectNone": "全不选",
     "showLess": "收起",
-    "continueButton": "跳过删除并继续"
+    "continueButton": "跳过删除并继续",
+    "secretSaved": "已保存",
+    "secretHint": "已加密保存，之后不会再显示明文。",
+    "secretPlaceholder": "已保存，输入新值即可替换",
+    "forget": "清除",
+    "secretCleared": "已删除保存的凭据。",
+    "includeSecrets": "包含已保存的凭据（密码、口令、托管密钥凭据）",
+    "includeSecretsHint": "默认关闭。开启后会一起加密进同一份口令保护的备份。"
   },
   "transfer": {
     "title": "文件传输",
@@ -792,5 +816,104 @@
     "transferIdle": "无传输",
     "production": "生产",
     "focusTerminal": "回到终端"
+  },
+  "knownHosts": {
+    "title": "已信任主机",
+    "manage": "管理已信任主机",
+    "hint": "首次连接时会记录主机密钥。删除记录后会重新信任服务器下次提供的密钥。",
+    "empty": "暂无已记录的主机密钥。",
+    "remove": "删除",
+    "refresh": "刷新"
+  },
+  "vault": {
+    "action": {
+      "unlock": "解锁",
+      "enable": "启用主密码",
+      "change": "修改主密码",
+      "disable": "停用主密码",
+      "reset": "重置保险库"
+    },
+    "actionHint": {
+      "unlock": "输入主密码，使已保存的凭据在本次会话中可用。",
+      "enable": "已保存的凭据将从系统钥匙串迁移到用此密码加密的保险库。",
+      "change": "使用新的主密码重新加密保险库。",
+      "disable": "已保存的凭据将迁回系统钥匙串。",
+      "reset": "删除全部已保存凭据并回到钥匙串模式，主机与密钥信息保留。"
+    },
+    "unlock": "解锁",
+    "masterPassword": "主密码",
+    "currentPassword": "当前密码",
+    "newPassword": "新密码",
+    "confirmPassword": "确认密码",
+    "passwordHint": "至少 8 个字符，忘记后无法找回。",
+    "passwordTooShort": "请至少输入 8 个字符。",
+    "passwordMismatch": "两次输入的密码不一致。",
+    "resetWarning": "这会删除全部已保存的密码、口令和密钥凭据，且无法撤销。",
+    "resetUnderstood": "我了解已保存的凭据会被删除",
+    "resetConfirmRequired": "请先确认你了解已保存的凭据会被删除。",
+    "resetHint": "重置会保留主机与密钥信息，但删除全部已保存凭据。",
+    "enabledDetail": "主密码已启用，迁移了 {count} 条凭据。",
+    "statusTitle": "凭据保险库",
+    "stateLocked": "已锁定",
+    "stateUnlocked": "已解锁",
+    "stateKeychain": "系统钥匙串",
+    "modeMaster": "凭据使用主密码加密，解锁后才会在应用内解密。",
+    "modeKeychain": "凭据由操作系统钥匙串保护。",
+    "keychainUnavailable": "系统钥匙串不可用，凭据将退回到本机加密文件。",
+    "entriesCount": "{count} 条已保存凭据",
+    "lock": "立即锁定",
+    "enableMasterPassword": "启用主密码",
+    "masterHint": "未启用主密码时，凭据会随系统会话自动解锁。",
+    "autoLockTitle": "自动锁定",
+    "autoLock": "空闲后锁定",
+    "autoLockOff": "从不",
+    "autoLockMinutes": "{count} 分钟",
+    "autoLockHint": "仅在启用主密码时生效，依据键盘与鼠标活动判断。",
+    "autoLocked": "空闲超时，保险库已锁定。",
+    "libraryTitle": "已保存的凭据与密钥",
+    "entriesEmpty": "暂无已保存内容。",
+    "clearAll": "清空全部凭据",
+    "clearConfirm": "确认删除全部凭据",
+    "cleared": "已删除 {count} 条凭据。",
+    "auditTitle": "最近凭据操作",
+    "auditEmpty": "暂无操作记录。",
+    "desktopOnly": "凭据管理仅在桌面应用中可用。",
+    "updated": "保险库已更新。",
+    "locked": "保险库已锁定。",
+    "unlocked": "保险库已解锁。"
+  },
+  "keys": {
+    "title": "SSH 密钥",
+    "manage": "管理 SSH 密钥",
+    "tab": {
+      "library": "密钥库",
+      "import": "导入",
+      "generate": "生成"
+    },
+    "libraryHint": "在此导入或生成的密钥保存在凭据保险库中，可在主机属性里指定。",
+    "empty": "暂无托管密钥。",
+    "encrypted": "已加密",
+    "copyPublic": "复制公钥",
+    "copied": "公钥已复制。",
+    "deleted": "密钥 {name} 已删除。",
+    "import": "导入",
+    "imported": "密钥 {name} 已导入。",
+    "generated": "密钥 {name} 已生成。",
+    "scanTitle": "在 ~/.ssh 中发现",
+    "scanHint": "导入本机已有的私钥文件。",
+    "scanEmpty": "未找到私钥文件。",
+    "manualTitle": "导入密钥",
+    "path": "密钥文件路径",
+    "paste": "粘贴密钥内容",
+    "passphraseForImport": "导入口令",
+    "passphrase": "口令",
+    "passphraseOptional": "可选，填写后会保存",
+    "name": "显示名称",
+    "namePlaceholder": "工作密钥",
+    "algorithm": "算法",
+    "comment": "备注",
+    "commentPlaceholder": "user@host",
+    "generate": "生成密钥",
+    "publicKey": "公钥"
   }
 }

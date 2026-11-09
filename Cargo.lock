@@ -1443,8 +1443,10 @@ name = "ft-ssh"
 version = "0.1.0"
 dependencies = [
  "ft-core",
+ "rand",
  "russh",
  "serde",
+ "serde_json",
  "tokio",
 ]
 

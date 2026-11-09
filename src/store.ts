@@ -354,6 +354,8 @@ interface AppState {
   setTransfers: (jobs: TransferJob[]) => void;
   keepaliveSecs: number;
   setKeepalive: (seconds: number) => void;
+  autoLockMinutes: number;
+  setAutoLockMinutes: (minutes: number) => void;
   terminalFontFamily: string;
   setTerminalFontFamily: (value: string) => void;
   terminalFontSize: number;
@@ -595,6 +597,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   quickConnectOpen: false,
   transfers: [],
   keepaliveSecs: 30,
+  autoLockMinutes: 0,
   terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalScrollback: DEFAULT_TERMINAL_SCROLLBACK,
@@ -698,6 +701,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     const value = Math.max(0, Math.round(seconds));
     set({ keepaliveSecs: value });
     if (isTauri) api.setSetting("keepalive", String(value)).catch(() => {});
+  },
+  setAutoLockMinutes: (minutes) => {
+    const allowed = [0, 5, 15, 30, 60];
+    const value = allowed.includes(minutes) ? minutes : 0;
+    set({ autoLockMinutes: value });
+    if (isTauri) api.setSetting("vault:autoLock", String(value)).catch(() => {});
   },
   setTerminalFontFamily: (value) => {
     const terminalFontFamily = value.trim() || DEFAULT_TERMINAL_FONT_FAMILY;
@@ -904,6 +913,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (snapshot.sessions.length === 0) return;
 
     const hosts = get().hosts;
+    // A locked master-password vault cannot supply secrets yet; restoring
+    // would only produce a burst of failed logins.
+    const vault = await api.vaultStatus().catch(() => null);
+    const secretsLocked = vault?.mode === "master" && vault.locked;
     // Sessions that fail to come back leave a null behind, so the indices in
     // the snapshot keep pointing at the right tab.
     const restored: (string | null)[] = [];
@@ -927,28 +940,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         restored.push(null);
         continue;
       }
+      if (secretsLocked) {
+        restored.push(null);
+        continue;
+      }
       try {
-        const hasPrompt =
-          host.authMethod === "keyboard-interactive" ||
-          host.authMethod === "agent";
-        const hasKey = host.authMethod === "key" && host.keyPath;
-        const secret = hasPrompt
-          ? null
-          : await api.getCredential(host.id).catch(() => null);
-        if (!hasPrompt && !hasKey && !secret) {
-          restored.push(null);
-          continue;
-        }
-        const args = await buildConnectArgs(
-          host,
-          hosts,
-          {
-            password: hasKey ? undefined : (secret ?? undefined),
-            passphrase: hasKey ? (secret ?? undefined) : undefined,
-            keyPath: host.keyPath,
-          },
-          get().keepaliveSecs,
-        );
+        const args = buildConnectArgs(host, hosts, get().keepaliveSecs);
         restored.push(
           get().openSession(
             "ssh",
@@ -1336,6 +1333,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       importedThemes,
       language,
       keepaliveSecs: Number.isFinite(keepalive) ? keepalive : get().keepaliveSecs,
+      autoLockMinutes: [0, 5, 15, 30, 60].includes(
+        Number.parseInt(settings["vault:autoLock"] ?? "", 10),
+      )
+        ? Number.parseInt(settings["vault:autoLock"] ?? "", 10)
+        : get().autoLockMinutes,
       terminalFontFamily: fontFamily || DEFAULT_TERMINAL_FONT_FAMILY,
       terminalFontSize: Number.isFinite(fontSize)
         ? Math.min(32, Math.max(8, fontSize))

@@ -70,6 +70,37 @@ export default function App() {
     return uninstall;
   }, []);
 
+  const autoLockMinutes = useAppStore((s) => s.autoLockMinutes);
+
+  useEffect(() => {
+    if (!isTauri || autoLockMinutes <= 0) return;
+    let last = Date.now();
+    const markActive = () => {
+      last = Date.now();
+    };
+    const events = ["pointerdown", "keydown", "wheel", "focus"] as const;
+    events.forEach((name) =>
+      window.addEventListener(name, markActive, { passive: true }),
+    );
+    const tick = window.setInterval(async () => {
+      if (Date.now() - last < autoLockMinutes * 60_000) return;
+      last = Date.now();
+      try {
+        const status = await api.vaultStatus();
+        if (status.mode === "master" && !status.locked) {
+          await api.vaultLock();
+          useAppStore.getState().setStatus(i18n.t("vault.autoLocked"));
+        }
+      } catch {
+        // locking is best-effort; retry on the next idle tick
+      }
+    }, 15_000);
+    return () => {
+      window.clearInterval(tick);
+      events.forEach((name) => window.removeEventListener(name, markActive));
+    };
+  }, [autoLockMinutes]);
+
   // The frame shape is discovered once: macOS keeps its traffic lights, Windows
   // drops the OS frame when the build allows it, everything else keeps it.
   const windowChrome = useAppStore((s) => s.windowChrome);

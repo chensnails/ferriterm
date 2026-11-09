@@ -1,26 +1,46 @@
-//! Credential vault: OS keychain first, encrypted file fallback.
+//! Credential vault: OS keychain by default, optional master-password mode.
+//!
+//! Secrets are keyed by opaque reference strings. In keychain mode the OS
+//! keychain is the primary store and an encrypted file is the fallback. In
+//! master-password mode the whole file is encrypted with a PBKDF2-derived key
+//! that only exists in memory while the vault is unlocked.
 
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fs;
 use std::io;
 use std::io::Write;
-use std::path::PathBuf;
+use std::num::NonZeroU32;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 use ring::aead;
+use ring::digest;
+use ring::pbkdf2;
 use ring::rand::{SecureRandom, SystemRandom};
+use serde::{Deserialize, Serialize};
 
 pub mod update;
 
 const SERVICE: &str = "dev.ferriterm.credentials";
 const KEY_FILE: &str = "credentials.key";
 const VAULT_FILE: &str = "credentials.vault.json";
+const INDEX_FILE: &str = "credentials.index.json";
+const MASTER_FILE: &str = "vault.master.json";
 const NONCE_LEN: usize = 12;
+const KDF_ITERATIONS: u32 = 600_000;
+const MAX_FAILURES_BEFORE_DELAY: u32 = 5;
 
 #[derive(Debug)]
 pub enum CredentialError {
     Keyring(String),
     Storage(String),
+    Locked,
+    WrongPassword,
+    NotEnabled,
+    AlreadyEnabled,
+    TooManyAttempts(u64),
 }
 
 impl fmt::Display for CredentialError {
@@ -28,6 +48,13 @@ impl fmt::Display for CredentialError {
         match self {
             CredentialError::Keyring(msg) => write!(f, "keychain error: {msg}"),
             CredentialError::Storage(msg) => write!(f, "credential storage error: {msg}"),
+            CredentialError::Locked => write!(f, "vault is locked"),
+            CredentialError::WrongPassword => write!(f, "master password is incorrect"),
+            CredentialError::NotEnabled => write!(f, "master password is not enabled"),
+            CredentialError::AlreadyEnabled => write!(f, "master password is already enabled"),
+            CredentialError::TooManyAttempts(seconds) => {
+                write!(f, "too many attempts, retry in {seconds}s")
+            }
         }
     }
 }
@@ -40,74 +67,520 @@ impl From<io::Error> for CredentialError {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum VaultMode {
+    Keychain,
+    Master,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultStatus {
+    pub mode: VaultMode,
+    pub locked: bool,
+    pub keychain_available: bool,
+    pub entries: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct MasterFile {
+    version: u32,
+    salt: String,
+    iterations: u32,
+    verifier: String,
+}
+
+struct Inner {
+    key: Option<[u8; 32]>,
+    mode: VaultMode,
+    locked: bool,
+    failures: u32,
+    blocked_until: Option<Instant>,
+}
+
 pub struct CredentialStore {
     dir: PathBuf,
     use_keyring: bool,
+    inner: Mutex<Inner>,
+}
+
+impl fmt::Debug for CredentialStore {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CredentialStore")
+            .field("dir", &self.dir)
+            .field("use_keyring", &self.use_keyring)
+            .finish_non_exhaustive()
+    }
 }
 
 impl CredentialStore {
     pub fn new(dir: impl Into<PathBuf>) -> Self {
+        let dir = dir.into();
         // Escape hatch for machines where the keychain backend is unavailable.
         let use_keyring = std::env::var_os("FERRITERM_DISABLE_KEYRING").is_none();
+        let (mode, locked) = if dir.join(MASTER_FILE).exists() {
+            (VaultMode::Master, true)
+        } else {
+            (VaultMode::Keychain, false)
+        };
         Self {
-            dir: dir.into(),
+            dir,
             use_keyring,
+            inner: Mutex::new(Inner {
+                key: None,
+                mode,
+                locked,
+                failures: 0,
+                blocked_until: None,
+            }),
         }
     }
 
-    pub fn get(&self, host_id: &str) -> Result<Option<String>, CredentialError> {
-        if self.use_keyring {
-            if let Ok(entry) = keyring::Entry::new(SERVICE, host_id) {
-                match entry.get_password() {
-                    Ok(secret) => return Ok(Some(secret)),
-                    Err(keyring::Error::NoEntry) => {}
-                    Err(_) => {}
+    pub fn status(&self) -> VaultStatus {
+        let inner = self.inner.lock().unwrap();
+        VaultStatus {
+            mode: inner.mode,
+            locked: inner.locked,
+            keychain_available: self.keyring_available(),
+            entries: self.read_index().len(),
+        }
+    }
+
+    pub fn is_locked(&self) -> bool {
+        self.inner.lock().unwrap().locked
+    }
+
+    pub fn has_ref(&self, id: &str) -> bool {
+        self.read_index().iter().any(|item| item == id)
+    }
+
+    pub fn refs(&self) -> Vec<String> {
+        self.read_index()
+    }
+
+    pub fn register_ref(&self, id: &str) {
+        if id.is_empty() {
+            return;
+        }
+        let mut index = self.read_index();
+        if index.iter().any(|item| item == id) {
+            return;
+        }
+        index.push(id.to_string());
+        let _ = self.write_index(&index);
+    }
+
+    pub fn get(&self, id: &str) -> Result<Option<String>, CredentialError> {
+        let mode_key = {
+            let inner = self.inner.lock().unwrap();
+            match inner.mode {
+                VaultMode::Master => {
+                    if inner.locked {
+                        return Err(CredentialError::Locked);
+                    }
+                    Some(inner.key.ok_or(CredentialError::Locked)?)
+                }
+                VaultMode::Keychain => None,
+            }
+        };
+        match (mode_key, self.read_vault()?.get(id)) {
+            (Some(key), Some(blob)) => Ok(Some(self.decrypt_with(&key, blob)?)),
+            (Some(_), None) => Ok(None),
+            (None, Some(blob)) => {
+                let key = self.fallback_key()?;
+                Ok(Some(self.decrypt_with(&key, blob)?))
+            }
+            (None, None) => {
+                if !self.use_keyring {
+                    return Ok(None);
+                }
+                match keyring::Entry::new(SERVICE, id) {
+                    Ok(entry) => match entry.get_password() {
+                        Ok(secret) => Ok(Some(secret)),
+                        Err(keyring::Error::NoEntry) => Ok(None),
+                        Err(_) => Ok(None),
+                    },
+                    Err(_) => Ok(None),
                 }
             }
         }
-        match self.read_vault()?.get(host_id) {
-            Some(blob) => Ok(Some(self.decrypt(blob)?)),
-            None => Ok(None),
-        }
     }
 
-    pub fn set(&self, host_id: &str, secret: &str) -> Result<(), CredentialError> {
+    pub fn set(&self, id: &str, secret: &str) -> Result<(), CredentialError> {
+        let mode_key = {
+            let inner = self.inner.lock().unwrap();
+            match inner.mode {
+                VaultMode::Master => {
+                    if inner.locked {
+                        return Err(CredentialError::Locked);
+                    }
+                    Some(inner.key.ok_or(CredentialError::Locked)?)
+                }
+                VaultMode::Keychain => None,
+            }
+        };
+        self.register_ref(id);
+        if let Some(key) = mode_key {
+            let mut vault = self.read_vault()?;
+            vault.insert(id.to_string(), self.encrypt_with(&key, secret)?);
+            return self.write_vault(&vault);
+        }
         if self.use_keyring {
-            if let Ok(entry) = keyring::Entry::new(SERVICE, host_id) {
+            if let Ok(entry) = keyring::Entry::new(SERVICE, id) {
                 if entry.set_password(secret).is_ok() {
-                    self.remove_fallback(host_id)?;
+                    self.remove_fallback(id)?;
                     return Ok(());
                 }
             }
         }
+        let key = self.fallback_key()?;
         let mut vault = self.read_vault()?;
-        vault.insert(host_id.to_string(), self.encrypt(secret)?);
+        vault.insert(id.to_string(), self.encrypt_with(&key, secret)?);
         self.write_vault(&vault)
     }
 
-    pub fn delete(&self, host_id: &str) -> Result<(), CredentialError> {
+    pub fn delete(&self, id: &str) -> Result<(), CredentialError> {
+        let mode = self.inner.lock().unwrap().mode;
         if self.use_keyring {
-            if let Ok(entry) = keyring::Entry::new(SERVICE, host_id) {
+            if let Ok(entry) = keyring::Entry::new(SERVICE, id) {
                 match entry.delete_credential() {
                     Ok(()) | Err(keyring::Error::NoEntry) => {}
-                    Err(err) => return Err(CredentialError::Keyring(err.to_string())),
+                    Err(err) => {
+                        // In master mode a stale keychain entry must not block
+                        // removing the authoritative copy in the vault.
+                        if mode == VaultMode::Keychain {
+                            return Err(CredentialError::Keyring(err.to_string()));
+                        }
+                    }
                 }
             }
         }
-        self.remove_fallback(host_id)
+        self.remove_fallback(id)?;
+        let index: Vec<String> = self
+            .read_index()
+            .into_iter()
+            .filter(|item| item != id)
+            .collect();
+        self.write_index(&index)
     }
 
-    fn remove_fallback(&self, host_id: &str) -> Result<(), CredentialError> {
+    /// Reports whether a reference exists without decrypting it. Used for
+    /// "saved" badges while the vault is locked.
+    pub fn exists(&self, id: &str) -> bool {
+        if self.has_ref(id) {
+            return true;
+        }
+        if matches!(self.read_vault(), Ok(vault) if vault.contains_key(id)) {
+            return true;
+        }
+        if self.use_keyring {
+            if let Ok(entry) = keyring::Entry::new(SERVICE, id) {
+                return entry.get_password().is_ok();
+            }
+        }
+        false
+    }
+
+    pub fn unlock(&self, password: &str) -> Result<(), CredentialError> {
+        {
+            let inner = self.inner.lock().unwrap();
+            if inner.mode != VaultMode::Master {
+                return Err(CredentialError::NotEnabled);
+            }
+            if !inner.locked {
+                return Ok(());
+            }
+            if let Some(until) = inner.blocked_until {
+                let now = Instant::now();
+                if until > now {
+                    return Err(CredentialError::TooManyAttempts(
+                        until.duration_since(now).as_secs().max(1),
+                    ));
+                }
+            }
+        }
+        let master = self.read_master()?.ok_or(CredentialError::NotEnabled)?;
+        let key = derive_key(password, &master)?;
+        if !verify_key(&key, &master.verifier) {
+            let mut inner = self.inner.lock().unwrap();
+            inner.failures = inner.failures.saturating_add(1);
+            if inner.failures >= MAX_FAILURES_BEFORE_DELAY {
+                let delay = failure_delay(inner.failures);
+                inner.blocked_until = Some(Instant::now() + Duration::from_secs(delay));
+            }
+            return Err(CredentialError::WrongPassword);
+        }
+        let mut inner = self.inner.lock().unwrap();
+        inner.key = Some(key);
+        inner.locked = false;
+        inner.failures = 0;
+        inner.blocked_until = None;
+        Ok(())
+    }
+
+    pub fn lock(&self) {
+        let mut inner = self.inner.lock().unwrap();
+        if inner.mode == VaultMode::Master {
+            inner.key = None;
+            inner.locked = true;
+        }
+    }
+
+    /// Moves every known reference into a master-password vault. The caller
+    /// passes the references it knows about because keychains cannot be
+    /// enumerated.
+    pub fn enable_master_password(
+        &self,
+        password: &str,
+        extra_refs: &[String],
+    ) -> Result<usize, CredentialError> {
+        if self.inner.lock().unwrap().mode == VaultMode::Master {
+            return Err(CredentialError::AlreadyEnabled);
+        }
+        if password.is_empty() {
+            return Err(CredentialError::Storage(
+                "master password must not be empty".to_string(),
+            ));
+        }
+        let mut refs = self.read_index();
+        for item in extra_refs {
+            if !item.is_empty() && !refs.iter().any(|existing| existing == item) {
+                refs.push(item.clone());
+            }
+        }
+        let mut plain: Vec<(String, String)> = Vec::new();
+        for id in &refs {
+            if let Some(secret) = self.get(id)? {
+                plain.push((id.clone(), secret));
+            }
+        }
+
+        let mut salt = [0u8; 16];
+        SystemRandom::new()
+            .fill(&mut salt)
+            .map_err(|_| CredentialError::Storage("random source unavailable".to_string()))?;
+        let mut master = MasterFile {
+            version: 1,
+            salt: hex_encode(&salt),
+            iterations: KDF_ITERATIONS,
+            verifier: String::new(),
+        };
+        let key = derive_key(password, &master)?;
+        master.verifier = verifier(&key);
+
+        let mut vault = BTreeMap::new();
+        for (id, secret) in &plain {
+            vault.insert(id.clone(), self.encrypt_with(&key, secret)?);
+        }
+
+        let raw = serde_json::to_vec(&master)
+            .map_err(|e| CredentialError::Storage(format!("serialize master file: {e}")))?;
+        write_private(&self.master_path(), &raw)?;
+        self.write_vault(&vault)?;
+        self.write_index(&refs)?;
+
+        // Old copies must not survive the migration.
+        if self.use_keyring {
+            for id in &refs {
+                if let Ok(entry) = keyring::Entry::new(SERVICE, id) {
+                    let _ = entry.delete_credential();
+                }
+            }
+        }
+        let _ = fs::remove_file(self.key_path());
+
+        let mut inner = self.inner.lock().unwrap();
+        inner.mode = VaultMode::Master;
+        inner.key = Some(key);
+        inner.locked = false;
+        inner.failures = 0;
+        inner.blocked_until = None;
+        Ok(plain.len())
+    }
+
+    pub fn disable_master_password(&self, password: &str) -> Result<(), CredentialError> {
+        if self.inner.lock().unwrap().mode != VaultMode::Master {
+            return Err(CredentialError::NotEnabled);
+        }
+        let master = self.read_master()?.ok_or(CredentialError::NotEnabled)?;
+        let key = derive_key(password, &master)?;
+        if !verify_key(&key, &master.verifier) {
+            return Err(CredentialError::WrongPassword);
+        }
+        let vault = self.read_vault()?;
+        let mut plain: Vec<(String, String)> = Vec::new();
+        for (id, blob) in &vault {
+            plain.push((id.clone(), self.decrypt_with(&key, blob)?));
+        }
+
+        let fallback_key = self.fallback_key()?;
+        let mut next = BTreeMap::new();
+        for (id, secret) in &plain {
+            let mut stored = false;
+            if self.use_keyring {
+                if let Ok(entry) = keyring::Entry::new(SERVICE, id) {
+                    stored = entry.set_password(secret).is_ok();
+                }
+            }
+            if !stored {
+                next.insert(id.clone(), self.encrypt_with(&fallback_key, secret)?);
+            }
+        }
+        self.write_vault(&next)?;
+        let _ = fs::remove_file(self.master_path());
+        let mut inner = self.inner.lock().unwrap();
+        inner.mode = VaultMode::Keychain;
+        inner.key = None;
+        inner.locked = false;
+        inner.failures = 0;
+        inner.blocked_until = None;
+        Ok(())
+    }
+
+    pub fn change_master_password(&self, current: &str, next: &str) -> Result<(), CredentialError> {
+        if next.is_empty() {
+            return Err(CredentialError::Storage(
+                "master password must not be empty".to_string(),
+            ));
+        }
+        if self.inner.lock().unwrap().mode != VaultMode::Master {
+            return Err(CredentialError::NotEnabled);
+        }
+        let master = self.read_master()?.ok_or(CredentialError::NotEnabled)?;
+        let old_key = derive_key(current, &master)?;
+        if !verify_key(&old_key, &master.verifier) {
+            return Err(CredentialError::WrongPassword);
+        }
+        let vault = self.read_vault()?;
+
+        let mut salt = [0u8; 16];
+        SystemRandom::new()
+            .fill(&mut salt)
+            .map_err(|_| CredentialError::Storage("random source unavailable".to_string()))?;
+        let mut fresh = MasterFile {
+            version: 1,
+            salt: hex_encode(&salt),
+            iterations: KDF_ITERATIONS,
+            verifier: String::new(),
+        };
+        let new_key = derive_key(next, &fresh)?;
+        fresh.verifier = verifier(&new_key);
+
+        let mut rotated = BTreeMap::new();
+        for (id, blob) in &vault {
+            let secret = self.decrypt_with(&old_key, blob)?;
+            rotated.insert(id.clone(), self.encrypt_with(&new_key, &secret)?);
+        }
+        self.write_vault(&rotated)?;
+        let raw = serde_json::to_vec(&fresh)
+            .map_err(|e| CredentialError::Storage(format!("serialize master file: {e}")))?;
+        write_private(&self.master_path(), &raw)?;
+
+        let mut inner = self.inner.lock().unwrap();
+        inner.key = Some(new_key);
+        inner.locked = false;
+        inner.failures = 0;
+        inner.blocked_until = None;
+        Ok(())
+    }
+
+    /// Wipes the vault, its key material and the index. Keychain entries for
+    /// the supplied references are removed as well.
+    pub fn reset(&self, known_refs: &[String]) -> Result<(), CredentialError> {
+        let mut refs = self.read_index();
+        for item in known_refs {
+            if !item.is_empty() && !refs.iter().any(|existing| existing == item) {
+                refs.push(item.clone());
+            }
+        }
+        if self.use_keyring {
+            for id in &refs {
+                if let Ok(entry) = keyring::Entry::new(SERVICE, id) {
+                    let _ = entry.delete_credential();
+                }
+            }
+        }
+        for path in [
+            self.vault_path(),
+            self.key_path(),
+            self.index_path(),
+            self.master_path(),
+        ] {
+            match fs::remove_file(&path) {
+                Ok(()) => {}
+                Err(err) if err.kind() == io::ErrorKind::NotFound => {}
+                Err(err) => return Err(err.into()),
+            }
+        }
+        let mut inner = self.inner.lock().unwrap();
+        inner.mode = VaultMode::Keychain;
+        inner.key = None;
+        inner.locked = false;
+        inner.failures = 0;
+        inner.blocked_until = None;
+        Ok(())
+    }
+
+    fn keyring_available(&self) -> bool {
+        if !self.use_keyring {
+            return false;
+        }
+        match keyring::Entry::new(SERVICE, "ferriterm.probe") {
+            Ok(entry) => !matches!(
+                entry.get_password(),
+                Err(keyring::Error::PlatformFailure(_)) | Err(keyring::Error::NoStorageAccess(_))
+            ),
+            Err(_) => false,
+        }
+    }
+
+    fn remove_fallback(&self, id: &str) -> Result<(), CredentialError> {
         let mut vault = self.read_vault()?;
-        if vault.remove(host_id).is_some() {
+        if vault.remove(id).is_some() {
             self.write_vault(&vault)?;
         }
         Ok(())
     }
 
+    fn master_path(&self) -> PathBuf {
+        self.dir.join(MASTER_FILE)
+    }
+
     fn vault_path(&self) -> PathBuf {
         self.dir.join(VAULT_FILE)
+    }
+
+    fn key_path(&self) -> PathBuf {
+        self.dir.join(KEY_FILE)
+    }
+
+    fn index_path(&self) -> PathBuf {
+        self.dir.join(INDEX_FILE)
+    }
+
+    fn read_master(&self) -> Result<Option<MasterFile>, CredentialError> {
+        match fs::read_to_string(self.master_path()) {
+            Ok(raw) => serde_json::from_str(&raw)
+                .map(Some)
+                .map_err(|e| CredentialError::Storage(format!("corrupt master file: {e}"))),
+            Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(err) => Err(err.into()),
+        }
+    }
+
+    fn read_index(&self) -> Vec<String> {
+        match fs::read_to_string(self.index_path()) {
+            Ok(raw) => serde_json::from_str(&raw).unwrap_or_default(),
+            Err(_) => Vec::new(),
+        }
+    }
+
+    fn write_index(&self, index: &[String]) -> Result<(), CredentialError> {
+        fs::create_dir_all(&self.dir)?;
+        let raw = serde_json::to_vec(index)
+            .map_err(|e| CredentialError::Storage(format!("serialize index: {e}")))?;
+        write_private(&self.index_path(), &raw)
     }
 
     fn read_vault(&self) -> Result<BTreeMap<String, String>, CredentialError> {
@@ -127,15 +600,14 @@ impl CredentialStore {
         write_private(&self.vault_path(), &raw)
     }
 
-    fn aead_key(&self) -> Result<aead::LessSafeKey, CredentialError> {
-        let key = load_or_create_key(&self.dir.join(KEY_FILE))?;
-        let unbound = aead::UnboundKey::new(&aead::CHACHA20_POLY1305, &key)
-            .map_err(|_| CredentialError::Storage("invalid vault key".to_string()))?;
-        Ok(aead::LessSafeKey::new(unbound))
+    fn fallback_key(&self) -> Result<[u8; 32], CredentialError> {
+        load_or_create_key(&self.key_path())
     }
 
-    fn encrypt(&self, plain: &str) -> Result<String, CredentialError> {
-        let key = self.aead_key()?;
+    fn encrypt_with(&self, key: &[u8; 32], plain: &str) -> Result<String, CredentialError> {
+        let unbound = aead::UnboundKey::new(&aead::CHACHA20_POLY1305, key)
+            .map_err(|_| CredentialError::Storage("invalid vault key".to_string()))?;
+        let key = aead::LessSafeKey::new(unbound);
         let mut nonce_bytes = [0u8; NONCE_LEN];
         SystemRandom::new()
             .fill(&mut nonce_bytes)
@@ -149,7 +621,7 @@ impl CredentialStore {
         Ok(hex_encode(&blob))
     }
 
-    fn decrypt(&self, blob: &str) -> Result<String, CredentialError> {
+    fn decrypt_with(&self, key: &[u8; 32], blob: &str) -> Result<String, CredentialError> {
         let raw = hex_decode(blob)?;
         if raw.len() <= NONCE_LEN {
             return Err(CredentialError::Storage(
@@ -159,7 +631,9 @@ impl CredentialStore {
         let (nonce_bytes, cipher) = raw.split_at(NONCE_LEN);
         let nonce = aead::Nonce::try_assume_unique_for_key(nonce_bytes)
             .map_err(|_| CredentialError::Storage("invalid nonce".to_string()))?;
-        let key = self.aead_key()?;
+        let unbound = aead::UnboundKey::new(&aead::CHACHA20_POLY1305, key)
+            .map_err(|_| CredentialError::Storage("invalid vault key".to_string()))?;
+        let key = aead::LessSafeKey::new(unbound);
         let mut buf = cipher.to_vec();
         let plain = key
             .open_in_place(nonce, aead::Aad::empty(), &mut buf)
@@ -169,7 +643,49 @@ impl CredentialStore {
     }
 }
 
-fn load_or_create_key(path: &PathBuf) -> Result<[u8; 32], CredentialError> {
+fn derive_key(password: &str, master: &MasterFile) -> Result<[u8; 32], CredentialError> {
+    let salt = hex_decode(&master.salt)?;
+    let iterations = NonZeroU32::new(master.iterations)
+        .ok_or_else(|| CredentialError::Storage("invalid KDF iterations".to_string()))?;
+    let mut key = [0u8; 32];
+    pbkdf2::derive(
+        pbkdf2::PBKDF2_HMAC_SHA256,
+        iterations,
+        &salt,
+        password.as_bytes(),
+        &mut key,
+    );
+    Ok(key)
+}
+
+fn verifier(key: &[u8; 32]) -> String {
+    let mut input = key.to_vec();
+    input.extend_from_slice(b"ferriterm.vault.v1");
+    hex_encode(digest::digest(&digest::SHA256, &input).as_ref())
+}
+
+fn verify_key(key: &[u8; 32], expected: &str) -> bool {
+    let actual = verifier(key);
+    constant_time_eq(actual.as_bytes(), expected.as_bytes())
+}
+
+fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
+    if left.len() != right.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (a, b) in left.iter().zip(right) {
+        diff |= a ^ b;
+    }
+    diff == 0
+}
+
+fn failure_delay(failures: u32) -> u64 {
+    let step = failures.saturating_sub(MAX_FAILURES_BEFORE_DELAY).min(6);
+    1u64 << step
+}
+
+fn load_or_create_key(path: &Path) -> Result<[u8; 32], CredentialError> {
     match fs::read(path) {
         Ok(bytes) if bytes.len() == 32 => Ok(bytes.try_into().expect("length checked")),
         Ok(_) => Err(CredentialError::Storage(
@@ -198,7 +714,7 @@ fn load_or_create_key(path: &PathBuf) -> Result<[u8; 32], CredentialError> {
     }
 }
 
-fn write_private(path: &PathBuf, data: &[u8]) -> Result<(), CredentialError> {
+fn write_private(path: &Path, data: &[u8]) -> Result<(), CredentialError> {
     let mut opts = fs::OpenOptions::new();
     opts.write(true).create(true).truncate(true);
     #[cfg(unix)]
@@ -311,6 +827,13 @@ mod tests {
         let store = CredentialStore {
             dir: dir.clone(),
             use_keyring: false,
+            inner: Mutex::new(Inner {
+                key: None,
+                mode: VaultMode::Keychain,
+                locked: false,
+                failures: 0,
+                blocked_until: None,
+            }),
         };
         (TempDir(dir), store)
     }
@@ -324,6 +847,7 @@ mod tests {
 
         let raw = fs::read_to_string(store.vault_path()).unwrap();
         assert!(!raw.contains("s3cret"));
+        assert!(store.has_ref("host-1"));
     }
 
     #[test]
@@ -332,16 +856,87 @@ mod tests {
         store.set("host-1", "s3cret").unwrap();
         store.delete("host-1").unwrap();
         assert_eq!(store.get("host-1").unwrap(), None);
+        assert!(!store.has_ref("host-1"));
     }
 
     #[test]
     fn vault_key_is_stable() {
         let (_guard, store) = temp_store("stable");
         store.set("a", "one").unwrap();
-        let second = CredentialStore {
-            dir: store.dir.clone(),
-            use_keyring: false,
-        };
+        let second = CredentialStore::new(store.dir.clone());
         assert_eq!(second.get("a").unwrap().as_deref(), Some("one"));
+    }
+
+    #[test]
+    fn master_password_migrates_and_locks() {
+        let (guard, store) = temp_store("master");
+        store.set("host-1", "pw").unwrap();
+        store.set("host:1:passphrase", "pp").unwrap();
+
+        let migrated = store.enable_master_password("hunter2", &[]).unwrap();
+        assert_eq!(migrated, 2);
+        assert_eq!(store.status().mode, VaultMode::Master);
+        assert!(!store.is_locked());
+        assert_eq!(store.get("host-1").unwrap().as_deref(), Some("pw"));
+
+        store.lock();
+        assert_eq!(
+            store.get("host-1").unwrap_err().to_string(),
+            "vault is locked"
+        );
+
+        let reopened = CredentialStore::new(guard.0.clone());
+        assert!(reopened.is_locked());
+        assert!(matches!(
+            reopened.unlock("wrong"),
+            Err(CredentialError::WrongPassword)
+        ));
+        reopened.unlock("hunter2").unwrap();
+        assert_eq!(reopened.get("host-1").unwrap().as_deref(), Some("pw"));
+    }
+
+    #[test]
+    fn master_password_change_and_disable() {
+        let (_guard, store) = temp_store("change");
+        store.set("a", "one").unwrap();
+        store.enable_master_password("first-pass", &[]).unwrap();
+        store.lock();
+        store.unlock("first-pass").unwrap();
+        store
+            .change_master_password("first-pass", "second-pass")
+            .unwrap();
+        store.lock();
+        assert!(store.unlock("first-pass").is_err());
+        store.unlock("second-pass").unwrap();
+        assert_eq!(store.get("a").unwrap().as_deref(), Some("one"));
+
+        store.disable_master_password("second-pass").unwrap();
+        assert_eq!(store.status().mode, VaultMode::Keychain);
+        assert!(!store.is_locked());
+        assert_eq!(store.get("a").unwrap().as_deref(), Some("one"));
+        assert!(!store.master_path().exists());
+    }
+
+    #[test]
+    fn reset_wipes_everything() {
+        let (_guard, store) = temp_store("reset");
+        store.set("a", "one").unwrap();
+        store.enable_master_password("pw-pass", &[]).unwrap();
+        store.reset(&[]).unwrap();
+        assert_eq!(store.status().mode, VaultMode::Keychain);
+        assert_eq!(store.status().entries, 0);
+        assert!(!store.vault_path().exists());
+        assert_eq!(store.get("a").unwrap(), None);
+    }
+
+    #[test]
+    fn delete_works_while_locked() {
+        let (_guard, store) = temp_store("locked-delete");
+        store.set("a", "one").unwrap();
+        store.enable_master_password("pw-pass", &[]).unwrap();
+        store.lock();
+        store.delete("a").unwrap();
+        store.unlock("pw-pass").unwrap();
+        assert_eq!(store.get("a").unwrap(), None);
     }
 }

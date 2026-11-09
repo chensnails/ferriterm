@@ -241,7 +241,9 @@ impl TransferManager {
             let wanted = previous - target;
             let removed = self.inner.semaphore.forget_permits(wanted);
             if removed < wanted {
-                self.inner.debt.fetch_add(wanted - removed, Ordering::SeqCst);
+                self.inner
+                    .debt
+                    .fetch_add(wanted - removed, Ordering::SeqCst);
             }
         }
     }
@@ -353,8 +355,16 @@ impl TransferManager {
                 cancelled: AtomicBool::new(false),
                 started: AtomicBool::new(false),
                 slot: Mutex::new(None),
-                source: Endpoint::deferred(job.source_session.clone(), &job.source_path, job.source_remote),
-                target: Endpoint::deferred(job.target_session.clone(), &job.target_path, job.target_remote),
+                source: Endpoint::deferred(
+                    job.source_session.clone(),
+                    &job.source_path,
+                    job.source_remote,
+                ),
+                target: Endpoint::deferred(
+                    job.target_session.clone(),
+                    &job.target_path,
+                    job.target_remote,
+                ),
             });
             self.inner.jobs.lock().await.insert(job.id, state);
         }

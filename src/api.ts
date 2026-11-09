@@ -20,6 +20,7 @@ export interface HostEntry {
   username: string;
   authMethod: string;
   keyPath: string;
+  keyId: string;
   jumpHostId: string;
   x11: boolean;
   parentId: string | null;
@@ -38,6 +39,7 @@ export interface HostInput {
   username: string;
   authMethod: string;
   keyPath: string;
+  keyId: string;
   jumpHostId: string;
   x11: boolean;
   parentId: string | null;
@@ -51,9 +53,10 @@ export interface JumpHop {
   host: string;
   port: number;
   username: string;
-  password?: string;
-  privateKey?: string;
-  keyPassphrase?: string;
+  hostId?: string;
+  keyId?: string;
+  keyPath?: string;
+  authMethod?: string;
   agent?: boolean;
   keyboardInteractive?: boolean;
 }
@@ -62,9 +65,12 @@ export interface SshConnectArgs {
   host: string;
   port: number;
   username: string;
+  /** Ephemeral only; stored secrets are resolved by the Rust process. */
   password?: string;
-  privateKey?: string;
+  keyPath?: string;
   keyPassphrase?: string;
+  keyId?: string;
+  authMethod?: string;
   agent?: boolean;
   keyboardInteractive?: boolean;
   x11?: boolean;
@@ -73,6 +79,68 @@ export interface SshConnectArgs {
   hostId?: string;
   cols: number;
   rows: number;
+}
+
+export type VaultMode = "keychain" | "master";
+
+export interface VaultStatus {
+  mode: VaultMode;
+  locked: boolean;
+  keychainAvailable: boolean;
+  entries: number;
+}
+
+export interface VaultEntryView {
+  secretRef: string;
+  kind: string;
+  label: string;
+  hostId: string | null;
+  updatedAt: string;
+}
+
+export interface CredentialStatus {
+  password: boolean;
+  passphrase: boolean;
+  key: boolean;
+  keyPassphrase: boolean;
+  locked: boolean;
+}
+
+export interface SshKey {
+  id: string;
+  name: string;
+  algorithm: string;
+  fingerprint: string;
+  publicKey: string;
+  comment: string;
+  sourcePath: string;
+  hasPassphrase: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KeyCandidate {
+  path: string;
+  name: string;
+  algorithm: string;
+  fingerprint: string;
+  comment: string;
+  encrypted: boolean;
+}
+
+export interface KnownHostEntry {
+  host: string;
+  port: number;
+  algorithm: string;
+  fingerprint: string;
+}
+
+export interface AuditRecord {
+  id: number;
+  at: string;
+  action: string;
+  target: string;
+  detail: string;
 }
 
 export type ImportFormat = "ssh_config" | "xshell" | "finalshell";
@@ -517,12 +585,62 @@ export const api = {
   importPreview: (format: ImportFormat | "auto", content: string) =>
     invoke<ImportPreview>("import_preview", { format, content }),
 
-  saveCredential: (hostId: string, secret: string) =>
-    invoke<void>("save_credential", { hostId, secret }),
-  getCredential: (hostId: string) =>
-    invoke<string | null>("get_credential", { hostId }),
+  saveHostCredential: (
+    hostId: string,
+    password?: string | null,
+    passphrase?: string | null,
+  ) =>
+    invoke<void>("save_host_credential", { hostId, password, passphrase }),
   deleteCredential: (hostId: string) =>
     invoke<void>("delete_credential", { hostId }),
+  credentialStatus: (hostId: string, keyId?: string) =>
+    invoke<CredentialStatus>("credential_status", { hostId, keyId }),
+  saveSecret: (secretRef: string, secret: string) =>
+    invoke<void>("save_secret", { secretRef, secret }),
+  secretSaved: (secretRef: string) =>
+    invoke<boolean>("secret_saved", { secretRef }),
+  deleteSecret: (secretRef: string) =>
+    invoke<void>("delete_secret", { secretRef }),
+
+  vaultStatus: () => invoke<VaultStatus>("vault_status"),
+  vaultUnlock: (password: string) =>
+    invoke<void>("vault_unlock", { password }),
+  vaultLock: () => invoke<void>("vault_lock"),
+  vaultEnableMasterPassword: (password: string) =>
+    invoke<number>("vault_enable_master_password", { password }),
+  vaultDisableMasterPassword: (password: string) =>
+    invoke<void>("vault_disable_master_password", { password }),
+  vaultChangeMasterPassword: (current: string, next: string) =>
+    invoke<void>("vault_change_master_password", { current, next }),
+  vaultReset: () => invoke<void>("vault_reset"),
+  vaultListEntries: () => invoke<VaultEntryView[]>("vault_list_entries"),
+  vaultDeleteEntry: (secretRef: string) =>
+    invoke<void>("vault_delete_entry", { secretRef }),
+  vaultClearEntries: () => invoke<number>("vault_clear_entries"),
+
+  sshKeyList: () => invoke<SshKey[]>("ssh_key_list"),
+  sshKeyScan: (dir?: string) => invoke<KeyCandidate[]>("ssh_key_scan", { dir }),
+  sshKeyImport: (payload: {
+    id: string;
+    name: string;
+    path?: string | null;
+    text?: string | null;
+    passphrase?: string | null;
+  }) => invoke<SshKey>("ssh_key_import", payload),
+  sshKeyGenerate: (payload: {
+    id: string;
+    name: string;
+    algorithm: string;
+    passphrase?: string | null;
+    comment: string;
+  }) => invoke<SshKey>("ssh_key_generate", payload),
+  sshKeyDelete: (id: string) => invoke<void>("ssh_key_delete", { id }),
+
+  knownHostsList: () => invoke<KnownHostEntry[]>("known_hosts_list"),
+  knownHostsRemove: (host: string, port: number) =>
+    invoke<void>("known_hosts_remove", { host, port }),
+  credentialAuditList: (limit?: number) =>
+    invoke<AuditRecord[]>("credential_audit_list", { limit }),
 
   getSettings: () => invoke<Record<string, string>>("get_settings"),
   setSetting: (key: string, value: string) =>
@@ -543,14 +661,22 @@ export const api = {
     invoke<void>("update_command", { id, name, template }),
   deleteCommand: (id: string) => invoke<void>("delete_command", { id }),
 
-  exportBackup: (passphrase: string) =>
-    invoke<string>("export_backup", { passphrase }),
+  exportBackup: (passphrase: string, includeSecrets: boolean) =>
+    invoke<string>("export_backup", { passphrase, includeSecrets }),
   importBackup: (payload: string, passphrase: string) =>
     invoke<ImportStats>("import_backup", { payload, passphrase }),
   syncRemoteTest: (config: RemoteConfig) =>
     invoke<string>("sync_remote_test", { config }),
-  syncRemoteUpload: (config: RemoteConfig, passphrase: string) =>
-    invoke<RemoteUpload>("sync_remote_upload", { config, passphrase }),
+  syncRemoteUpload: (
+    config: RemoteConfig,
+    passphrase: string,
+    includeSecrets: boolean,
+  ) =>
+    invoke<RemoteUpload>("sync_remote_upload", {
+      config,
+      passphrase,
+      includeSecrets,
+    }),
   syncRemoteDownload: (config: RemoteConfig, passphrase: string) =>
     invoke<ImportStats>("sync_remote_download", { config, passphrase }),
 

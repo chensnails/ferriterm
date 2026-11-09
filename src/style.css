@@ -5017,3 +5017,166 @@ body.dock-resizing-y * {
     display: none;
   }
 }
+
+/* Credential vault, managed keys and known hosts */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-raised, transparent);
+  color: var(--fg-muted);
+  font-size: 10px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.badge.ok {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--accent);
+}
+
+.badge.warn {
+  border-color: color-mix(in srgb, #d9a521 55%, var(--border));
+  color: #d9a521;
+}
+
+.saved-secret {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 4px;
+}
+
+.vault-status-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.vault-audit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.vault-audit-row {
+  display: grid;
+  grid-template-columns: 130px 150px 1fr;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  font-size: 11px;
+}
+
+.vault-audit-time {
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.vault-audit-action {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vault-audit-target {
+  overflow: hidden;
+  color: var(--fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.key-manager {
+  width: min(620px, 92vw);
+}
+
+.key-row .plugin-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.key-row .plugin-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.generated-key {
+  display: block;
+  max-height: 120px;
+  margin: var(--space-2) 0;
+  padding: var(--space-2);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  color: var(--fg-muted);
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.known-hosts {
+  width: min(640px, 92vw);
+}
+
+.known-host-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.known-host-row {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  font-size: 12px;
+}
+
+.known-host-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.known-host-target {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.known-host-fingerprint {
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vault-unlock {
+  margin: 0;
+}
+
+.saved-secret-name {
+  font-weight: 600;
+}
