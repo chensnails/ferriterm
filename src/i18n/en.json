@@ -128,6 +128,7 @@
     "hostRequired": "Enter the host address.",
     "serialPathRequired": "Enter or pick a serial port.",
     "telnetHint": "Telnet sends credentials in clear text. Use it only on trusted networks or console lines.",
+    "telnetNeedsPlugin": "Telnet is an optional plugin. Enable it in Settings › Plugins › Installed before connecting.",
     "sftpHint": "Opens the host straight into its file browser.",
     "localShell": "Shell",
     "localShellPlaceholder": "Default shell",
@@ -768,10 +769,19 @@
       "theme": "Theme",
       "command-pack": "Command pack",
       "wasm": "WASM",
-      "serial": "Serial transport"
+      "serial": "Serial transport",
+      "telnet": "Telnet transport"
     },
     "market": "Marketplace",
     "installed": "Installed",
+    "builtinTitle": "Built-in plugins",
+    "builtinHint": "Optional transports that ship with Ferriterm. Enabling one writes its manifest to the plugin folder, so it can be removed at any time.",
+    "builtinInstall": "Enable",
+    "builtinInstalled": "Enabled {name}.",
+    "builtinDesc": {
+      "serial": "Unlocks serial-port sessions. The transport is built into the app; this manifest grants the serial permission.",
+      "telnet": "Unlocks Telnet sessions. The transport is built into the app; this manifest grants the telnet permission."
+    },
     "marketHint": "Plugins are published from the community GitHub repository. Installing one downloads its manifest and enables it immediately; nothing else on this device is changed.",
     "marketRefresh": "Refresh marketplace",
     "marketLoading": "Loading…",
@@ -805,7 +815,7 @@
     "flowRtsCts": "RTS/CTS",
     "flowXonXoff": "XON/XOFF",
     "connect": "Connect",
-    "needsPlugin": "Install the Serial Ports plugin from Settings › Plugins › Marketplace to enable this transport.",
+    "needsPlugin": "Install the Serial Ports plugin from Settings › Plugins to enable this transport.",
     "desktopOnly": "Serial devices are available in the desktop app."
   },
   "window": {

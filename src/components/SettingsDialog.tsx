@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, isTauri, type MarketEntry, type MarketIndex, type RemoteConfig } from "../api";
+import { api, isTauri, type BuiltinPlugin, type MarketEntry, type MarketIndex, type RemoteConfig } from "../api";
 import { useAppStore, type TabNumbering } from "../store";
 import { BUILTIN_THEMES, HIGHLIGHT_COLORS } from "../theme";
 import { parseSchemeFile } from "../scheme";
@@ -401,18 +401,35 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const uninstallPlugin = async (entry: MarketEntry) => {
+  const uninstallPlugin = async (
+    entry: { id: string; name: string },
+    scope: "installed" | "market" = "installed",
+  ) => {
+    const report = scope === "market" ? setMarketMessage : setPluginMessage;
     setMarketBusyId(entry.id);
     try {
       const removed = await api.pluginMarketUninstall(entry.id);
       await loadLanguagePacks();
-      setMarketMessage(
+      report(
         removed
           ? t("plugins.marketUninstalled", { name: entry.name })
           : t("plugins.marketNotFound", { name: entry.name }),
       );
     } catch (err) {
-      setMarketMessage(String(err));
+      report(String(err));
+    } finally {
+      setMarketBusyId(null);
+    }
+  };
+
+  const installBuiltin = async (entry: BuiltinPlugin) => {
+    setMarketBusyId(entry.id);
+    try {
+      await api.pluginInstallBuiltin(entry.id);
+      await loadLanguagePacks();
+      setPluginMessage(t("plugins.builtinInstalled", { name: entry.name }));
+    } catch (err) {
+      setPluginMessage(String(err));
     } finally {
       setMarketBusyId(null);
     }
@@ -1180,9 +1197,83 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                       {t("plugins.openSerial")}
                     </button>
                   )}
+                  {(plugin.kind === "serial" || plugin.kind === "telnet") && (
+                    <button
+                      type="button"
+                      className="plugin-action"
+                      disabled={marketBusyId === plugin.id}
+                      onClick={() => void uninstallPlugin(plugin)}
+                    >
+                      {marketBusyId === plugin.id
+                        ? t("plugins.marketWorking")
+                        : t("plugins.marketUninstall")}
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
+          )}
+          {pluginScan && pluginScan.builtin.length > 0 && (
+            <>
+              <h3 className="plugin-section-title">
+                {t("plugins.builtinTitle")}
+              </h3>
+              <p className="hint">{t("plugins.builtinHint")}</p>
+              <ul className="plugin-list">
+                {pluginScan.builtin.map((item) => {
+                  const installed = pluginScan.plugins.some(
+                    (plugin) => plugin.id === item.id,
+                  );
+                  const busy = marketBusyId === item.id;
+                  return (
+                    <li key={item.id} className="plugin-row">
+                      <span className="plugin-icon">
+                        <PuzzleIcon size={16} />
+                      </span>
+                      <span className="plugin-main">
+                        <span className="plugin-name">
+                          {item.name}
+                          <span className="plugin-version"> {item.version}</span>
+                          {installed && (
+                            <span className="badge ok plugin-badge">
+                              {t("plugins.marketInstalledBadge")}
+                            </span>
+                          )}
+                        </span>
+                        <span className="hint plugin-desc">
+                          {t(`plugins.builtinDesc.${item.id}`, {
+                            defaultValue: item.description,
+                          })}
+                        </span>
+                      </span>
+                      {installed ? (
+                        <button
+                          type="button"
+                          className="plugin-action"
+                          disabled={busy}
+                          onClick={() => void uninstallPlugin(item)}
+                        >
+                          {busy
+                            ? t("plugins.marketWorking")
+                            : t("plugins.marketUninstall")}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="plugin-action"
+                          disabled={busy || !isTauri}
+                          onClick={() => void installBuiltin(item)}
+                        >
+                          {busy
+                            ? t("plugins.marketWorking")
+                            : t("plugins.builtinInstall")}
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
           )}
           {pluginScan && pluginScan.commandPacks.length > 0 && (
             <ul className="plugin-list">
@@ -1293,7 +1384,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                           type="button"
                           className="plugin-action"
                           disabled={busy}
-                          onClick={() => void uninstallPlugin(entry)}
+                          onClick={() =>
+                            void uninstallPlugin(entry, "market")
+                          }
                         >
                           {busy
                             ? t("plugins.marketWorking")

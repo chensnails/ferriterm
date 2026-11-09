@@ -59,6 +59,10 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
   const { t } = useTranslation();
   const tags = useAppStore((s) => s.tags);
   const hosts = useAppStore((s) => s.hosts);
+  const pluginScan = useAppStore((s) => s.pluginScan);
+  const telnetReady = !!pluginScan?.plugins.some(
+    (plugin) => plugin.kind === "telnet",
+  );
   const createHost = useAppStore((s) => s.createHost);
   const updateHost = useAppStore((s) => s.updateHost);
 
@@ -298,7 +302,12 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
                   )}
                 </div>
                 {protocol === "telnet" && (
-                  <p className="hint">{t("hostDialog.telnetHint")}</p>
+                  <>
+                    <p className="hint">{t("hostDialog.telnetHint")}</p>
+                    {!telnetReady && (
+                      <p className="hint">{t("hostDialog.telnetNeedsPlugin")}</p>
+                    )}
+                  </>
                 )}
                 {protocol === "sftp" && (
                   <p className="hint">{t("hostDialog.sftpHint")}</p>

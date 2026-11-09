@@ -355,12 +355,22 @@ export interface PluginManifest {
   entry: string;
 }
 
+export interface BuiltinPlugin {
+  id: string;
+  name: string;
+  version: string;
+  kind: string;
+  description: string;
+  permission: string;
+}
+
 export interface PluginScan {
   plugins: PluginManifest[];
   packs: LanguagePack[];
   themes: ThemePack[];
   commandPacks: CommandPack[];
   errors: string[];
+  builtin: BuiltinPlugin[];
 }
 
 export interface MarketEntry {
@@ -816,6 +826,8 @@ export const api = {
     invoke<PluginManifest>("plugin_market_install", { id, manifestUrl }),
   pluginMarketUninstall: (id: string) =>
     invoke<boolean>("plugin_market_uninstall", { id }),
+  pluginInstallBuiltin: (id: string) =>
+    invoke<PluginManifest>("plugin_install_builtin", { id }),
 
   listHosts: () => invoke<HostEntry[]>("list_hosts"),
   createHost: (input: HostInput) => invoke<void>("create_host", { input }),

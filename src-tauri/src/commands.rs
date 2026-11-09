@@ -663,9 +663,23 @@ pub fn plugin_market_uninstall(
     plugins.remove(&id)
 }
 
+#[tauri::command]
+pub fn plugin_install_builtin(
+    plugins: State<'_, ft_plugin::PluginRegistry>,
+    id: String,
+) -> Result<ft_plugin::PluginManifest, String> {
+    plugins.install_builtin(&id)
+}
+
 fn serial_plugin_installed(plugins: &ft_plugin::PluginRegistry) -> bool {
     plugins.scan().plugins.iter().any(|plugin| {
         plugin.kind == "serial" && plugin.permissions.iter().any(|perm| perm == "serial")
+    })
+}
+
+fn telnet_plugin_installed(plugins: &ft_plugin::PluginRegistry) -> bool {
+    plugins.scan().plugins.iter().any(|plugin| {
+        plugin.kind == "telnet" && plugin.permissions.iter().any(|perm| perm == "telnet")
     })
 }
 
@@ -713,6 +727,7 @@ pub async fn serial_close(
 #[allow(clippy::too_many_arguments)]
 pub async fn telnet_open(
     app: AppHandle,
+    plugins: State<'_, ft_plugin::PluginRegistry>,
     state: State<'_, ft_telnet::TelnetRegistry>,
     recorders: State<'_, RecorderRegistry>,
     id: String,
@@ -721,6 +736,9 @@ pub async fn telnet_open(
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
+    if !telnet_plugin_installed(&plugins) {
+        return Err("telnet support requires the Telnet plugin".to_string());
+    }
     let sink = Arc::new(TauriSink {
         app,
         recorders: recorders.inner().clone(),

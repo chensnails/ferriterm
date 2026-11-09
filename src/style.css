@@ -3939,6 +3939,13 @@ label.sync-action {
   white-space: nowrap;
 }
 
+.plugin-section-title {
+  margin: var(--space-3) 0 var(--space-1);
+  color: var(--fg-primary);
+  font-size: var(--font-ui-sm);
+  font-weight: 600;
+}
+
 .plugin-kind {
   flex-shrink: 0;
   color: var(--fg-muted);

@@ -14,8 +14,15 @@ pub use wasm::{run as run_wasm, WasmLimits, WasmRun};
 
 pub const API_VERSION: u32 = 1;
 const MAX_STRING_LEN: usize = 8 * 1024;
-const PERMISSIONS: &[&str] = &["network", "filesystem", "clipboard", "serial"];
-const KINDS: &[&str] = &["language", "theme", "command-pack", "wasm", "serial"];
+const PERMISSIONS: &[&str] = &["network", "filesystem", "clipboard", "serial", "telnet"];
+const KINDS: &[&str] = &[
+    "language",
+    "theme",
+    "command-pack",
+    "wasm",
+    "serial",
+    "telnet",
+];
 const MAX_MARKET_ENTRIES: usize = 200;
 
 /// Index of the community marketplace. It is a plain JSON file served from
@@ -103,6 +110,50 @@ fn default_api_version() -> u32 {
     API_VERSION
 }
 
+/// A plugin whose manifest ships inside the app, so an optional transport can
+/// be enabled on a fresh install without the marketplace being reachable.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuiltinPlugin {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    pub kind: String,
+    pub description: String,
+    pub permission: String,
+}
+
+/// The built-in list is the single source of truth for what can be installed
+/// offline; the UI only renders it.
+pub fn builtin_plugins() -> Vec<BuiltinPlugin> {
+    [
+        (
+            "serial",
+            "Serial Ports",
+            "serial",
+            "serial",
+            "Unlocks serial-port sessions. The transport itself is built into the app; this manifest grants the serial permission.",
+        ),
+        (
+            "telnet",
+            "Telnet",
+            "telnet",
+            "telnet",
+            "Unlocks Telnet sessions. The transport itself is built into the app; this manifest grants the telnet permission.",
+        ),
+    ]
+    .into_iter()
+    .map(|(id, name, kind, permission, description)| BuiltinPlugin {
+        id: id.to_string(),
+        name: name.to_string(),
+        version: "1.0.0".to_string(),
+        kind: kind.to_string(),
+        description: description.to_string(),
+        permission: permission.to_string(),
+    })
+    .collect()
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginScan {
@@ -111,6 +162,8 @@ pub struct PluginScan {
     pub themes: Vec<ThemePack>,
     pub command_packs: Vec<CommandPack>,
     pub errors: Vec<String>,
+    #[serde(default)]
+    pub builtin: Vec<BuiltinPlugin>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -226,7 +279,10 @@ impl PluginRegistry {
     }
 
     pub fn scan(&self) -> PluginScan {
-        let mut scan = PluginScan::default();
+        let mut scan = PluginScan {
+            builtin: builtin_plugins(),
+            ..PluginScan::default()
+        };
         let mut ids = BTreeSet::new();
         let mut manifests = Vec::new();
         let entries = match fs::read_dir(&self.dir) {
@@ -275,7 +331,7 @@ impl PluginRegistry {
                 PluginBody::Language(pack) => scan.packs.push(pack),
                 PluginBody::Theme(pack) => scan.themes.push(pack),
                 PluginBody::Commands(pack) => scan.command_packs.push(pack),
-                PluginBody::Wasm | PluginBody::Serial => {}
+                PluginBody::Wasm | PluginBody::Serial | PluginBody::Telnet => {}
             }
         }
         scan
@@ -346,6 +402,26 @@ impl PluginRegistry {
         Ok(loaded.manifest)
     }
 
+    /// Writes the manifest for a plugin that ships with the app. The bytes go
+    /// through the same `install` validation as a downloaded manifest.
+    pub fn install_builtin(&self, id: &str) -> Result<PluginManifest, String> {
+        let builtin = builtin_plugins()
+            .into_iter()
+            .find(|plugin| plugin.id == id)
+            .ok_or_else(|| format!("unknown built-in plugin {id}"))?;
+        let raw = serde_json::json!({
+            "id": builtin.id,
+            "name": builtin.name,
+            "version": builtin.version,
+            "kind": builtin.kind,
+            "apiVersion": API_VERSION,
+            "description": builtin.description,
+            "permissions": [builtin.permission],
+        })
+        .to_string();
+        self.install(id, &raw)
+    }
+
     /// Removes the manifest (file or directory package) whose id matches.
     pub fn remove(&self, id: &str) -> Result<bool, String> {
         validate_id(id)?;
@@ -391,6 +467,7 @@ enum PluginBody {
     Commands(CommandPack),
     Wasm,
     Serial,
+    Telnet,
 }
 
 fn load_plugin(path: &Path) -> Result<LoadedPlugin, String> {
@@ -468,6 +545,18 @@ fn load_plugin(path: &Path) -> Result<LoadedPlugin, String> {
                 return Err("serial plugin needs the serial permission".to_string());
             }
             PluginBody::Serial
+        }
+        // Telnet works like serial: the transport is built in and the manifest
+        // only carries the permission that unlocks it.
+        "telnet" => {
+            if !value
+                .get("permissions")
+                .and_then(|v| v.as_array())
+                .is_some_and(|list| list.iter().any(|item| item.as_str() == Some("telnet")))
+            {
+                return Err("telnet plugin needs the telnet permission".to_string());
+            }
+            PluginBody::Telnet
         }
         other => return Err(format!("unsupported plugin kind {other}")),
     };
@@ -682,7 +771,7 @@ mod tests {
     }
 
     #[test]
-    fn accepts_serial_plugins_only_with_permission() {
+    fn accepts_transport_plugins_only_with_permission() {
         let dir = temp_dir("serial");
         fs::write(
             dir.join("serial.json"),
@@ -690,14 +779,42 @@ mod tests {
         )
         .unwrap();
         fs::write(
+            dir.join("telnet.json"),
+            r#"{"id":"telnet","name":"Telnet","kind":"telnet","permissions":["telnet"]}"#,
+        )
+        .unwrap();
+        fs::write(
             dir.join("nope.json"),
             r#"{"id":"nope","name":"Nope","kind":"serial"}"#,
         )
         .unwrap();
+        fs::write(
+            dir.join("telnet-nope.json"),
+            r#"{"id":"telnet-nope","name":"Nope","kind":"telnet"}"#,
+        )
+        .unwrap();
         let scan = PluginRegistry::new(&dir).scan();
-        assert_eq!(scan.plugins.len(), 1);
-        assert_eq!(scan.plugins[0].kind, "serial");
-        assert_eq!(scan.errors.len(), 1);
+        assert_eq!(scan.plugins.len(), 2);
+        assert!(scan.plugins.iter().any(|plugin| plugin.kind == "telnet"));
+        assert_eq!(scan.errors.len(), 2);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn installs_builtin_transport_plugins() {
+        let dir = temp_dir("builtin");
+        let registry = PluginRegistry::new(&dir);
+        assert_eq!(registry.scan().builtin.len(), 2);
+
+        let manifest = registry.install_builtin("telnet").unwrap();
+        assert_eq!(manifest.kind, "telnet");
+        assert_eq!(manifest.permissions, vec!["telnet".to_string()]);
+        assert!(dir.join("telnet.json").is_file());
+        assert!(registry.install_builtin("unknown").is_err());
+
+        let scan = registry.scan();
+        assert!(scan.plugins.iter().any(|plugin| plugin.id == "telnet"));
+        assert!(registry.remove("telnet").unwrap());
         let _ = fs::remove_dir_all(&dir);
     }
 

@@ -128,6 +128,7 @@
     "hostRequired": "请填写主机地址。",
     "serialPathRequired": "请填写或选择串口。",
     "telnetHint": "Telnet 以明文传输凭据，仅在可信网络或控制台线路上使用。",
+    "telnetNeedsPlugin": "Telnet 是可选的插件功能。连接前请在 设置 › 插件 › 已安装 中启用。",
     "sftpHint": "连接后直接打开该主机的文件浏览器。",
     "localShell": "Shell",
     "localShellPlaceholder": "默认 Shell",
@@ -768,10 +769,19 @@
       "theme": "主题",
       "command-pack": "命令包",
       "wasm": "WASM",
-      "serial": "串口传输"
+      "serial": "串口传输",
+      "telnet": "Telnet 传输"
     },
     "market": "市场",
     "installed": "已安装",
+    "builtinTitle": "内置插件",
+    "builtinHint": "随 Ferriterm 一起提供的可选传输方式。启用后会把清单写入插件目录，可随时移除。",
+    "builtinInstall": "启用",
+    "builtinInstalled": "已启用 {name}。",
+    "builtinDesc": {
+      "serial": "解锁串口会话。传输层已内置在应用中，此清单仅授予串口权限。",
+      "telnet": "解锁 Telnet 会话。传输层已内置在应用中，此清单仅授予 Telnet 权限。"
+    },
     "marketHint": "插件发布在社区 GitHub 仓库中。安装时会下载清单并立即启用，不会改动本机其他内容。",
     "marketRefresh": "刷新市场",
     "marketLoading": "加载中…",
@@ -805,7 +815,7 @@
     "flowRtsCts": "RTS/CTS",
     "flowXonXoff": "XON/XOFF",
     "connect": "连接",
-    "needsPlugin": "请先在 设置 › 插件 › 市场 安装串口插件，以启用该传输方式。",
+    "needsPlugin": "请先在 设置 › 插件 中启用串口插件，以启用该传输方式。",
     "desktopOnly": "串口设备仅在桌面应用中可用。"
   },
   "window": {

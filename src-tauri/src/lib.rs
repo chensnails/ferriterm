@@ -98,6 +98,7 @@ pub fn run() {
             commands::plugin_market_fetch,
             commands::plugin_market_install,
             commands::plugin_market_uninstall,
+            commands::plugin_install_builtin,
             commands::save_credential,
             commands::save_host_credential,
             commands::delete_credential,
