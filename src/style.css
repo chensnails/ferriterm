@@ -86,6 +86,7 @@
   --sub-bg: var(--bg-elevated);
   --panel-header-h: 36px;
   --status-bar-h: 28px;
+  --status-dot: 6px;
   --activity-rail-w: 40px;
   --tool-strip-w: 40px;
   --row-h-lg: calc(var(--row-h) + var(--space-3));
@@ -3904,6 +3905,121 @@ label.sync-action {
 
 .command-insert:hover {
   border-color: var(--divider);
+}
+
+/* ---- S5: the status bar closes the frame ----
+   One row under the island area. Left cell mirrors the active view, the middle
+   carries the last message, the right cell mirrors the queue and the log; each
+   cell is also the click target for the panel that owns it. */
+
+#statusbar {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--status-bar-h);
+  padding: 0 var(--space-2);
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+  user-select: none;
+}
+
+.statusbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.statusbar-group.end {
+  justify-content: flex-end;
+}
+
+.statusbar-session,
+.statusbar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: calc(var(--status-bar-h) - var(--space-2));
+  padding: 0 var(--space-2);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.statusbar-session:hover,
+.statusbar-item:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+.statusbar-item.active {
+  background: var(--selected-bg);
+  color: var(--fg-primary);
+}
+
+.statusbar-item.busy {
+  color: var(--accent);
+}
+
+.statusbar-dot {
+  width: var(--status-dot);
+  height: var(--status-dot);
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--fg-muted);
+}
+
+.statusbar-session.live .statusbar-dot {
+  background: var(--success);
+}
+
+.statusbar-session.closed .statusbar-dot {
+  background: var(--danger);
+}
+
+.statusbar-title {
+  color: var(--fg-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusbar-flag {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.statusbar-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.statusbar-message {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusbar-message.error {
+  color: var(--danger);
+}
+
+.statusbar-mono {
+  font-family: var(--font-mono);
 }
 
 /* ---- About: version history timeline ---- */

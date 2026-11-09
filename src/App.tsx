@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ActivityRail } from "./components/ActivityRail";
 import { Dock } from "./components/Dock";
 import { RightStrip } from "./components/RightStrip";
+import { StatusBar } from "./components/StatusBar";
 import { TabBar } from "./components/TabBar";
 import { HomeView } from "./components/HomeView";
 import { HostTree } from "./components/HostTree";
@@ -189,6 +190,7 @@ export default function App() {
           </div>
           <RightStrip />
         </div>
+        <StatusBar />
       </div>
       <BrowserBanner />
       <CommandPalette />

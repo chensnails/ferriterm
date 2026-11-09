@@ -767,5 +767,14 @@
       "multicast": "组播",
       "reserved": "保留"
     }
+  },
+  "status": {
+    "home": "首页",
+    "tools": "网络工具箱",
+    "sessions": "{count} 个会话",
+    "split": "分屏",
+    "transferIdle": "无传输",
+    "production": "生产",
+    "focusTerminal": "回到终端"
   }
 }
