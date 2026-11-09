@@ -2717,7 +2717,7 @@ mark {
 
 .settings-pane .field > span:first-child {
   white-space: nowrap;
-  text-align: right;
+  text-align: left;
   color: var(--fg-muted);
   font-size: var(--font-ui-sm);
 }
@@ -2740,7 +2740,7 @@ mark {
 }
 
 .settings-pane .field > .hint {
-  grid-column: 2;
+  grid-column: 1 / -1;
   text-align: left;
 }
 
@@ -2779,7 +2779,7 @@ mark {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin: var(--space-2) 0 0 calc(var(--settings-label-w) + var(--space-3));
+  margin: var(--space-2) 0 0;
   padding: var(--space-2) var(--space-3);
   overflow-x: auto;
   border: 1px solid var(--border);

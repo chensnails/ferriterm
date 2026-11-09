@@ -188,6 +188,7 @@ Acceptance = perform each path in Ferriterm and in the reference install; record
 ### 4.5 Settings and i18n
 
 - [ ] Settings categories navigable by keyboard; search jumps to matching field.
+- [ ] Settings panes are left-aligned: category header, field labels, hints, previews and actions share one left edge.
 - [ ] Language switch en ↔ zh-CN applies without restart; missing keys fall back to en.
 - [ ] Theme switch updates all tokens live; terminal palette follows.
 - [ ] Importing an iTerm2 `.itermcolors` preset or a Ferriterm `.toml` scheme applies the full ANSI palette to open terminals, derives app chrome tokens and persists across restarts; imported schemes can be reapplied or removed.
