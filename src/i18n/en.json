@@ -3,7 +3,8 @@
     "name": "Ferriterm"
   },
   "sidebar": {
-    "toggle": "Toggle host sidebar"
+    "toggle": "Toggle host sidebar",
+    "resize": "Resize host sidebar"
   },
   "nav": {
     "modules": "Workspace modules",

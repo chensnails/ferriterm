@@ -452,6 +452,29 @@ body {
   border-right: 1px solid var(--border);
 }
 
+.sidebar-resizer {
+  position: relative;
+  z-index: 5;
+  flex: 0 0 6px;
+  margin-left: -3px;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.sidebar-resizer::before {
+  content: "";
+  position: absolute;
+  inset: 0 2px;
+  background: transparent;
+  transition: background var(--motion-fast);
+}
+
+.sidebar-resizer:hover::before,
+.sidebar-resizer:focus-visible::before {
+  background: var(--accent);
+}
+
 #content {
   flex: 1;
   min-width: 0;

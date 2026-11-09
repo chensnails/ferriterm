@@ -3,7 +3,8 @@
     "name": "Ferriterm"
   },
   "sidebar": {
-    "toggle": "切换主机侧栏"
+    "toggle": "切换主机侧栏",
+    "resize": "拖动调整主机栏宽度"
   },
   "nav": {
     "modules": "工作区模块",

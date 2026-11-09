@@ -237,6 +237,26 @@ function clampDockWidth(width: number): number {
   return Math.min(DOCK_WIDTH_MAX, Math.max(DOCK_WIDTH_MIN, Math.round(width)));
 }
 
+const SIDEBAR_W_DEFAULT = 300;
+const SIDEBAR_W_MIN = 220;
+const SIDEBAR_W_MAX = 460;
+
+function clampSidebarWidth(width: number): number {
+  if (!Number.isFinite(width) || width <= 0) return SIDEBAR_W_DEFAULT;
+  return Math.min(SIDEBAR_W_MAX, Math.max(SIDEBAR_W_MIN, Math.round(width)));
+}
+
+let sidebarWidthTimer: number | undefined;
+
+function scheduleSidebarWidthSave(get: () => AppState) {
+  if (!isTauri) return;
+  window.clearTimeout(sidebarWidthTimer);
+  sidebarWidthTimer = window.setTimeout(() => {
+    const width = get().sidebarWidth;
+    api.setSetting("sidebarWidth", String(width)).catch(() => {});
+  }, 300);
+}
+
 function clampDockCardHeight(id: DockCardId, height: number): number {
   if (!Number.isFinite(height)) return DOCK_CARD_DEFAULT_H[id];
   return Math.min(900, Math.max(DOCK_CARD_MIN_H, Math.round(height)));
@@ -389,6 +409,9 @@ interface AppState {
   toggleSidebar: () => void;
   sidebarView: SidebarView;
   showSidebarView: (view: SidebarView) => void;
+  /** Width of the host sidebar in CSS pixels, clamped and persisted. */
+  sidebarWidth: number;
+  setSidebarWidth: (width: number) => void;
   netTool: NetToolId;
   setNetTool: (tool: NetToolId) => void;
   /** Width of the right dock and the height of each card inside it. */
@@ -615,6 +638,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   commandsOpen: true,
   sidebarOpen: true,
   sidebarView: "hosts",
+  sidebarWidth: SIDEBAR_W_DEFAULT,
   netTool: "ping",
   dockWidth: 320,
   dockHeights: { ...DOCK_CARD_DEFAULT_H },
@@ -816,6 +840,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }),
   showSidebarView: (view) =>
     set({ sidebarView: view, activeId: HOME_TAB, sidebarOpen: true }),
+  setSidebarWidth: (width) => {
+    set({ sidebarWidth: clampSidebarWidth(width) });
+    scheduleSidebarWidthSave(get);
+  },
   setNetTool: (tool) => set({ netTool: tool }),
   setDockWidth: (width) => {
     set({ dockWidth: clampDockWidth(width) });
@@ -1360,6 +1388,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       commandHistory: parseHistory(settings.commandHistory),
       shortcuts: parseShortcuts(settings.shortcuts),
       sidebarOpen: (settings.sidebarOpen ?? "1") !== "0",
+      sidebarWidth: clampSidebarWidth(Number(settings.sidebarWidth)),
       dockWidth: clampDockWidth(Number(settings.dockWidth)),
       dockHeights: parseDockHeights(settings.dockHeights),
       // Older builds had no persisted panel state; keep their defaults.

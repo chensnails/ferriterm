@@ -65,6 +65,8 @@ export default function App() {
   const serialDialogOpen = useAppStore((s) => s.serialDialogOpen);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const sidebarView = useAppStore((s) => s.sidebarView);
+  const sidebarWidth = useAppStore((s) => s.sidebarWidth);
+  const setSidebarWidth = useAppStore((s) => s.setSidebarWidth);
 
   const isTerminalView = activeId !== HOME_TAB && activeId !== TRANSFER_TAB;
 
@@ -215,9 +217,51 @@ export default function App() {
         <div id="body">
           <ActivityRail />
           <div id="body-main">
-            <aside id="host-sidebar" hidden={!sidebarOpen}>
+            <aside
+              id="host-sidebar"
+              hidden={!sidebarOpen}
+              style={{ width: sidebarWidth }}
+            >
               {sidebarView === "tools" ? <ToolList /> : <HostTree />}
             </aside>
+            {sidebarOpen && (
+              <div
+                className="sidebar-resizer"
+                role="separator"
+                aria-orientation="vertical"
+                aria-label={t("sidebar.resize")}
+                aria-valuemin={220}
+                aria-valuemax={460}
+                aria-valuenow={Math.round(sidebarWidth)}
+                tabIndex={0}
+                onPointerDown={(event) => {
+                  if (event.button !== 0) return;
+                  event.preventDefault();
+                  const startX = event.clientX;
+                  const startWidth = sidebarWidth;
+                  const move = (moveEvent: PointerEvent) =>
+                    setSidebarWidth(
+                      startWidth + moveEvent.clientX - startX,
+                    );
+                  const stop = () => {
+                    window.removeEventListener("pointermove", move);
+                    window.removeEventListener("pointerup", stop);
+                    window.removeEventListener("pointercancel", stop);
+                  };
+                  window.addEventListener("pointermove", move);
+                  window.addEventListener("pointerup", stop);
+                  window.addEventListener("pointercancel", stop);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                    event.preventDefault();
+                    setSidebarWidth(
+                      sidebarWidth + (event.key === "ArrowLeft" ? -16 : 16),
+                    );
+                  }
+                }}
+              />
+            )}
             <div id="content">
               {activeId === HOME_TAB && sidebarView === "tools" && <NetTools />}
               {activeId === HOME_TAB && sidebarView === "hosts" && <HomeView />}
