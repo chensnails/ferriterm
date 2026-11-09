@@ -21,6 +21,7 @@ export function StatusBar() {
   const openTransfer = useAppStore((s) => s.openTransfer);
   const execLogOpen = useAppStore((s) => s.execLogOpen);
   const toggleExecLog = useAppStore((s) => s.toggleExecLog);
+  const clearStatus = useAppStore((s) => s.clearStatus);
 
   const open = sessions.filter((session) => !session.closed);
   const current = sessions.find((session) => session.id === activeId);
@@ -74,12 +75,14 @@ export function StatusBar() {
         )}
       </div>
 
-      <div
+      <button
+        type="button"
         className={`statusbar-message ${status.isError ? "error" : ""}`}
         title={status.text}
+        onClick={clearStatus}
       >
         {status.text}
-      </div>
+      </button>
 
       <div className="statusbar-group end">
         <button

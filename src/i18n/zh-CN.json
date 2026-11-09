@@ -168,7 +168,8 @@
     "cancel": "取消",
     "delete": "删除",
     "yes": "是",
-    "no": "否"
+    "no": "否",
+    "confirm": "确定"
   },
   "settings": {
     "open": "设置",
@@ -503,7 +504,9 @@
     "perm_execute": "执行",
     "perm_user": "属主",
     "perm_group": "属组",
-    "perm_other": "其他"
+    "perm_other": "其他",
+    "deleteTitle": "确认删除",
+    "fastDeleteTitle": "永久删除"
   },
   "editor": {
     "title": "编辑 {name}",
@@ -573,7 +576,8 @@
     "conflict": "已被“{action}”占用。",
     "editHint": "点击“修改”后按下新的组合键。退格键可禁用该快捷键，Esc 取消。",
     "columnKeys": "快捷键",
-    "columnAction": "操作"
+    "columnAction": "操作",
+    "transfer": "打开文件传输"
   },
   "session": {
     "localTitle": "本地终端"

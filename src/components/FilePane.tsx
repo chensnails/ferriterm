@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type VfsEntry } from "../api";
+import { isRootPath, joinPath, parentPath } from "../paths";
 import { useAppStore } from "../store";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 
@@ -22,6 +23,8 @@ interface FilePaneProps {
   refreshToken: number;
 }
 
+/** The local pane sees Windows paths and the remote pane sees POSIX ones, so
+    joins and parent lookups live in `paths.ts` and accept both separators. */
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const units = ["KB", "MB", "GB", "TB"];
@@ -135,23 +138,20 @@ export function FilePane({
   };
 
   const goUp = () => {
-    const trimmed = path.replace(/\/+$/, "");
-    if (!trimmed) return;
-    const index = trimmed.lastIndexOf("/");
-    if (index <= 0) {
-      navigate("/");
-    } else {
-      navigate(trimmed.slice(0, index));
-    }
+    if (isRootPath(path)) return;
+    navigate(parentPath(path));
   };
 
   const refresh = () => void load();
 
   const makeFolder = async () => {
-    const name = window.prompt(t("files.newFolderPrompt"));
-    if (!name?.trim()) return;
+    const name = await useAppStore.getState().askText({
+      title: t("files.newFolder"),
+      placeholder: t("files.name"),
+    });
+    if (!name) return;
     try {
-      await api.vfsMkdir(sessionId, `${path.replace(/\/+$/, "")}/${name.trim()}`);
+      await api.vfsMkdir(sessionId, joinPath(path, name));
       await load();
     } catch (err) {
       onError(String(err));
@@ -159,10 +159,13 @@ export function FilePane({
   };
 
   const rename = async (entry: VfsEntry) => {
-    const name = window.prompt(t("files.renamePrompt"), entry.name);
-    if (!name?.trim() || name.trim() === entry.name) return;
-    const slash = entry.path.lastIndexOf("/");
-    const target = `${slash > 0 ? entry.path.slice(0, slash) : ""}/${name.trim()}`;
+    const name = await useAppStore.getState().askText({
+      title: t("files.rename"),
+      placeholder: t("files.name"),
+      value: entry.name,
+    });
+    if (!name || name === entry.name) return;
+    const target = joinPath(parentPath(entry.path), name);
     try {
       await api.vfsRename(sessionId, entry.path, target);
       await load();
@@ -172,10 +175,15 @@ export function FilePane({
   };
 
   const remove = async (entry: VfsEntry) => {
-    const message = entry.isDir
-      ? t("files.deleteDirConfirm", { name: entry.name })
-      : t("files.deleteFileConfirm", { name: entry.name });
-    if (!window.confirm(message)) return;
+    const confirmed = await useAppStore.getState().askConfirm({
+      title: t("files.deleteTitle"),
+      body: entry.isDir
+        ? t("files.deleteDirConfirm", { name: entry.name })
+        : t("files.deleteFileConfirm", { name: entry.name }),
+      confirmLabel: t("files.delete"),
+      danger: true,
+    });
+    if (!confirmed) return;
     try {
       await api.vfsRemove(sessionId, entry.path, entry.isDir);
       await load();
@@ -185,7 +193,13 @@ export function FilePane({
   };
 
   const fastDelete = async (entry: VfsEntry) => {
-    if (!window.confirm(t("files.fastDeleteConfirm", { name: entry.name }))) return;
+    const confirmed = await useAppStore.getState().askConfirm({
+      title: t("files.fastDeleteTitle"),
+      body: t("files.fastDeleteConfirm", { name: entry.name }),
+      confirmLabel: t("files.fastDelete"),
+      danger: true,
+    });
+    if (!confirmed) return;
     try {
       await api.vfsRemove(sessionId, entry.path, true);
       await load();
@@ -202,12 +216,15 @@ export function FilePane({
   };
 
   const makeFile = async () => {
-    const name = window.prompt(t("files.newFilePrompt"));
-    if (!name?.trim()) return;
+    const name = await useAppStore.getState().askText({
+      title: t("files.newFile"),
+      placeholder: t("files.name"),
+    });
+    if (!name) return;
     try {
       await api.vfsWriteText(
         sessionId,
-        `${path.replace(/\/+$/, "")}/${name.trim()}`,
+        joinPath(path, name),
         "",
         null,
       );

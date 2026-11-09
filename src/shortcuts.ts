@@ -54,6 +54,10 @@ function runAction(action: ShortcutAction): boolean {
       if (store.splitId) store.closeSplit();
       else store.splitActive();
       return true;
+    case "transfer":
+      if (store.activeId === TRANSFER_TAB) store.closeTransfer();
+      else store.openTransfer();
+      return true;
     case "settings":
       store.setSettingsOpen(true);
       return true;

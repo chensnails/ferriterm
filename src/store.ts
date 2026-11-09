@@ -140,6 +140,37 @@ interface Status {
   isError: boolean;
 }
 
+/** In-app stand-in for `window.confirm` / `window.prompt`. The embedded
+    WebView implements neither, so the native dialogs silently do nothing;
+    these carry the same request through a React dialog and resolve the
+    caller's promise when it settles. */
+export interface ConfirmPrompt {
+  kind: "confirm";
+  title: string;
+  body?: string;
+  confirmLabel?: string;
+  danger?: boolean;
+}
+
+export interface TextPrompt {
+  kind: "text";
+  title: string;
+  body?: string;
+  value: string;
+  placeholder?: string;
+}
+
+export type AppPrompt = ConfirmPrompt | TextPrompt;
+
+interface PendingPrompt {
+  request: AppPrompt;
+  settle: (value: string | boolean | null) => void;
+}
+
+let statusTimer: number | undefined;
+const STATUS_INFO_MS = 4500;
+const STATUS_ERROR_MS = 9000;
+
 export type SplitDirection = "horizontal" | "vertical";
 
 export type TabNumbering = "asNeed" | "always" | "none";
@@ -276,6 +307,13 @@ interface AppState {
   commandLibraryVersion: number;
   bumpCommandLibrary: () => void;
   status: Status;
+  appPrompt: PendingPrompt | null;
+  askConfirm: (request: Omit<ConfirmPrompt, "kind">) => Promise<boolean>;
+  askText: (
+    request: Omit<TextPrompt, "kind" | "value"> & { value?: string },
+  ) => Promise<string | null>;
+  settlePrompt: (value: string | boolean | null) => void;
+  clearStatus: () => void;
   hosts: HostEntry[];
   tags: Tag[];
   hostFilter: string;
@@ -470,6 +508,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   pluginScan: null,
   commandLibraryVersion: 0,
   status: { text: "", isError: false },
+  appPrompt: null,
   hosts: [],
   tags: [],
   hostFilter: "",
@@ -1227,7 +1266,49 @@ export const useAppStore = create<AppState>((set, get) => ({
   bumpCommandLibrary: () =>
     set((s) => ({ commandLibraryVersion: s.commandLibraryVersion + 1 })),
 
-  setStatus: (text, isError = false) => set({ status: { text, isError } }),
+  setStatus: (text, isError = false) => {
+    set({ status: { text, isError } });
+    window.clearTimeout(statusTimer);
+    if (!text) return;
+    // A message should not sit in the status bar forever; errors stay long
+    // enough to be read, plain confirmations go quickly.
+    statusTimer = window.setTimeout(
+      () => set({ status: { text: "", isError: false } }),
+      isError ? STATUS_ERROR_MS : STATUS_INFO_MS,
+    );
+  },
+
+  clearStatus: () => {
+    window.clearTimeout(statusTimer);
+    set({ status: { text: "", isError: false } });
+  },
+
+  askConfirm: (request) =>
+    new Promise<boolean>((resolve) => {
+      set({
+        appPrompt: {
+          request: { ...request, kind: "confirm" },
+          settle: (value) => resolve(value === true),
+        },
+      });
+    }),
+
+  askText: (request) =>
+    new Promise<string | null>((resolve) => {
+      set({
+        appPrompt: {
+          request: { ...request, kind: "text", value: request.value ?? "" },
+          settle: (value) => resolve(typeof value === "string" ? value : null),
+        },
+      });
+    }),
+
+  settlePrompt: (value) => {
+    const pending = get().appPrompt;
+    if (!pending) return;
+    set({ appPrompt: null });
+    pending.settle(value);
+  },
 
   loadHosts: async () => {
     if (!isTauri) return;

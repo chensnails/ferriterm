@@ -4012,9 +4012,21 @@ label.sync-action {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
 }
 
-.statusbar-message.error {
+.statusbar-message:hover:not(:empty) {
+  color: var(--fg-primary);
+}
+
+.statusbar-message.error,
+.statusbar-message.error:hover {
   color: var(--danger);
 }
 
@@ -4923,4 +4935,54 @@ body.dock-resizing-y * {
 
 .file-table th:nth-child(6) {
   width: 74px;
+}
+
+/* ---- S6: in-app prompt dialog ----
+   Replaces window.confirm / window.prompt, which the embedded WebView does
+   not implement, so the same question keeps the app's own look. */
+
+.prompt-body {
+  margin: 0 0 var(--space-3);
+}
+
+.prompt-input {
+  width: 100%;
+  height: var(--button-h);
+  padding: 0 var(--space-2);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg-primary);
+  font: inherit;
+}
+
+.prompt-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* A pane squeezed by the dock must not squeeze the file name to nothing:
+   the secondary columns step out before the name column loses its width. */
+.file-pane {
+  container-type: inline-size;
+}
+
+.file-table th:first-child {
+  min-width: 96px;
+}
+
+@container (max-width: 430px) {
+  .file-table th:nth-child(5),
+  .file-table td:nth-child(5),
+  .file-table th:nth-child(6),
+  .file-table td:nth-child(6) {
+    display: none;
+  }
+}
+
+@container (max-width: 340px) {
+  .file-table th:nth-child(4),
+  .file-table td:nth-child(4) {
+    display: none;
+  }
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri, type RemoteMountInfo, type VfsEntry } from "../api";
+import { joinPath } from "../paths";
 import { useAppStore } from "../store";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { FileEditor } from "./FileEditor";
@@ -39,11 +40,6 @@ function disambiguate(
     out.set(id, `${key} (${index})`);
   }
   return out;
-}
-
-function joinPath(base: string, name: string): string {
-  if (!base) return `/${name}`;
-  return `${base.replace(/\/+$/, "")}/${name}`;
 }
 
 function parseBookmarks(raw: string | undefined): string[] {

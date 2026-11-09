@@ -18,6 +18,7 @@ import { ConnectForm } from "./components/ConnectForm";
 import { HostKeyPrompt } from "./components/HostKeyPrompt";
 import { KeyboardInteractivePrompt } from "./components/KeyboardInteractivePrompt";
 import { Modal } from "./components/Modal";
+import { PromptDialog } from "./components/PromptDialog";
 import { ShortcutsDialog } from "./components/ShortcutsDialog";
 import { api, isTauri, onForwardError, onTransferUpdate } from "./api";
 import i18n from "./i18n";
@@ -200,6 +201,7 @@ export default function App() {
       {broadcastRequested && <BroadcastDialog />}
       <ShortcutsDialog />
       <CloseConfirmDialog />
+      <PromptDialog />
       <Suspense fallback={null}>
         {settingsOpen && (
           <SettingsDialog onClose={() => setSettingsOpen(false)} />

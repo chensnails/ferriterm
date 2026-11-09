@@ -168,7 +168,8 @@
     "cancel": "Cancel",
     "delete": "Delete",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "confirm": "Confirm"
   },
   "settings": {
     "open": "Settings",
@@ -503,7 +504,9 @@
     "perm_execute": "Execute",
     "perm_user": "User",
     "perm_group": "Group",
-    "perm_other": "Other"
+    "perm_other": "Other",
+    "deleteTitle": "Confirm deletion",
+    "fastDeleteTitle": "Permanent deletion"
   },
   "editor": {
     "title": "Edit {name}",
@@ -573,7 +576,8 @@
     "conflict": "Already used by \"{action}\".",
     "editHint": "Click Change, then press the new key combination. Backspace disables the shortcut; Escape cancels.",
     "columnKeys": "Shortcut",
-    "columnAction": "Action"
+    "columnAction": "Action",
+    "transfer": "Open file transfer"
   },
   "session": {
     "localTitle": "Local terminal"
