@@ -31,6 +31,12 @@ pub struct FileEntry {
     pub mtime: u64,
     pub is_dir: bool,
     pub is_symlink: bool,
+    /// Owner name when the host let us read `/etc/passwd`; the numeric id is
+    /// what the UI falls back to when it is absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

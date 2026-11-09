@@ -232,6 +232,9 @@ fn entry_from_metadata(
         mtime,
         is_dir: metadata.is_dir(),
         is_symlink,
+        // A local disk has no passwd to read, so the numeric ids stand.
+        owner: None,
+        group: None,
     }
 }
 

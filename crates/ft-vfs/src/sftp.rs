@@ -3,8 +3,9 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use ft_core::{Session, SessionRegistry};
+use ft_core::{Session, SessionRegistry, SshHandler};
 use russh::client;
+use russh::ChannelMsg;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, ReadHalf, WriteHalf};
 use tokio::sync::Mutex;
 
@@ -97,6 +98,57 @@ impl SftpIo {
 pub struct SftpConnection {
     io: Mutex<SftpIo>,
     next_id: AtomicU32,
+    /// Kept next to the subsystem channel so the owner-name lookup can open an
+    /// exec channel of its own.
+    handle: Arc<client::Handle<SshHandler>>,
+    /// `/etc/passwd` and `/etc/group` as read once per connection. `None` until
+    /// the first listing asks, and an empty table when the host refused.
+    names: Mutex<Option<Arc<Names>>>,
+}
+
+/// Numeric ids to names. SFTP only reports ids, so the file table would show
+/// bare `1000:1000` without this lookup.
+#[derive(Default, Debug)]
+pub struct Names {
+    users: HashMap<u32, String>,
+    groups: HashMap<u32, String>,
+}
+
+impl Names {
+    fn parse(passwd: &str, group: &str) -> Self {
+        let mut names = Self::default();
+        for line in passwd.lines() {
+            if let Some((id, name)) = parse_passwd_line(line) {
+                names.users.entry(id).or_insert(name);
+            }
+        }
+        for line in group.lines() {
+            if let Some((id, name)) = parse_passwd_line(line) {
+                names.groups.entry(id).or_insert(name);
+            }
+        }
+        names
+    }
+
+    fn label(&self, entries: &mut [FileEntry]) {
+        for entry in entries {
+            entry.owner = self.users.get(&entry.uid).cloned();
+            entry.group = self.groups.get(&entry.gid).cloned();
+        }
+    }
+}
+
+/// `root:x:0:0:root:/root:/bin/bash` → `(0, "root")`. The group file has the
+/// same first four fields, so one parser covers both.
+fn parse_passwd_line(line: &str) -> Option<(u32, String)> {
+    let mut fields = line.split(':');
+    let name = fields.next()?.trim();
+    if name.is_empty() || name.starts_with('#') {
+        return None;
+    }
+    let _password = fields.next()?;
+    let id = fields.next()?.trim().parse::<u32>().ok()?;
+    Some((id, name.to_string()))
 }
 
 impl SftpConnection {
@@ -123,6 +175,8 @@ impl SftpConnection {
                 writer: write,
             }),
             next_id: AtomicU32::new(1),
+            handle,
+            names: Mutex::new(None),
         });
         tokio::time::timeout(Duration::from_secs(15), connection.handshake())
             .await
@@ -145,6 +199,46 @@ impl SftpConnection {
             return Err(format!("unsupported sftp version {version}"));
         }
         Ok(())
+    }
+
+    /// The owner tables, read once per connection. A server that forbids exec,
+    /// or a container without `/etc/passwd`, leaves them empty — the file table
+    /// then keeps showing the ids SFTP reported, which is what it did before.
+    async fn names(&self) -> Arc<Names> {
+        if let Some(names) = self.names.lock().await.clone() {
+            return names;
+        }
+        let mut table = Names::default();
+        if let Ok(output) = self.run("cat /etc/passwd 2>/dev/null").await {
+            table.users = Names::parse(&output, "").users;
+        }
+        if let Ok(output) = self.run("cat /etc/group 2>/dev/null").await {
+            table.groups = Names::parse("", &output).groups;
+        }
+        let table = Arc::new(table);
+        *self.names.lock().await = Some(table.clone());
+        table
+    }
+
+    async fn run(&self, command: &str) -> Result<String, String> {
+        let mut channel = self
+            .handle
+            .channel_open_session()
+            .await
+            .map_err(|e| format!("failed to open a channel for {command}: {e}"))?;
+        channel
+            .exec(true, command)
+            .await
+            .map_err(|e| format!("failed to run {command}: {e}"))?;
+        let mut output = Vec::new();
+        while let Some(message) = channel.wait().await {
+            match message {
+                ChannelMsg::Data { data } => output.extend_from_slice(&data),
+                ChannelMsg::Eof | ChannelMsg::Close => break,
+                _ => {}
+            }
+        }
+        Ok(String::from_utf8_lossy(&output).into_owned())
     }
 
     async fn request(&self, packet_type: u8, payload: &[u8]) -> Result<(u8, Vec<u8>), String> {
@@ -358,12 +452,20 @@ impl Vfs for SftpVfs {
                     .cmp(&a.is_dir)
                     .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
             });
+            self.connection.names().await.label(&mut entries);
             Ok(entries)
         })
     }
 
     fn stat<'a>(&'a self, path: &'a str) -> VfsFuture<'a, FileEntry> {
-        Box::pin(async move { self.connection.stat_raw(path, true).await })
+        Box::pin(async move {
+            let mut entry = self.connection.stat_raw(path, true).await?;
+            self.connection
+                .names()
+                .await
+                .label(std::slice::from_mut(&mut entry));
+            Ok(entry)
+        })
     }
 
     fn home<'a>(&'a self) -> VfsFuture<'a, String> {
@@ -545,6 +647,8 @@ fn entry_from_attrs(name: String, path: &str, attrs: Attrs) -> FileEntry {
         mtime: attrs.mtime,
         is_dir: attrs.mode & S_IFMT == S_IFDIR,
         is_symlink: attrs.mode & S_IFMT == S_IFLNK,
+        owner: None,
+        group: None,
     }
 }
 
@@ -708,5 +812,40 @@ mod tests {
         assert_eq!(name_of("/var/log/syslog"), "syslog");
         assert_eq!(name_of("/"), "/");
         assert_eq!(parent_path("/a/b").as_deref(), Some("/a"));
+    }
+
+    fn entry_with_ids(uid: u32, gid: u32) -> FileEntry {
+        entry_from_attrs(
+            "a.txt".to_string(),
+            "/home/admin/a.txt",
+            Attrs {
+                size: 0,
+                uid,
+                gid,
+                mode: 0o100644,
+                mtime: 0,
+            },
+        )
+    }
+
+    #[test]
+    fn resolves_owner_names_from_passwd() {
+        let passwd = "root:x:0:0:root:/root:/bin/bash\n\
+                      admin:x:1000:1000::/home/admin:/bin/bash\n\
+                      # a comment\n\
+                      not-a-passwd-line\n";
+        let group = "root:x:0:\nadmins:x:27:admin\n";
+        let names = Names::parse(passwd, group);
+
+        let mut known = vec![entry_with_ids(1000, 27)];
+        names.label(&mut known);
+        assert_eq!(known[0].owner.as_deref(), Some("admin"));
+        assert_eq!(known[0].group.as_deref(), Some("admins"));
+
+        // Anything we could not resolve stays blank so the UI shows the ids.
+        let mut unknown = vec![entry_with_ids(4242, 4243)];
+        names.label(&mut unknown);
+        assert!(unknown[0].owner.is_none());
+        assert!(unknown[0].group.is_none());
     }
 }

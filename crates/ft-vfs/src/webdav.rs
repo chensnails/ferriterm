@@ -114,6 +114,8 @@ impl WebdavVfs {
             mtime: dav.mtime,
             is_dir: dav.is_dir,
             is_symlink: false,
+            owner: None,
+            group: None,
         }
     }
 

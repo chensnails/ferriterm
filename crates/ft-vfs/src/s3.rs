@@ -626,6 +626,8 @@ impl S3Vfs {
             mtime,
             is_dir,
             is_symlink: false,
+            owner: None,
+            group: None,
         }
     }
 }

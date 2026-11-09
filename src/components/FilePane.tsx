@@ -417,8 +417,8 @@ export function FilePane({
                 <td>{entry.isDir ? "—" : formatSize(entry.size)}</td>
                 <td>{formatTime(entry.mtime)}</td>
                 <td className="mono">{permissionString(entry.mode)}</td>
-                <td className="mono">
-                  {entry.uid}:{entry.gid}
+                <td className="mono" title={`${entry.uid}:${entry.gid}`}>
+                  {entry.owner ?? entry.uid}:{entry.group ?? entry.gid}
                 </td>
               </tr>
             ))}

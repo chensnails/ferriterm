@@ -317,6 +317,9 @@ export interface VfsEntry {
   mtime: number;
   isDir: boolean;
   isSymlink: boolean;
+  /** Present when the host let us read `/etc/passwd`; otherwise show the ids. */
+  owner?: string | null;
+  group?: string | null;
 }
 
 export interface TextFileContent {
