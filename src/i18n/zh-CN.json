@@ -26,9 +26,6 @@
   "theme": {
     "toggle": "切换主题"
   },
-  "language": {
-    "toggle": "切换语言"
-  },
   "connect": {
     "title": "新建 SSH 连接",
     "quick": "快速连接",

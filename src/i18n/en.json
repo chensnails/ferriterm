@@ -26,9 +26,6 @@
   "theme": {
     "toggle": "Toggle theme"
   },
-  "language": {
-    "toggle": "Switch language"
-  },
   "connect": {
     "title": "New SSH connection",
     "quick": "Quick connect",

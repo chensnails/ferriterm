@@ -50,8 +50,6 @@ export function TabBar() {
   const openSearch = useAppStore((s) => s.openSearch);
   const toggleTheme = useAppStore((s) => s.toggleTheme);
   const windowChrome = useAppStore((s) => s.windowChrome);
-  const language = useAppStore((s) => s.language);
-  const setLanguage = useAppStore((s) => s.setLanguage);
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen);
   const setQuickConnectOpen = useAppStore((s) => s.setQuickConnectOpen);
   const openSession = useAppStore((s) => s.openSession);
@@ -328,14 +326,6 @@ export function TabBar() {
           onClick={toggleTheme}
         >
           ◐
-        </button>
-        <button
-          className="icon-btn tab-lang"
-          title={t("language.toggle")}
-          aria-label={t("language.toggle")}
-          onClick={() => setLanguage(language === "en" ? "zh-CN" : "en")}
-        >
-          {language === "en" ? "EN" : "中"}
         </button>
         <button
           className="icon-btn"

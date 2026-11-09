@@ -470,13 +470,6 @@ body {
   border-color: transparent;
 }
 
-.tab-lang {
-  width: auto;
-  padding: 0 var(--space-2);
-  font-size: var(--font-ui-sm);
-  font-weight: 600;
-}
-
 .home-view {
   flex: 1;
   min-height: 0;
