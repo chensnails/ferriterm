@@ -48,6 +48,9 @@ pub struct TransferJob {
     pub is_directory: bool,
     pub files_done: u32,
     pub files_total: u32,
+    /// Entries the copy deliberately left behind — symbolic links today.
+    #[serde(default)]
+    pub skipped: u32,
     /// Both ends are remote, so the bytes travel through this machine instead
     /// of straight from one server to the other.
     pub relay: bool,
@@ -70,6 +73,7 @@ impl TransferJob {
             relay: source.remote && target.remote,
             files_done: 0,
             files_total: 0,
+            skipped: 0,
         }
     }
 }
@@ -588,6 +592,10 @@ async fn copy_file(
     }
     writer.close().await?;
     let _ = reader.close().await;
+    // Keep the copy looking like the original: same permissions, same
+    // modification time. Both are best-effort — the bytes are already there.
+    let _ = target.chmod(target_path, source_entry.mode).await;
+    let _ = target.set_times(target_path, source_entry.mtime).await;
     Ok(())
 }
 
@@ -618,6 +626,8 @@ struct ScanEntry {
     is_dir: bool,
     size: u64,
     mtime: u64,
+    mode: u32,
+    is_symlink: bool,
 }
 
 /// Walks a remote or local tree; entries are returned parents-first.
@@ -642,6 +652,8 @@ async fn scan_tree(vfs: &dyn Vfs, root: &str) -> Result<Scan, String> {
                     is_dir: true,
                     size: 0,
                     mtime: entry.mtime,
+                    mode: entry.mode,
+                    is_symlink: entry.is_symlink,
                 });
                 pending.push((entry.path.clone(), child_relative));
             } else {
@@ -652,6 +664,8 @@ async fn scan_tree(vfs: &dyn Vfs, root: &str) -> Result<Scan, String> {
                     is_dir: false,
                     size: entry.size,
                     mtime: entry.mtime,
+                    mode: entry.mode,
+                    is_symlink: entry.is_symlink,
                 });
             }
         }
@@ -670,14 +684,23 @@ async fn copy_tree(inner: &Inner, state: &JobState) -> Result<(), String> {
     ensure_dir(state.target.vfs.as_ref(), &state.target.path).await?;
 
     let mut progress = Progress::new(inner, state);
+    let mut skipped = 0u32;
     for entry in scan.entries {
         if !pause_gate(inner, state).await {
             return Err("cancelled".to_string());
         }
         let source_path = join_path(&state.source.path, &entry.relative);
         let target_path = join_path(&state.target.path, &entry.relative);
+        if entry.is_symlink {
+            // Reading a link as a file copies whatever it points at, and a
+            // self-referencing tree would never end. Leave it out and count it
+            // so the queue can say the copy was not complete.
+            skipped += 1;
+            continue;
+        }
         if entry.is_dir {
             ensure_dir(state.target.vfs.as_ref(), &target_path).await?;
+            copy_attributes(state.target.vfs.as_ref(), &target_path, &entry).await;
         } else {
             copy_file(
                 state.source.vfs.as_ref(),
@@ -690,7 +713,18 @@ async fn copy_tree(inner: &Inner, state: &JobState) -> Result<(), String> {
             progress.file_done().await;
         }
     }
+    if skipped > 0 {
+        state.job.lock().await.skipped = skipped;
+        emit_snapshot(inner, state).await;
+    }
     Ok(())
+}
+
+/// Permissions and timestamps are a courtesy: a backend that cannot store them
+/// (S3, WebDAV) must not fail the copy that already delivered the bytes.
+async fn copy_attributes(target: &dyn Vfs, path: &str, entry: &ScanEntry) {
+    let _ = target.chmod(path, entry.mode).await;
+    let _ = target.set_times(path, entry.mtime).await;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1016,7 +1050,7 @@ pub async fn apply_sync(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ft_vfs::LocalFs;
+    use ft_vfs::{LocalFs, Vfs};
 
     fn temp_dir(tag: &str) -> std::path::PathBuf {
         let stamp = std::time::SystemTime::now()
@@ -1086,6 +1120,45 @@ mod tests {
         assert_eq!(job.status, TransferStatus::Done);
         assert_eq!(job.files_done, 2);
         assert_eq!(std::fs::read(dst.join("nested/b.txt")).unwrap(), b"bbbbbb");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// A copy should keep the source's timestamp and mode, so a moved tree
+    /// still looks like the tree it came from.
+    #[tokio::test]
+    async fn keeps_the_source_timestamp() {
+        let root = temp_dir("attrs");
+        let src = root.join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        let file = src.join("stamped.txt");
+        std::fs::write(&file, b"stamped").unwrap();
+
+        // Far enough in the past that "now" cannot pass for it.
+        const WHEN: u64 = 1_600_000_000;
+        let fs = LocalFs;
+        fs.set_times(&file.to_string_lossy(), WHEN).await.unwrap();
+
+        let dst = root.join("dst");
+        let manager = TransferManager::default();
+        let id = manager
+            .enqueue_tree(
+                "attrs".to_string(),
+                Endpoint::new(Arc::new(LocalFs), src.to_string_lossy()),
+                Endpoint::new(Arc::new(LocalFs), dst.to_string_lossy()),
+            )
+            .await
+            .unwrap();
+        assert_eq!(wait_done(&manager, &id).await.status, TransferStatus::Done);
+
+        let copied = std::fs::metadata(dst.join("stamped.txt")).unwrap();
+        let mtime = copied
+            .modified()
+            .unwrap()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        assert_eq!(mtime, WHEN);
+        assert_eq!(std::fs::read(dst.join("stamped.txt")).unwrap(), b"stamped");
         std::fs::remove_dir_all(&root).unwrap();
     }
 

@@ -416,6 +416,8 @@
     "toTarget": "传输到 {target}",
     "relay": "中继",
     "relayHint": "两端都是远端，数据经本机中继传输。",
+    "skipped": "跳过 {count} 个符号链接",
+    "skippedHint": "符号链接不参与复制；若目录里确实需要它们，请手动补上。",
     "chooseSession": "请先选择 SSH 会话和目标文件夹。",
     "noSession": "无 SSH 会话",
     "syncUpload": "同步到远程",

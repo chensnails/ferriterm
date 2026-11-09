@@ -348,6 +348,18 @@ impl SftpConnection {
         expect_ok(response_type, &response)
     }
 
+    /// SETSTAT with access and modification time set to the same value: the
+    /// copy should look like the original, and an atime of "now" would not.
+    async fn set_times(&self, path: &str, mtime: u64) -> Result<(), String> {
+        let mut body = encode_string(path);
+        put_u32(&mut body, ATTR_ACMODTIME);
+        let seconds = u32::try_from(mtime).unwrap_or(u32::MAX);
+        put_u32(&mut body, seconds);
+        put_u32(&mut body, seconds);
+        let (response_type, response) = self.request(SSH_FXP_SETSTAT, &body).await?;
+        expect_ok(response_type, &response)
+    }
+
     async fn open_file(&self, path: &str, mode: OpenMode) -> Result<Vec<u8>, String> {
         let flags = match mode {
             OpenMode::Read => OPEN_READ,
@@ -504,6 +516,10 @@ impl Vfs for SftpVfs {
 
     fn chmod<'a>(&'a self, path: &'a str, mode: u32) -> VfsFuture<'a, ()> {
         Box::pin(async move { self.connection.chmod(path, mode).await })
+    }
+
+    fn set_times<'a>(&'a self, path: &'a str, mtime: u64) -> VfsFuture<'a, ()> {
+        Box::pin(async move { self.connection.set_times(path, mtime).await })
     }
 
     fn open<'a>(&'a self, path: &'a str, mode: OpenMode) -> VfsFuture<'a, Box<dyn VfsFile + Send>> {

@@ -351,6 +351,8 @@ export interface TransferJob {
   isDirectory: boolean;
   filesDone: number;
   filesTotal: number;
+  /** Entries the copy deliberately left behind (symbolic links). */
+  skipped: number;
   /** Both ends are remote: the bytes pass through this machine. */
   relay: boolean;
 }

@@ -156,6 +156,18 @@ impl Vfs for LocalFs {
         })
     }
 
+    fn set_times<'a>(&'a self, path: &'a str, mtime: u64) -> VfsFuture<'a, ()> {
+        Box::pin(async move {
+            let target = normalize(path);
+            let stamp = std::time::UNIX_EPOCH + std::time::Duration::from_secs(mtime);
+            let times = std::fs::FileTimes::new().set_modified(stamp);
+            tokio::task::spawn_blocking(move || open_for_times(&target)?.set_times(times))
+                .await
+                .map_err(|e| e.to_string())?
+                .map_err(|e| e.to_string())
+        })
+    }
+
     fn open<'a>(&'a self, path: &'a str, mode: OpenMode) -> VfsFuture<'a, Box<dyn VfsFile + Send>> {
         Box::pin(async move {
             let target = normalize(path);
@@ -193,6 +205,26 @@ fn normalize(path: &str) -> PathBuf {
         }
     }
     PathBuf::from(trimmed)
+}
+
+/// A handle that may write timestamps on files *and* directories. Unix accepts
+/// a plain read handle; Windows refuses to open a directory unless the handle
+/// asks for FILE_WRITE_ATTRIBUTES with FILE_FLAG_BACKUP_SEMANTICS.
+fn open_for_times(path: &Path) -> std::io::Result<std::fs::File> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        const FILE_WRITE_ATTRIBUTES: u32 = 0x0100;
+        const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
+        std::fs::OpenOptions::new()
+            .access_mode(FILE_WRITE_ATTRIBUTES)
+            .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
+            .open(path)
+    }
+    #[cfg(unix)]
+    {
+        std::fs::File::open(path)
+    }
 }
 
 fn entry_from_metadata(

@@ -578,6 +578,10 @@ impl Vfs for S3Vfs {
         Box::pin(async { Err("S3 does not support POSIX permissions".to_string()) })
     }
 
+    fn set_times<'a>(&'a self, _path: &'a str, _mtime: u64) -> VfsFuture<'a, ()> {
+        Box::pin(async { Ok(()) })
+    }
+
     fn open<'a>(&'a self, path: &'a str, mode: OpenMode) -> VfsFuture<'a, Box<dyn VfsFile + Send>> {
         Box::pin(async move {
             let key = self.key_for(path, false);

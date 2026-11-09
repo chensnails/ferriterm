@@ -136,6 +136,14 @@ export function TransferQueue({
                       >
                         {t(`transfer.status_${job.status}`)}
                       </span>
+                      {job.skipped > 0 && (
+                        <span
+                          className="transfer-skipped"
+                          title={t("transfer.skippedHint")}
+                        >
+                          {t("transfer.skipped", { count: job.skipped })}
+                        </span>
+                      )}
                       {job.status === "running" && job.speed > 0 && (
                         <span className="transfer-speed">
                           {formatBytes(job.speed)}

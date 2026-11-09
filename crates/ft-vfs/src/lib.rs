@@ -69,6 +69,9 @@ pub trait Vfs: Send + Sync {
     fn remove_dir_all<'a>(&'a self, path: &'a str) -> VfsFuture<'a, ()>;
     fn rename<'a>(&'a self, from: &'a str, to: &'a str) -> VfsFuture<'a, ()>;
     fn chmod<'a>(&'a self, path: &'a str, mode: u32) -> VfsFuture<'a, ()>;
+    /// Best-effort timestamp write-back, used when copying keeps the source's
+    /// modification time. Backends that cannot store one may do nothing.
+    fn set_times<'a>(&'a self, path: &'a str, mtime: u64) -> VfsFuture<'a, ()>;
     fn open<'a>(&'a self, path: &'a str, mode: OpenMode) -> VfsFuture<'a, Box<dyn VfsFile + Send>>;
 }
 
