@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { isTauri, type HostEntry, type HostInput } from "../api";
+import { HostIcon } from "../host-icons";
 import { useAppStore } from "../store";
 import { ConnectHostDialog } from "./ConnectHostDialog";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
@@ -19,7 +20,6 @@ import {
   PlusIcon,
   SearchIcon,
   TagIcon,
-  TerminalIcon,
 } from "./icons";
 import { EmptyState, IconButton, PanelHeader, SectionHeader } from "./ui";
 
@@ -50,9 +50,39 @@ function toInput(node: HostEntry, parentId: string | null): HostInput {
     parentId,
     isFolder: node.isFolder,
     production: node.production,
+    protocol: node.protocol,
+    protocolOptions: node.protocolOptions,
+    icon: node.icon,
     notes: node.notes,
     tagIds: node.tags.map((tag) => tag.id),
   };
+}
+
+function hostMeta(node: HostEntry): string {
+  const options = node.protocolOptions;
+  switch (node.protocol) {
+    case "telnet":
+      return `telnet · ${node.host}:${node.port}`;
+    case "serial":
+      return [options.serialPath, options.baudRate].filter(Boolean).join(" · ");
+    case "local":
+      return options.shell;
+    default:
+      return `${node.username}@${node.host}:${node.port}`;
+  }
+}
+
+function hostAddress(node: HostEntry): string {
+  switch (node.protocol) {
+    case "telnet":
+      return `telnet://${node.host}:${node.port}`;
+    case "serial":
+      return node.protocolOptions.serialPath;
+    case "local":
+      return node.protocolOptions.shell || node.name;
+    default:
+      return `${node.username}@${node.host}:${node.port}`;
+  }
 }
 
 function Highlight({ text, query }: { text: string; query: string }) {
@@ -234,9 +264,8 @@ export function HostTree() {
   };
 
   const copyAddress = (node: HostEntry) => {
-    const address = `${node.username}@${node.host}:${node.port}`;
     navigator.clipboard
-      .writeText(address)
+      .writeText(hostAddress(node))
       .then(() => setStatus(t("hosts.copied")))
       .catch((err) => setStatus(String(err), true));
   };
@@ -377,11 +406,7 @@ export function HostTree() {
               style={{
                 paddingLeft: `calc(${depth} * var(--space-4) + var(--space-2))`,
               }}
-              title={
-                node.isFolder
-                  ? node.name
-                  : `${node.username}@${node.host}:${node.port}`
-              }
+              title={node.isFolder ? node.name : hostMeta(node)}
               onClick={() => {
                 selectHost(node.id);
                 if (node.isFolder) toggleFolder(node.id);
@@ -457,7 +482,11 @@ export function HostTree() {
                 ) : (
                   <span className="tree-caret-spacer" />
                 )}
-                {node.isFolder ? <FolderIcon /> : <TerminalIcon />}
+                {node.isFolder ? (
+                  <FolderIcon />
+                ) : (
+                  <HostIcon icon={node.icon} protocol={node.protocol} />
+                )}
                 {node.production && !node.isFolder && (
                   <span className="prod-dot" title={t("hosts.production")} />
                 )}
@@ -513,10 +542,8 @@ export function HostTree() {
                   </span>
                 )}
               </span>
-              {!node.isFolder && (
-                <span className="tree-row-meta">
-                  {node.username}@{node.host}:{node.port}
-                </span>
+              {!node.isFolder && hostMeta(node) && (
+                <span className="tree-row-meta">{hostMeta(node)}</span>
               )}
             </div>
             {node.isFolder && open && renderNodes(node.id, depth + 1)}

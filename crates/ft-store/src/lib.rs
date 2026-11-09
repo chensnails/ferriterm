@@ -13,7 +13,75 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0005_host_jump_forward_rules.sql"),
     include_str!("../migrations/0006_transfer_jobs.sql"),
     include_str!("../migrations/0007_vault.sql"),
+    include_str!("../migrations/0008_host_protocol_icon.sql"),
 ];
+
+pub const PROTOCOLS: &[&str] = &["ssh", "sftp", "telnet", "serial", "local"];
+
+fn default_protocol() -> String {
+    "ssh".to_string()
+}
+
+/// Per-protocol extras. Everything is optional so one JSON column can hold
+/// serial, telnet and local settings without a migration per protocol.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ProtocolOptions {
+    pub serial_path: String,
+    pub baud_rate: u32,
+    pub data_bits: u8,
+    pub parity: String,
+    pub stop_bits: u8,
+    pub flow_control: String,
+    pub shell: String,
+    pub cwd: String,
+    pub encoding: String,
+}
+
+impl Default for ProtocolOptions {
+    fn default() -> Self {
+        Self {
+            serial_path: String::new(),
+            baud_rate: 115_200,
+            data_bits: 8,
+            parity: "none".to_string(),
+            stop_bits: 1,
+            flow_control: "none".to_string(),
+            shell: String::new(),
+            cwd: String::new(),
+            encoding: "utf-8".to_string(),
+        }
+    }
+}
+
+fn normalize_protocol(raw: &str) -> String {
+    let value = raw.trim().to_ascii_lowercase();
+    if PROTOCOLS.contains(&value.as_str()) {
+        value
+    } else {
+        default_protocol()
+    }
+}
+
+fn normalize_icon(raw: &str) -> String {
+    let value = raw.trim();
+    if value.len() > 40
+        || !value
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    {
+        return String::new();
+    }
+    value.to_string()
+}
+
+fn encode_options(options: &ProtocolOptions) -> String {
+    serde_json::to_string(options).unwrap_or_else(|_| "{}".to_string())
+}
+
+fn decode_options(raw: &str) -> ProtocolOptions {
+    serde_json::from_str(raw).unwrap_or_default()
+}
 
 pub struct Store {
     conn: Mutex<Connection>,
@@ -38,7 +106,14 @@ pub struct Host {
     pub x11: bool,
     pub parent_id: Option<String>,
     pub is_folder: bool,
+    #[serde(default)]
     pub production: bool,
+    #[serde(default = "default_protocol")]
+    pub protocol: String,
+    #[serde(default)]
+    pub protocol_options: ProtocolOptions,
+    #[serde(default)]
+    pub icon: String,
     pub sort_order: i64,
     pub notes: String,
     pub tags: Vec<Tag>,
@@ -69,6 +144,12 @@ pub struct HostInput {
     pub jump_host_id: String,
     #[serde(default)]
     pub x11: bool,
+    #[serde(default = "default_protocol")]
+    pub protocol: String,
+    #[serde(default)]
+    pub protocol_options: ProtocolOptions,
+    #[serde(default)]
+    pub icon: String,
     pub parent_id: Option<String>,
     pub is_folder: bool,
     pub production: bool,
@@ -279,7 +360,8 @@ impl Store {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT id, name, host, port, username, auth_method, key_path, key_id, jump_host_id,
-                    x11, parent_id, is_folder, production, sort_order, notes
+                    x11, parent_id, is_folder, production, sort_order, notes, protocol,
+                    protocol_options, icon
              FROM hosts ORDER BY is_folder DESC, sort_order, name",
         )?;
         let mut hosts: Vec<Host> = stmt
@@ -300,6 +382,9 @@ impl Store {
                     production: row.get(12)?,
                     sort_order: row.get(13)?,
                     notes: row.get(14)?,
+                    protocol: row.get(15)?,
+                    protocol_options: decode_options(&row.get::<_, String>(16)?),
+                    icon: row.get(17)?,
                     tags: Vec::new(),
                 })
             })?
@@ -342,8 +427,9 @@ impl Store {
         )?;
         tx.execute(
             "INSERT INTO hosts(id, name, host, port, username, auth_method, key_path, key_id,
-                               jump_host_id, x11, parent_id, is_folder, production, sort_order, notes)
-             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+                               jump_host_id, x11, parent_id, is_folder, production, sort_order,
+                               notes, protocol, protocol_options, icon)
+             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
             params![
                 input.id,
                 input.name,
@@ -360,6 +446,9 @@ impl Store {
                 input.production,
                 sort_order,
                 input.notes,
+                normalize_protocol(&input.protocol),
+                encode_options(&input.protocol_options),
+                normalize_icon(&input.icon),
             ],
         )?;
         replace_tags(&tx, &input.id, &input.tag_ids)?;
@@ -380,7 +469,8 @@ impl Store {
             "UPDATE hosts
              SET name = ?2, host = ?3, port = ?4, username = ?5, auth_method = ?6,
                  key_path = ?7, key_id = ?8, jump_host_id = ?9, x11 = ?10, parent_id = ?11,
-                 production = ?12, notes = ?13, updated_at = datetime('now')
+                 production = ?12, notes = ?13, protocol = ?14, protocol_options = ?15,
+                 icon = ?16, updated_at = datetime('now')
              WHERE id = ?1",
             params![
                 input.id,
@@ -396,6 +486,9 @@ impl Store {
                 input.parent_id,
                 input.production,
                 input.notes,
+                normalize_protocol(&input.protocol),
+                encode_options(&input.protocol_options),
+                normalize_icon(&input.icon),
             ],
         )?;
         if changed == 0 {
@@ -682,8 +775,9 @@ impl Store {
             }
             tx.execute(
                 "INSERT INTO hosts(id, name, host, port, username, auth_method, key_path, key_id,
-                                   parent_id, is_folder, production, sort_order, notes)
-                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                                   parent_id, is_folder, production, sort_order, notes, protocol,
+                                   protocol_options, icon)
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
                 params![
                     host.id,
                     host.name,
@@ -697,7 +791,10 @@ impl Store {
                     host.is_folder,
                     host.production,
                     host.sort_order,
-                    host.notes
+                    host.notes,
+                    normalize_protocol(&host.protocol),
+                    encode_options(&host.protocol_options),
+                    normalize_icon(&host.icon),
                 ],
             )?;
             for tag in &host.tags {
@@ -919,6 +1016,9 @@ mod tests {
             key_id: String::new(),
             jump_host_id: String::new(),
             x11: false,
+            protocol: "ssh".into(),
+            protocol_options: ProtocolOptions::default(),
+            icon: String::new(),
             parent_id: parent.map(Into::into),
             is_folder: false,
             production: false,
@@ -939,12 +1039,47 @@ mod tests {
             key_id: String::new(),
             jump_host_id: String::new(),
             x11: false,
+            protocol: "ssh".into(),
+            protocol_options: ProtocolOptions::default(),
+            icon: String::new(),
             parent_id: parent.map(Into::into),
             is_folder: true,
             production: false,
             notes: String::new(),
             tag_ids: Vec::new(),
         }
+    }
+
+    #[test]
+    fn protocol_options_and_icon_roundtrip() {
+        let store = Store::open_in_memory().unwrap();
+        let mut host = host_input("h1", "console", None);
+        host.protocol = "serial".into();
+        host.icon = "huawei".into();
+        host.protocol_options = ProtocolOptions {
+            serial_path: "/dev/tty.usbserial".into(),
+            baud_rate: 9_600,
+            ..ProtocolOptions::default()
+        };
+        store.create_host(&host).unwrap();
+
+        let listed = store.list_hosts().unwrap();
+        let stored = listed.iter().find(|h| h.id == "h1").unwrap();
+        assert_eq!(stored.protocol, "serial");
+        assert_eq!(stored.icon, "huawei");
+        assert_eq!(stored.protocol_options.serial_path, "/dev/tty.usbserial");
+        assert_eq!(stored.protocol_options.baud_rate, 9_600);
+        assert_eq!(stored.protocol_options.data_bits, 8);
+        assert_eq!(stored.protocol_options.parity, "none");
+
+        let mut broken = host.clone();
+        broken.protocol = "raw".into();
+        broken.icon = "Bad Icon!".into();
+        store.update_host(&broken).unwrap();
+        let listed = store.list_hosts().unwrap();
+        let stored = listed.iter().find(|h| h.id == "h1").unwrap();
+        assert_eq!(stored.protocol, "ssh");
+        assert_eq!(stored.icon, "");
     }
 
     #[test]
@@ -1050,6 +1185,9 @@ mod tests {
                 parent_id: None,
                 is_folder: true,
                 production: false,
+                protocol: "ssh".into(),
+                protocol_options: ProtocolOptions::default(),
+                icon: String::new(),
                 sort_order: 0,
                 notes: String::new(),
                 tags: vec![],
@@ -1068,6 +1206,9 @@ mod tests {
                 parent_id: Some("f1".into()),
                 is_folder: false,
                 production: true,
+                protocol: "ssh".into(),
+                protocol_options: ProtocolOptions::default(),
+                icon: String::new(),
                 sort_order: 0,
                 notes: String::new(),
                 tags: vec![tags[0].clone()],

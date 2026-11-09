@@ -4,7 +4,33 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 export const isTauri =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-export type SessionKind = "ssh" | "pty" | "serial";
+export type SessionKind = "ssh" | "pty" | "serial" | "telnet" | "sftp";
+
+export type HostProtocol = "ssh" | "sftp" | "telnet" | "serial" | "local";
+
+export interface ProtocolOptions {
+  serialPath: string;
+  baudRate: number;
+  dataBits: number;
+  parity: SerialParity;
+  stopBits: number;
+  flowControl: SerialFlowControl;
+  shell: string;
+  cwd: string;
+  encoding: string;
+}
+
+export const DEFAULT_PROTOCOL_OPTIONS: ProtocolOptions = {
+  serialPath: "",
+  baudRate: 115_200,
+  dataBits: 8,
+  parity: "none",
+  stopBits: 1,
+  flowControl: "none",
+  shell: "",
+  cwd: "",
+  encoding: "utf-8",
+};
 
 export interface Tag {
   id: string;
@@ -26,6 +52,9 @@ export interface HostEntry {
   parentId: string | null;
   isFolder: boolean;
   production: boolean;
+  protocol: HostProtocol;
+  protocolOptions: ProtocolOptions;
+  icon: string;
   sortOrder: number;
   notes: string;
   tags: Tag[];
@@ -45,6 +74,9 @@ export interface HostInput {
   parentId: string | null;
   isFolder: boolean;
   production: boolean;
+  protocol: HostProtocol;
+  protocolOptions: ProtocolOptions;
+  icon: string;
   notes: string;
   tagIds: string[];
 }

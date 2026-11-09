@@ -2405,6 +2405,156 @@ mark {
   accent-color: var(--accent);
 }
 
+/* Host icons, protocol picker and icon picker */
+.host-icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+.name-icon-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--control-h);
+  height: var(--control-h);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+}
+
+.protocol-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+}
+
+.protocol-tabs button {
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  height: calc(var(--control-h) - 6px);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.protocol-tabs button:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+.protocol-tabs button.active {
+  background: var(--selected-bg);
+  color: var(--fg-primary);
+  font-weight: 600;
+}
+
+.protocol-tabs button.active svg {
+  color: var(--accent);
+}
+
+.icon-picker {
+  margin: 0;
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.icon-picker legend {
+  padding: 0 var(--space-1);
+  font-size: var(--font-ui-sm);
+  color: var(--fg-muted);
+}
+
+.icon-auto {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  font-size: var(--font-ui-sm);
+  cursor: pointer;
+  transition: border-color var(--motion-fast), background var(--motion-fast);
+}
+
+.icon-auto:hover {
+  border-color: var(--accent);
+}
+
+.icon-auto.active {
+  border-color: var(--accent);
+  background: var(--selected-bg);
+}
+
+.icon-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.icon-group-label {
+  font-size: var(--font-ui-sm);
+  color: var(--fg-muted);
+}
+
+.icon-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.icon-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background var(--motion-fast), border-color var(--motion-fast);
+}
+
+.icon-option:hover {
+  background: var(--hover-bg);
+  border-color: var(--border);
+}
+
+.icon-option.active {
+  border-color: var(--accent);
+  background: var(--selected-bg);
+}
+
 /* File transfer */
 .modal.wide {
   width: min(960px, 96vw, 100%);

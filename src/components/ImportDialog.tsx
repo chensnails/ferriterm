@@ -2,6 +2,7 @@ import { useRef, useState, type ChangeEvent } from "react";
 import { useTranslation } from "react-i18next";
 import {
   api,
+  DEFAULT_PROTOCOL_OPTIONS,
   type ImportFormat,
   type ImportPreview,
   type ImportedHost,
@@ -217,6 +218,9 @@ function toHostInput(host: ImportedHost, parentId: string | null) {
     parentId,
     isFolder: false,
     production: false,
+    protocol: "ssh" as const,
+    protocolOptions: DEFAULT_PROTOCOL_OPTIONS,
+    icon: "",
     notes: "",
     tagIds: [] as string[],
   };

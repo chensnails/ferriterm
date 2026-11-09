@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { isTauri } from "../api";
+import { HostIcon } from "../host-icons";
 import { HOME_TAB, TRANSFER_TAB, useAppStore } from "../store";
 import { terminalHandle } from "../terminal-registry";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
@@ -18,6 +19,14 @@ import {
   SplitIcon,
   TerminalIcon,
 } from "./icons";
+
+function SessionIcon({ hostId }: { hostId?: string }) {
+  const host = useAppStore((s) =>
+    hostId ? s.hosts.find((item) => item.id === hostId) : undefined,
+  );
+  if (host) return <HostIcon icon={host.icon} protocol={host.protocol} />;
+  return <TerminalIcon />;
+}
 
 export function TabBar() {
   const { t } = useTranslation();
@@ -178,7 +187,7 @@ export function TabBar() {
                 setTabMenu({ id: s.id, x: e.clientX, y: e.clientY });
               }}
             >
-              <TerminalIcon />
+              <SessionIcon hostId={s.hostId} />
               {s.production && (
                 <span className="prod-dot" title={t("hosts.production")} />
               )}

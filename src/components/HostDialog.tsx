@@ -1,12 +1,19 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import {
   api,
+  DEFAULT_PROTOCOL_OPTIONS,
   isTauri,
   type HostEntry,
   type HostInput,
+  type HostProtocol,
+  type ProtocolOptions,
+  type SerialFlowControl,
+  type SerialParity,
+  type SerialPortInfo,
   type SshKey,
 } from "../api";
+import { HOST_ICONS, HostIcon } from "../host-icons";
 import { useAppStore } from "../store";
 import { Modal } from "./Modal";
 import { TagChip } from "./TagChip";
@@ -18,6 +25,36 @@ interface HostDialogProps {
   onClose: () => void;
 }
 
+const BAUD_RATES = [
+  4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600,
+];
+
+const PROTOCOLS: HostProtocol[] = ["ssh", "sftp", "telnet", "serial", "local"];
+
+const DEFAULT_PORTS: Record<HostProtocol, number> = {
+  ssh: 22,
+  sftp: 22,
+  telnet: 23,
+  serial: 0,
+  local: 0,
+};
+
+const PROTOCOL_LABEL: Record<HostProtocol, string> = {
+  ssh: "hostDialog.protocolSsh",
+  sftp: "hostDialog.protocolSftp",
+  telnet: "hostDialog.protocolTelnet",
+  serial: "hostDialog.protocolSerial",
+  local: "hostDialog.protocolLocal",
+};
+
+const ICON_GROUPS = ["system", "network", "device"] as const;
+
+const GROUP_LABEL: Record<(typeof ICON_GROUPS)[number], string> = {
+  system: "hostDialog.iconSystems",
+  network: "hostDialog.iconNetwork",
+  device: "hostDialog.iconDevices",
+};
+
 export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProps) {
   const { t } = useTranslation();
   const tags = useAppStore((s) => s.tags);
@@ -26,8 +63,11 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
   const updateHost = useAppStore((s) => s.updateHost);
 
   const [name, setName] = useState(host?.name ?? "");
+  const [protocol, setProtocol] = useState<HostProtocol>(host?.protocol ?? "ssh");
   const [address, setAddress] = useState(host?.host ?? "");
-  const [port, setPort] = useState(String(host?.port ?? 22));
+  const [port, setPort] = useState(
+    String(host?.port || DEFAULT_PORTS[host?.protocol ?? "ssh"]),
+  );
   const [username, setUsername] = useState(host?.username ?? "");
   const [authMethod, setAuthMethod] = useState(host?.authMethod ?? "password");
   const [keyPath, setKeyPath] = useState(host?.keyPath ?? "");
@@ -35,11 +75,21 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
   const [keys, setKeys] = useState<SshKey[]>([]);
   const [jumpHostId, setJumpHostId] = useState(host?.jumpHostId ?? "");
   const [x11, setX11] = useState(host?.x11 ?? false);
+  const [options, setOptions] = useState<ProtocolOptions>({
+    ...DEFAULT_PROTOCOL_OPTIONS,
+    ...(host?.protocolOptions ?? {}),
+  });
+  const [icon, setIcon] = useState(host?.icon ?? "");
+  const [ports, setPorts] = useState<SerialPortInfo[]>([]);
+  const [portsLoading, setPortsLoading] = useState(false);
   const [production, setProduction] = useState(host?.production ?? false);
   const [notes, setNotes] = useState(host?.notes ?? "");
   const [tagIds, setTagIds] = useState<string[]>(host?.tags.map((tag) => tag.id) ?? []);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const sshLike = protocol === "ssh" || protocol === "sftp";
+  const networkProtocol = protocol !== "serial" && protocol !== "local";
 
   useEffect(() => {
     if (!isTauri) return;
@@ -55,6 +105,27 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
     };
   }, []);
 
+  const refreshPorts = useCallback(async () => {
+    if (!isTauri) return;
+    setPortsLoading(true);
+    try {
+      const list = await api.serialListPorts();
+      setPorts(list);
+      setOptions((current) => ({
+        ...current,
+        serialPath: current.serialPath || list[0]?.path || "",
+      }));
+    } catch {
+      // enumeration is best-effort; the port path stays editable by hand
+    } finally {
+      setPortsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (protocol === "serial" && isTauri) void refreshPorts();
+  }, [protocol, refreshPorts]);
+
   const title = host
     ? isFolder
       ? t("hostDialog.editFolderTitle")
@@ -66,25 +137,63 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
   const toggleTag = (id: string) =>
     setTagIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
 
+  const updateOption = <K extends keyof ProtocolOptions>(
+    key: K,
+    value: ProtocolOptions[K],
+  ) => setOptions((current) => ({ ...current, [key]: value }));
+
+  const changeProtocol = (next: HostProtocol) => {
+    const current = Number(port);
+    if (!current || current === DEFAULT_PORTS[protocol]) {
+      setPort(String(DEFAULT_PORTS[next]));
+    }
+    setProtocol(next);
+  };
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+    if (!isFolder) {
+      if (networkProtocol && !address.trim()) {
+        setError(t("hostDialog.hostRequired"));
+        return;
+      }
+      if (protocol === "serial" && !options.serialPath.trim()) {
+        setError(t("hostDialog.serialPathRequired"));
+        return;
+      }
+    }
     setSaving(true);
     const input: HostInput = {
       id: host?.id ?? crypto.randomUUID(),
       name: name.trim(),
-      host: isFolder ? "" : address.trim(),
-      port: Number(port) || 22,
-      username: isFolder ? "" : username.trim(),
-      authMethod: isFolder ? "password" : authMethod,
+      host: isFolder || !networkProtocol ? "" : address.trim(),
+      port:
+        isFolder || !networkProtocol
+          ? 22
+          : Number(port) || DEFAULT_PORTS[protocol],
+      username: isFolder || !sshLike ? "" : username.trim(),
+      authMethod: isFolder || !sshLike ? "password" : authMethod,
       keyPath:
-        isFolder || authMethod !== "key" || keyId ? "" : keyPath.trim(),
-      keyId: isFolder || authMethod !== "key" ? "" : keyId,
-      jumpHostId: isFolder ? "" : jumpHostId,
-      x11: isFolder ? false : x11,
+        isFolder || !sshLike || authMethod !== "key" || keyId
+          ? ""
+          : keyPath.trim(),
+      keyId: isFolder || !sshLike || authMethod !== "key" ? "" : keyId,
+      jumpHostId: isFolder || !sshLike ? "" : jumpHostId,
+      x11: isFolder || protocol !== "ssh" ? false : x11,
       parentId: host ? host.parentId : parentId,
       isFolder,
       production: isFolder ? false : production,
+      protocol: isFolder ? "ssh" : protocol,
+      protocolOptions: isFolder
+        ? DEFAULT_PROTOCOL_OPTIONS
+        : {
+            ...options,
+            serialPath: options.serialPath.trim(),
+            shell: options.shell.trim(),
+            cwd: options.cwd.trim(),
+          },
+      icon: isFolder ? "" : icon,
       notes: isFolder ? "" : notes.trim(),
       tagIds: isFolder ? [] : tagIds,
     };
@@ -122,132 +231,341 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
       <form id="host-dialog-form" className="form-grid" onSubmit={submit}>
         <label className="field">
           <span>{t("hostDialog.name")}</span>
-          <input
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t("hostDialog.namePlaceholder")}
-            required
-          />
+          <div className="field-inline">
+            <span className="name-icon-preview">
+              <HostIcon icon={icon} protocol={protocol} size={18} />
+            </span>
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t("hostDialog.namePlaceholder")}
+              required
+            />
+          </div>
         </label>
 
         {isFolder ? (
           <p className="hint">{t("hostDialog.folderHint")}</p>
         ) : (
           <>
-            <label className="field">
-              <span>{t("hostDialog.host")}</span>
-              <input
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder={t("connect.hostPlaceholder")}
-                required
-              />
-            </label>
-            <div className="field-row">
-              <label className="field">
-                <span>{t("hostDialog.port")}</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={65535}
-                  value={port}
-                  onChange={(e) => setPort(e.target.value)}
-                />
-              </label>
-              <label className="field grow">
-                <span>{t("hostDialog.username")}</span>
-                <input
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder={t("connect.usernamePlaceholder")}
-                  required
-                />
-              </label>
+            <div className="protocol-tabs" role="tablist">
+              {PROTOCOLS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={protocol === value}
+                  className={protocol === value ? "active" : ""}
+                  onClick={() => changeProtocol(value)}
+                >
+                  <HostIcon protocol={value} size={14} />
+                  {t(PROTOCOL_LABEL[value])}
+                </button>
+              ))}
             </div>
 
-            <label className="field">
-              <span>{t("hostDialog.authMethod")}</span>
-              <select
-                value={authMethod}
-                onChange={(e) => setAuthMethod(e.target.value)}
-              >
-                <option value="password">{t("hostDialog.authPassword")}</option>
-                <option value="key">{t("hostDialog.authKey")}</option>
-                <option value="agent">{t("hostDialog.authAgent")}</option>
-                <option value="keyboard-interactive">
-                  {t("hostDialog.authKeyboardInteractive")}
-                </option>
-              </select>
-            </label>
-
-            {authMethod === "agent" && (
-              <p className="hint">{t("hostDialog.agentHint")}</p>
-            )}
-
-            {authMethod === "keyboard-interactive" && (
-              <p className="hint">{t("hostDialog.keyboardInteractiveHint")}</p>
-            )}
-
-            {authMethod === "key" && (
+            {networkProtocol && (
               <>
                 <label className="field">
-                  <span>{t("hostDialog.keySource")}</span>
-                  <select
-                    value={keyId}
-                    onChange={(e) => setKeyId(e.target.value)}
-                  >
-                    <option value="">{t("hostDialog.keySourcePath")}</option>
-                    {keys.map((key) => (
-                      <option key={key.id} value={key.id}>
-                        {key.name} · {key.fingerprint}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="hint">{t("hostDialog.keySourceHint")}</span>
+                  <span>{t("hostDialog.host")}</span>
+                  <input
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder={t("connect.hostPlaceholder")}
+                  />
                 </label>
-                {!keyId && (
+                <div className="field-row">
                   <label className="field">
-                    <span>{t("hostDialog.keyPath")}</span>
+                    <span>{t("hostDialog.port")}</span>
                     <input
-                      value={keyPath}
-                      onChange={(e) => setKeyPath(e.target.value)}
-                      placeholder="~/.ssh/id_ed25519"
+                      type="number"
+                      min={1}
+                      max={65535}
+                      value={port}
+                      onChange={(e) => setPort(e.target.value)}
                     />
                   </label>
+                  {sshLike && (
+                    <label className="field grow">
+                      <span>{t("hostDialog.username")}</span>
+                      <input
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder={t("connect.usernamePlaceholder")}
+                      />
+                    </label>
+                  )}
+                </div>
+                {protocol === "telnet" && (
+                  <p className="hint">{t("hostDialog.telnetHint")}</p>
+                )}
+                {protocol === "sftp" && (
+                  <p className="hint">{t("hostDialog.sftpHint")}</p>
                 )}
               </>
             )}
 
-            <label className="field">
-              <span>{t("hostDialog.jumpHost")}</span>
-              <select
-                value={jumpHostId}
-                onChange={(e) => setJumpHostId(e.target.value)}
-              >
-                <option value="">{t("hostDialog.jumpNone")}</option>
-                {hosts
-                  .filter(
-                    (item) => !item.isFolder && item.id !== host?.id,
-                  )
-                  .map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name || `${item.username}@${item.host}`}
+            {sshLike && (
+              <>
+                <label className="field">
+                  <span>{t("hostDialog.authMethod")}</span>
+                  <select
+                    value={authMethod}
+                    onChange={(e) => setAuthMethod(e.target.value)}
+                  >
+                    <option value="password">{t("hostDialog.authPassword")}</option>
+                    <option value="key">{t("hostDialog.authKey")}</option>
+                    <option value="agent">{t("hostDialog.authAgent")}</option>
+                    <option value="keyboard-interactive">
+                      {t("hostDialog.authKeyboardInteractive")}
                     </option>
-                  ))}
-              </select>
-              <span className="hint">{t("hostDialog.jumpHint")}</span>
-            </label>
+                  </select>
+                </label>
 
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={x11}
-                onChange={(e) => setX11(e.target.checked)}
-              />
-              <span>{t("hostDialog.x11")}</span>
-            </label>
-            <p className="hint">{t("hostDialog.x11Hint")}</p>
+                {authMethod === "agent" && (
+                  <p className="hint">{t("hostDialog.agentHint")}</p>
+                )}
+
+                {authMethod === "keyboard-interactive" && (
+                  <p className="hint">{t("hostDialog.keyboardInteractiveHint")}</p>
+                )}
+
+                {authMethod === "key" && (
+                  <>
+                    <label className="field">
+                      <span>{t("hostDialog.keySource")}</span>
+                      <select
+                        value={keyId}
+                        onChange={(e) => setKeyId(e.target.value)}
+                      >
+                        <option value="">{t("hostDialog.keySourcePath")}</option>
+                        {keys.map((key) => (
+                          <option key={key.id} value={key.id}>
+                            {key.name} · {key.fingerprint}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="hint">{t("hostDialog.keySourceHint")}</span>
+                    </label>
+                    {!keyId && (
+                      <label className="field">
+                        <span>{t("hostDialog.keyPath")}</span>
+                        <input
+                          value={keyPath}
+                          onChange={(e) => setKeyPath(e.target.value)}
+                          placeholder="~/.ssh/id_ed25519"
+                        />
+                      </label>
+                    )}
+                  </>
+                )}
+
+                <label className="field">
+                  <span>{t("hostDialog.jumpHost")}</span>
+                  <select
+                    value={jumpHostId}
+                    onChange={(e) => setJumpHostId(e.target.value)}
+                  >
+                    <option value="">{t("hostDialog.jumpNone")}</option>
+                    {hosts
+                      .filter(
+                        (item) =>
+                          !item.isFolder &&
+                          item.id !== host?.id &&
+                          (item.protocol === "ssh" || item.protocol === "sftp"),
+                      )
+                      .map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name || `${item.username}@${item.host}`}
+                        </option>
+                      ))}
+                  </select>
+                  <span className="hint">{t("hostDialog.jumpHint")}</span>
+                </label>
+              </>
+            )}
+
+            {protocol === "ssh" && (
+              <>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={x11}
+                    onChange={(e) => setX11(e.target.checked)}
+                  />
+                  <span>{t("hostDialog.x11")}</span>
+                </label>
+                <p className="hint">{t("hostDialog.x11Hint")}</p>
+              </>
+            )}
+
+            {protocol === "serial" && (
+              <>
+                <p className="hint">{t("serial.needsPlugin")}</p>
+                <label className="field">
+                  <span>{t("serial.port")}</span>
+                  <div className="field-inline">
+                    <input
+                      list="host-serial-ports"
+                      value={options.serialPath}
+                      placeholder="/dev/ttyUSB0"
+                      onChange={(e) => updateOption("serialPath", e.target.value)}
+                    />
+                    <datalist id="host-serial-ports">
+                      {ports.map((item) => (
+                        <option key={item.path} value={item.path}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </datalist>
+                    <button
+                      type="button"
+                      onClick={() => void refreshPorts()}
+                      disabled={portsLoading || !isTauri}
+                    >
+                      {t("serial.refreshPorts")}
+                    </button>
+                  </div>
+                  {isTauri && !portsLoading && ports.length === 0 && (
+                    <span className="hint">{t("serial.noPorts")}</span>
+                  )}
+                </label>
+                <label className="field">
+                  <span>{t("serial.baudRate")}</span>
+                  <div className="field-inline">
+                    <input
+                      type="number"
+                      min={50}
+                      max={4000000}
+                      list="host-baud-rates"
+                      value={options.baudRate}
+                      onChange={(e) =>
+                        updateOption("baudRate", Number(e.target.value))
+                      }
+                    />
+                    <datalist id="host-baud-rates">
+                      {BAUD_RATES.map((rate) => (
+                        <option key={rate} value={rate} />
+                      ))}
+                    </datalist>
+                  </div>
+                </label>
+                <div className="serial-grid">
+                  <label className="field">
+                    <span>{t("serial.dataBits")}</span>
+                    <select
+                      value={options.dataBits}
+                      onChange={(e) =>
+                        updateOption("dataBits", Number(e.target.value))
+                      }
+                    >
+                      {[5, 6, 7, 8].map((bits) => (
+                        <option key={bits} value={bits}>
+                          {bits}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>{t("serial.stopBits")}</span>
+                    <select
+                      value={options.stopBits}
+                      onChange={(e) =>
+                        updateOption("stopBits", Number(e.target.value))
+                      }
+                    >
+                      <option value={1}>1</option>
+                      <option value={2}>2</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>{t("serial.parity")}</span>
+                    <select
+                      value={options.parity}
+                      onChange={(e) =>
+                        updateOption("parity", e.target.value as SerialParity)
+                      }
+                    >
+                      <option value="none">{t("serial.parityNone")}</option>
+                      <option value="odd">{t("serial.parityOdd")}</option>
+                      <option value="even">{t("serial.parityEven")}</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>{t("serial.flowControl")}</span>
+                    <select
+                      value={options.flowControl}
+                      onChange={(e) =>
+                        updateOption(
+                          "flowControl",
+                          e.target.value as SerialFlowControl,
+                        )
+                      }
+                    >
+                      <option value="none">{t("serial.flowNone")}</option>
+                      <option value="rtscts">{t("serial.flowRtsCts")}</option>
+                      <option value="xonxoff">{t("serial.flowXonXoff")}</option>
+                    </select>
+                  </label>
+                </div>
+              </>
+            )}
+
+            {protocol === "local" && (
+              <>
+                <label className="field">
+                  <span>{t("hostDialog.localShell")}</span>
+                  <input
+                    value={options.shell}
+                    onChange={(e) => updateOption("shell", e.target.value)}
+                    placeholder={t("hostDialog.localShellPlaceholder")}
+                  />
+                  <span className="hint">{t("hostDialog.localShellHint")}</span>
+                </label>
+                <label className="field">
+                  <span>{t("hostDialog.localCwd")}</span>
+                  <input
+                    value={options.cwd}
+                    onChange={(e) => updateOption("cwd", e.target.value)}
+                    placeholder={t("hostDialog.localCwdPlaceholder")}
+                  />
+                </label>
+              </>
+            )}
+
+            <fieldset className="icon-picker">
+              <legend>{t("hostDialog.icon")}</legend>
+              <button
+                type="button"
+                className={`icon-auto${icon ? "" : " active"}`}
+                onClick={() => setIcon("")}
+                aria-pressed={!icon}
+              >
+                <HostIcon protocol={protocol} size={18} />
+                <span>{t("hostDialog.iconAuto")}</span>
+              </button>
+              {ICON_GROUPS.map((group) => (
+                <div key={group} className="icon-group">
+                  <span className="icon-group-label">{t(GROUP_LABEL[group])}</span>
+                  <div className="icon-options">
+                    {HOST_ICONS.filter((def) => def.group === group).map((def) => (
+                      <button
+                        key={def.id}
+                        type="button"
+                        className={`icon-option${icon === def.id ? " active" : ""}`}
+                        onClick={() => setIcon(def.id)}
+                        title={def.name}
+                        aria-label={def.name}
+                        aria-pressed={icon === def.id}
+                      >
+                        <HostIcon icon={def.id} protocol={protocol} size={18} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </fieldset>
 
             <label className="field">
               <span>{t("hostDialog.notes")}</span>
