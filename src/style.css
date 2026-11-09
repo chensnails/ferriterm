@@ -3775,3 +3775,66 @@ mark {
 .ui-dialog-header {
   gap: var(--space-2);
 }
+
+/* ---- S2: island layout applied to the existing three regions ----
+   Kept as one block so S3 can merge it back into the per-view rules when the
+   right dock becomes an independent column. */
+
+#body {
+  gap: var(--island-gap);
+  padding: var(--island-gap);
+}
+
+#host-sidebar {
+  padding: var(--island-pad);
+  background: var(--island-bg);
+  border: 0;
+  border-radius: var(--island-radius);
+}
+
+#content {
+  background: var(--island-bg);
+  border-radius: var(--island-radius);
+}
+
+#terminal-host {
+  margin: var(--island-gap);
+  border: 0;
+}
+
+#command-rail {
+  margin: var(--island-gap);
+  border: 0;
+  border-radius: var(--island-radius);
+  background: var(--sub-bg);
+}
+
+.section-head {
+  min-height: var(--panel-header-h);
+  padding: 0 var(--island-pad);
+}
+
+.tree-row {
+  padding: 0 var(--island-pad);
+}
+
+/* one hover, one selected: every list uses the same state tokens */
+.tree-row:hover,
+.command-insert:hover,
+.term-history-item:hover {
+  background: var(--hover-bg);
+}
+
+.tree-row.selected,
+.tree-row.selected:hover {
+  background: var(--selected-bg);
+  box-shadow: none;
+}
+
+.tree-row.drop:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.command-insert:hover {
+  border-color: var(--divider);
+}

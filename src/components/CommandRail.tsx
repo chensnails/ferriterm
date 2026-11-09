@@ -5,6 +5,7 @@ import { templateVariables } from "../commands";
 import { useAppStore } from "../store";
 import { terminalHandle } from "../terminal-registry";
 import { CommandVarsDialog } from "./CommandVarsDialog";
+import { IconButton, PanelHeader } from "./ui";
 
 export function CommandRail() {
   const { t } = useTranslation();
@@ -139,16 +140,18 @@ export function CommandRail() {
 
   return (
     <aside id="command-rail" aria-label={t("commands.title")}>
-      <header className="rail-head">
-        <h3>{t("commands.title")}</h3>
-        <button
-          className="icon-btn rail-close"
-          aria-label={t("common.close")}
-          onClick={toggleCommands}
-        >
-          ×
-        </button>
-      </header>
+      <PanelHeader
+        title={t("commands.title")}
+        actions={
+          <IconButton
+            label={t("common.close")}
+            onClick={toggleCommands}
+            size="sm"
+          >
+            ×
+          </IconButton>
+        }
+      />
 
       <div className="rail-body">
         <section className="command-group command-history">
