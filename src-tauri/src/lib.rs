@@ -8,11 +8,14 @@ use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // One registry, cloned into both the managed state and the transfer
+    // resolver: a second copy would leave resumed jobs looking at an empty map.
+    let sessions = SessionRegistry::default();
     tauri::Builder::default()
-        .manage(SessionRegistry::default())
+        .manage(sessions.clone())
         .manage(tokio::sync::Mutex::new(ft_monitor::Monitor::new()))
         .manage(std::sync::Arc::new(net_tools::NetToolState::default()))
-        .setup(|app| {
+        .setup(move |app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
             let store = Arc::new(ft_store::Store::open(&dir.join("ferriterm.db"))?);
@@ -21,12 +24,19 @@ pub fn run() {
             app.manage(ft_sync::BackupStore::new(dir.join("backups")));
             app.manage(ft_plugin::PluginRegistry::new(dir.join("plugins")));
             app.manage(ft_core::RecorderRegistry::new(dir.join("recordings")));
-            let transfers = ft_transfer::TransferManager::default();
+            let sftp = Arc::new(ft_vfs::SftpRegistry::default());
+            let transfers = commands::transfer_manager(store.clone(), sessions.clone(), sftp.clone());
+            // Jobs the last run left unfinished come back paused; nothing
+            // reconnects on its own, so this is only a list.
+            let restored = commands::restored_transfers(&store);
+            if !restored.is_empty() {
+                tauri::async_runtime::block_on(transfers.restore(restored));
+            }
             app.manage(commands::SshRuntimeState::new(
                 Arc::new(ft_ssh::KnownHostsStore::new(dir.join("ssh"))),
                 Arc::new(ft_ssh::ForwardRegistry::default()),
                 store,
-                Arc::new(ft_vfs::SftpRegistry::default()),
+                sftp,
                 transfers.clone(),
             ));
             let mut updates = transfers.subscribe();

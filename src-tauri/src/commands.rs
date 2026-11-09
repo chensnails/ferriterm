@@ -888,6 +888,98 @@ fn remote_mounts() -> &'static ft_vfs::RemoteMounts {
     MOUNTS.get_or_init(ft_vfs::RemoteMounts::default)
 }
 
+/// Rebuilds an end point from the session id a job was saved with. This is what
+/// lets a job resumed after a restart find its host again.
+struct SftpResolver {
+    sessions: Arc<ft_core::SessionRegistry>,
+    sftp: Arc<ft_vfs::SftpRegistry>,
+}
+
+impl ft_transfer::EndpointResolver for SftpResolver {
+    fn resolve<'a>(
+        &'a self,
+        session: Option<&'a str>,
+    ) -> ft_vfs::VfsFuture<'a, (Arc<dyn ft_vfs::Vfs>, bool)> {
+        Box::pin(async move {
+            match session {
+                None | Some("") => Ok((Arc::new(ft_vfs::LocalFs) as Arc<dyn ft_vfs::Vfs>, false)),
+                Some(id) => {
+                    if let Some(mount) = id.strip_prefix('@') {
+                        let vfs = remote_mounts()
+                            .get(mount)
+                            .ok_or_else(|| format!("remote mount {mount} is not connected"))?;
+                        return Ok((vfs, true));
+                    }
+                    let connection = self.sftp.get(self.sessions.as_ref(), id).await?;
+                    let vfs: Arc<dyn ft_vfs::Vfs> = Arc::new(ft_vfs::SftpVfs::new(connection));
+                    Ok((vfs, true))
+                }
+            }
+        })
+    }
+}
+
+/// Keeps the queue in the same database as the hosts. Failure is swallowed on
+/// purpose: a full disk must not stop a transfer that is already running.
+struct StoreJobLog {
+    store: Arc<ft_store::Store>,
+}
+
+impl ft_transfer::JobLog for StoreJobLog {
+    fn save<'a>(&'a self, job: &'a ft_transfer::TransferJob) -> ft_vfs::VfsFuture<'a, ()> {
+        Box::pin(async move {
+            let Ok(payload) = serde_json::to_string(job) else {
+                return Ok(());
+            };
+            let store = self.store.clone();
+            let id = job.id.clone();
+            let _ = tokio::task::spawn_blocking(move || store.save_transfer_job(&id, &payload)).await;
+            Ok(())
+        })
+    }
+
+    fn delete<'a>(&'a self, id: &'a str) -> ft_vfs::VfsFuture<'a, ()> {
+        Box::pin(async move {
+            let store = self.store.clone();
+            let id = id.to_string();
+            let _ = tokio::task::spawn_blocking(move || store.delete_transfer_job(&id)).await;
+            Ok(())
+        })
+    }
+}
+
+pub fn transfer_manager(
+    store: Arc<ft_store::Store>,
+    sessions: ft_core::SessionRegistry,
+    sftp: Arc<ft_vfs::SftpRegistry>,
+) -> ft_transfer::TransferManager {
+    ft_transfer::TransferManager::with_hooks(
+        ft_transfer::DEFAULT_CONCURRENCY,
+        Some(Arc::new(SftpResolver {
+            sessions: Arc::new(sessions),
+            sftp,
+        })),
+        Some(Arc::new(StoreJobLog { store })),
+    )
+}
+
+/// The queue a previous run left behind. Finished rows are pruned as they are
+/// read, so the table only ever holds work that still needs doing.
+pub fn restored_transfers(store: &ft_store::Store) -> Vec<ft_transfer::TransferJob> {
+    let mut jobs = Vec::new();
+    for payload in store.list_transfer_jobs().unwrap_or_default() {
+        match serde_json::from_str::<ft_transfer::TransferJob>(&payload) {
+            Ok(job) if !job.status.is_finished() => jobs.push(job),
+            Ok(job) => {
+                let _ = store.delete_transfer_job(&job.id);
+            }
+            // A row we cannot read is a row we cannot act on either.
+            Err(_) => {}
+        }
+    }
+    jobs
+}
+
 #[derive(serde::Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum RemoteMountConfig {
@@ -1104,14 +1196,16 @@ pub async fn transfer_enqueue(
     let mut source = ft_transfer::Endpoint::new(
         resolve_vfs(&sessions, &runtime, request.source_session.as_deref()).await?,
         request.source_path,
-    );
+    )
+    .with_session(request.source_session.clone());
     if source_remote {
         source = source.as_remote();
     }
     let mut target = ft_transfer::Endpoint::new(
         resolve_vfs(&sessions, &runtime, request.target_session.as_deref()).await?,
         request.target_path,
-    );
+    )
+    .with_session(request.target_session.clone());
     if target_remote {
         target = target.as_remote();
     }
@@ -1121,7 +1215,7 @@ pub async fn transfer_enqueue(
             .enqueue_tree(request.id, source, target)
             .await
     } else {
-        let size = source.vfs.stat(&source.path).await?.size;
+        let size = source.bound()?.stat(&source.path).await?.size;
         Ok(runtime
             .transfers
             .enqueue_file(request.id, source, target, size)
@@ -1234,12 +1328,14 @@ pub async fn sync_apply(
         resolve_vfs(&sessions, &runtime, source_session.as_deref()).await?,
         plan.source_root.clone(),
     )
-    .with_remote(source_session.as_deref().map_or(false, |id| !id.is_empty()));
+    .with_remote(source_session.as_deref().map_or(false, |id| !id.is_empty()))
+    .with_session(source_session.clone());
     let target = ft_transfer::Endpoint::new(
         resolve_vfs(&sessions, &runtime, target_session.as_deref()).await?,
         plan.target_root.clone(),
     )
-    .with_remote(target_session.as_deref().map_or(false, |id| !id.is_empty()));
+    .with_remote(target_session.as_deref().map_or(false, |id| !id.is_empty()))
+    .with_session(target_session.clone());
     let prefix = format!(
         "sync-{}",
         std::time::SystemTime::now()

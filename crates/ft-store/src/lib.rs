@@ -11,6 +11,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0003_commands.sql"),
     include_str!("../migrations/0004_host_key.sql"),
     include_str!("../migrations/0005_host_jump_forward_rules.sql"),
+    include_str!("../migrations/0006_transfer_jobs.sql"),
 ];
 
 pub struct Store {
@@ -195,6 +196,37 @@ impl Store {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare("SELECT key, value FROM settings")?;
         let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        rows.collect()
+    }
+
+    /// One row per transfer that had not finished when the app closed. The
+    /// payload is the job exactly as the queue showed it, so restoring needs no
+    /// schema of its own.
+    pub fn save_transfer_job(&self, id: &str, payload: &str) -> rusqlite::Result<()> {
+        let conn = self.conn.lock().unwrap();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|elapsed| elapsed.as_secs() as i64)
+            .unwrap_or(0);
+        conn.execute(
+            "INSERT INTO transfer_jobs(id, payload, updated_at) VALUES(?1, ?2, ?3)
+             ON CONFLICT(id) DO UPDATE SET payload = excluded.payload,
+                                           updated_at = excluded.updated_at",
+            params![id, payload, now],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_transfer_job(&self, id: &str) -> rusqlite::Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM transfer_jobs WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    pub fn list_transfer_jobs(&self) -> rusqlite::Result<Vec<String>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT payload FROM transfer_jobs ORDER BY updated_at")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
         rows.collect()
     }
 
@@ -981,6 +1013,27 @@ mod tests {
         store.create_host(&host_input("h1", "host", None)).unwrap();
         let err = store.create_host(&host_input("h2", "child", Some("h1")));
         assert!(matches!(err, Err(StoreError::ParentNotFolder)));
+    }
+
+    #[test]
+    fn transfer_jobs_round_trip() {
+        let store = Store::open_in_memory().unwrap();
+        store.save_transfer_job("a", "{\"id\":\"a\"}").unwrap();
+        store.save_transfer_job("b", "{\"id\":\"b\"}").unwrap();
+        // Saving the same id again must replace, not duplicate.
+        store.save_transfer_job("a", "{\"id\":\"a\",\"x\":1}").unwrap();
+        assert_eq!(
+            store.list_transfer_jobs().unwrap(),
+            vec![
+                "{\"id\":\"a\",\"x\":1}".to_string(),
+                "{\"id\":\"b\"}".to_string()
+            ]
+        );
+        store.delete_transfer_job("a").unwrap();
+        assert_eq!(
+            store.list_transfer_jobs().unwrap(),
+            vec!["{\"id\":\"b\"}".to_string()]
+        );
     }
 
     #[test]

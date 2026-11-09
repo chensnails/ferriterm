@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use ft_vfs::{join_path, OpenMode, Vfs};
+use ft_vfs::{join_path, OpenMode, Vfs, VfsFuture};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, Mutex, OwnedSemaphorePermit, Semaphore};
 
@@ -54,6 +54,16 @@ pub struct TransferJob {
     /// Both ends are remote, so the bytes travel through this machine instead
     /// of straight from one server to the other.
     pub relay: bool,
+    /// Which session (or mount, or nothing for local) each end was bound to.
+    /// These are what make a job resumable after a restart.
+    #[serde(default)]
+    pub source_session: Option<String>,
+    #[serde(default)]
+    pub target_session: Option<String>,
+    #[serde(default)]
+    pub source_remote: bool,
+    #[serde(default)]
+    pub target_remote: bool,
 }
 
 impl TransferJob {
@@ -74,25 +84,55 @@ impl TransferJob {
             files_done: 0,
             files_total: 0,
             skipped: 0,
+            source_session: source.session.clone(),
+            target_session: target.session.clone(),
+            source_remote: source.remote,
+            target_remote: target.remote,
         }
     }
 }
 
 #[derive(Clone)]
 pub struct Endpoint {
-    pub vfs: Arc<dyn Vfs>,
+    /// `None` only for a job restored from disk: it learns its VFS from the
+    /// resolver when the user resumes it, if that session is connected by then.
+    pub vfs: Option<Arc<dyn Vfs>>,
     pub path: String,
     /// True for a remote session or mount, false for the local disk.
     pub remote: bool,
+    pub session: Option<String>,
 }
 
 impl Endpoint {
     pub fn new(vfs: Arc<dyn Vfs>, path: impl Into<String>) -> Self {
         Self {
-            vfs,
+            vfs: Some(vfs),
             path: path.into(),
             remote: false,
+            session: None,
         }
+    }
+
+    /// An end point that has a path but no connection yet.
+    pub fn deferred(session: Option<String>, path: impl Into<String>, remote: bool) -> Self {
+        Self {
+            vfs: None,
+            path: path.into(),
+            remote,
+            session,
+        }
+    }
+
+    pub fn with_session(mut self, session: Option<String>) -> Self {
+        self.session = session;
+        self
+    }
+
+    /// The VFS to copy through. A deferred end point has none until binding.
+    pub fn bound(&self) -> Result<&Arc<dyn Vfs>, String> {
+        self.vfs
+            .as_ref()
+            .ok_or_else(|| "this transfer is not connected to a session".to_string())
     }
 
     /// Marks the endpoint as remote, which is what makes a copy between two
@@ -114,11 +154,28 @@ struct JobState {
     job: Mutex<TransferJob>,
     paused: AtomicBool,
     cancelled: AtomicBool,
+    /// False for a job restored from disk: it has no task yet, so resuming it
+    /// has to start one.
+    started: AtomicBool,
     /// Concurrency slot. It is taken away while the job is paused, so a
     /// paused job never keeps a slot a waiting job could use.
     slot: Mutex<Option<OwnedSemaphorePermit>>,
     source: Endpoint,
     target: Endpoint,
+}
+
+/// Turns a stored session id back into a live filesystem, which is what makes
+/// a restored job resumable once its host is connected again.
+pub trait EndpointResolver: Send + Sync {
+    /// `None` is the local disk.
+    fn resolve<'a>(&'a self, session: Option<&'a str>) -> VfsFuture<'a, (Arc<dyn Vfs>, bool)>;
+}
+
+/// Where finished and paused jobs are remembered so a restart does not lose
+/// them. Both calls are best-effort: a dead database must not stop a copy.
+pub trait JobLog: Send + Sync {
+    fn save<'a>(&'a self, job: &'a TransferJob) -> VfsFuture<'a, ()>;
+    fn delete<'a>(&'a self, id: &'a str) -> VfsFuture<'a, ()>;
 }
 
 struct Inner {
@@ -129,6 +186,8 @@ struct Inner {
     /// Permits a lower concurrency setting could not reclaim yet because
     /// they were in use; dropped as jobs release their slots.
     debt: AtomicUsize,
+    resolver: Option<Arc<dyn EndpointResolver>>,
+    log: Option<Arc<dyn JobLog>>,
 }
 
 #[derive(Clone)]
@@ -144,6 +203,14 @@ impl Default for TransferManager {
 
 impl TransferManager {
     pub fn new(concurrency: usize) -> Self {
+        Self::with_hooks(concurrency, None, None)
+    }
+
+    pub fn with_hooks(
+        concurrency: usize,
+        resolver: Option<Arc<dyn EndpointResolver>>,
+        log: Option<Arc<dyn JobLog>>,
+    ) -> Self {
         let limit = concurrency.clamp(1, MAX_CONCURRENCY);
         Self {
             inner: Arc::new(Inner {
@@ -152,6 +219,8 @@ impl TransferManager {
                 semaphore: Arc::new(Semaphore::new(limit)),
                 limit: AtomicUsize::new(limit),
                 debt: AtomicUsize::new(0),
+                resolver,
+                log,
             }),
         }
     }
@@ -228,6 +297,7 @@ impl TransferManager {
             job: Mutex::new(job),
             paused: AtomicBool::new(false),
             cancelled: AtomicBool::new(false),
+            started: AtomicBool::new(false),
             slot: Mutex::new(None),
             source,
             target,
@@ -241,7 +311,7 @@ impl TransferManager {
         source: Endpoint,
         target: Endpoint,
     ) -> Result<String, String> {
-        let scan = scan_tree(source.vfs.as_ref(), &source.path).await?;
+        let scan = scan_tree(source.bound()?.as_ref(), &source.path).await?;
         let name = source
             .path
             .trim_end_matches('/')
@@ -257,11 +327,37 @@ impl TransferManager {
             job: Mutex::new(job),
             paused: AtomicBool::new(false),
             cancelled: AtomicBool::new(false),
+            started: AtomicBool::new(false),
             slot: Mutex::new(None),
             source,
             target,
         });
         Ok(self.register(state).await)
+    }
+
+    /// Brings back the jobs a previous run left unfinished. They come back
+    /// paused and unstarted: nothing reconnects on its own, and resuming one
+    /// is what asks the resolver for its session.
+    pub async fn restore(&self, jobs: Vec<TransferJob>) {
+        for mut job in jobs {
+            if job.status.is_finished() {
+                continue;
+            }
+            job.status = TransferStatus::Paused;
+            job.speed = 0;
+            job.eta_seconds = None;
+            job.error = Some("interrupted when the app closed; resume to continue".to_string());
+            let state = Arc::new(JobState {
+                job: Mutex::new(job.clone()),
+                paused: AtomicBool::new(true),
+                cancelled: AtomicBool::new(false),
+                started: AtomicBool::new(false),
+                slot: Mutex::new(None),
+                source: Endpoint::deferred(job.source_session.clone(), &job.source_path, job.source_remote),
+                target: Endpoint::deferred(job.target_session.clone(), &job.target_path, job.target_remote),
+            });
+            self.inner.jobs.lock().await.insert(job.id, state);
+        }
     }
 
     async fn register(&self, state: Arc<JobState>) -> String {
@@ -272,6 +368,7 @@ impl TransferManager {
             .await
             .insert(id.clone(), state.clone());
         self.emit(&state).await;
+        remember(&self.inner, &state).await;
         self.spawn(state);
         id
     }
@@ -279,6 +376,7 @@ impl TransferManager {
     fn spawn(&self, state: Arc<JobState>) {
         let inner = self.inner.clone();
         let manager = self.clone();
+        state.started.store(true, Ordering::SeqCst);
         tokio::spawn(async move {
             if !pause_gate(&inner, &state).await {
                 manager.release_slot(&state).await;
@@ -292,10 +390,18 @@ impl TransferManager {
                 return;
             }
             set_status(&inner, &state, TransferStatus::Running, None).await;
-            let result = if state.job.lock().await.is_directory {
-                copy_tree(&inner, &state).await
-            } else {
-                copy_single(&inner, &state).await
+            // A restored job has paths but no connection; this is where the
+            // session is looked up again, and where resume fails loudly when
+            // the host is not connected.
+            let result = match bind(&inner, &state).await {
+                Ok((source, target)) => {
+                    if state.job.lock().await.is_directory {
+                        copy_tree(&inner, &state, &source, &target).await
+                    } else {
+                        copy_single(&inner, &state, &source, &target).await
+                    }
+                }
+                Err(error) => Err(error),
             };
             manager.release_slot(&state).await;
             match result {
@@ -324,6 +430,7 @@ impl TransferManager {
             if !state.job.lock().await.status.is_finished() {
                 state.paused.store(true, Ordering::SeqCst);
                 set_status(&self.inner, &state, TransferStatus::Paused, None).await;
+                remember(&self.inner, &state).await;
             }
         }
     }
@@ -333,6 +440,12 @@ impl TransferManager {
             if state.job.lock().await.status == TransferStatus::Paused {
                 state.paused.store(false, Ordering::SeqCst);
                 set_status(&self.inner, &state, TransferStatus::Running, None).await;
+                remember(&self.inner, &state).await;
+                // A restored job has no task waiting on the pause gate, so
+                // resuming it means starting one.
+                if !state.started.load(Ordering::SeqCst) {
+                    self.spawn(state);
+                }
             }
         }
     }
@@ -370,29 +483,46 @@ impl TransferManager {
             job.error = None;
             job.speed = 0;
             job.eta_seconds = None;
+            // The old byte count would make the next attempt start at a
+            // progress it has not earned.
+            job.transferred = 0;
+            job.files_done = 0;
+            job.skipped = 0;
         }
         state.cancelled.store(false, Ordering::SeqCst);
         state.paused.store(false, Ordering::SeqCst);
         self.emit(&state).await;
+        remember(&self.inner, &state).await;
         self.spawn(state);
     }
 
     pub async fn remove(&self, id: &str) {
         if let Some(state) = self.inner.jobs.lock().await.remove(id) {
             state.cancelled.store(true, Ordering::SeqCst);
+            recall(&self.inner, id).await;
         }
     }
 
     pub async fn clear_finished(&self) {
-        let mut jobs = self.inner.jobs.lock().await;
         let mut finished = Vec::new();
-        for (id, state) in jobs.iter() {
-            if state.job.lock().await.status.is_finished() {
-                finished.push(id.clone());
+        {
+            let jobs = self.inner.jobs.lock().await;
+            for (id, state) in jobs.iter() {
+                if state.job.lock().await.status.is_finished() {
+                    finished.push(id.clone());
+                }
             }
         }
-        for id in finished {
-            jobs.remove(&id);
+        {
+            let mut jobs = self.inner.jobs.lock().await;
+            for id in &finished {
+                jobs.remove(id);
+            }
+        }
+        if let Some(log) = &self.inner.log {
+            for id in &finished {
+                let _ = log.delete(id).await;
+            }
         }
     }
 
@@ -465,7 +595,50 @@ async fn finish(inner: &Inner, state: &JobState, status: TransferStatus, error: 
             job.transferred = job.size.max(job.transferred);
         }
     }
+    state.started.store(false, Ordering::SeqCst);
     emit_snapshot(inner, state).await;
+    remember(inner, state).await;
+}
+
+/// Writes the job's current shape to the log, so a restart can offer it back.
+async fn remember(inner: &Inner, state: &JobState) {
+    let Some(log) = &inner.log else {
+        return;
+    };
+    let job = state.job.lock().await.clone();
+    let _ = log.save(&job).await;
+}
+
+async fn recall(inner: &Inner, id: &str) {
+    if let Some(log) = &inner.log {
+        let _ = log.delete(id).await;
+    }
+}
+
+/// Fills in the VFS of both ends, resolving sessions that a restored job only
+/// knows by name. A job enqueued in this run is already bound and costs nothing.
+async fn bind(inner: &Inner, state: &JobState) -> Result<(Endpoint, Endpoint), String> {
+    Ok((
+        bind_one(inner, &state.source).await?,
+        bind_one(inner, &state.target).await?,
+    ))
+}
+
+async fn bind_one(inner: &Inner, endpoint: &Endpoint) -> Result<Endpoint, String> {
+    if endpoint.vfs.is_some() {
+        return Ok(endpoint.clone());
+    }
+    let resolver = inner
+        .resolver
+        .as_ref()
+        .ok_or_else(|| "this transfer has no session to reconnect to".to_string())?;
+    let (vfs, remote) = resolver.resolve(endpoint.session.as_deref()).await?;
+    Ok(Endpoint {
+        vfs: Some(vfs),
+        path: endpoint.path.clone(),
+        remote,
+        session: endpoint.session.clone(),
+    })
 }
 
 async fn emit_snapshot(inner: &Inner, state: &JobState) {
@@ -526,13 +699,18 @@ impl<'a> Progress<'a> {
     }
 }
 
-async fn copy_single(inner: &Inner, state: &JobState) -> Result<(), String> {
+async fn copy_single(
+    inner: &Inner,
+    state: &JobState,
+    source: &Endpoint,
+    target: &Endpoint,
+) -> Result<(), String> {
     let mut progress = Progress::new(inner, state);
     copy_file(
-        state.source.vfs.as_ref(),
-        &state.source.path,
-        state.target.vfs.as_ref(),
-        &state.target.path,
+        source.bound()?.as_ref(),
+        &source.path,
+        target.bound()?.as_ref(),
+        &target.path,
         &mut progress,
     )
     .await?;
@@ -673,15 +851,20 @@ async fn scan_tree(vfs: &dyn Vfs, root: &str) -> Result<Scan, String> {
     Ok(scan)
 }
 
-async fn copy_tree(inner: &Inner, state: &JobState) -> Result<(), String> {
-    let scan = scan_tree(state.source.vfs.as_ref(), &state.source.path).await?;
+async fn copy_tree(
+    inner: &Inner,
+    state: &JobState,
+    source: &Endpoint,
+    target: &Endpoint,
+) -> Result<(), String> {
+    let scan = scan_tree(source.bound()?.as_ref(), &source.path).await?;
     {
         let mut job = state.job.lock().await;
         job.size = scan.total_size;
         job.files_total = scan.files;
     }
     emit_snapshot(inner, state).await;
-    ensure_dir(state.target.vfs.as_ref(), &state.target.path).await?;
+    ensure_dir(target.bound()?.as_ref(), &target.path).await?;
 
     let mut progress = Progress::new(inner, state);
     let mut skipped = 0u32;
@@ -689,8 +872,8 @@ async fn copy_tree(inner: &Inner, state: &JobState) -> Result<(), String> {
         if !pause_gate(inner, state).await {
             return Err("cancelled".to_string());
         }
-        let source_path = join_path(&state.source.path, &entry.relative);
-        let target_path = join_path(&state.target.path, &entry.relative);
+        let source_path = join_path(&source.path, &entry.relative);
+        let target_path = join_path(&target.path, &entry.relative);
         if entry.is_symlink {
             // Reading a link as a file copies whatever it points at, and a
             // self-referencing tree would never end. Leave it out and count it
@@ -699,13 +882,13 @@ async fn copy_tree(inner: &Inner, state: &JobState) -> Result<(), String> {
             continue;
         }
         if entry.is_dir {
-            ensure_dir(state.target.vfs.as_ref(), &target_path).await?;
-            copy_attributes(state.target.vfs.as_ref(), &target_path, &entry).await;
+            ensure_dir(target.bound()?.as_ref(), &target_path).await?;
+            copy_attributes(target.bound()?.as_ref(), &target_path, &entry).await;
         } else {
             copy_file(
-                state.source.vfs.as_ref(),
+                source.bound()?.as_ref(),
                 &source_path,
-                state.target.vfs.as_ref(),
+                target.bound()?.as_ref(),
                 &target_path,
                 &mut progress,
             )
@@ -1025,23 +1208,26 @@ pub async fn apply_sync(
         };
         let dest_path = join_path(&dest.path, &action.path);
         match action.kind {
-            SyncActionKind::CreateDir => ensure_dir(dest.vfs.as_ref(), &dest_path).await?,
+            SyncActionKind::CreateDir => ensure_dir(dest.bound()?.as_ref(), &dest_path).await?,
             SyncActionKind::CopyFile => {
                 if let Some(parent) = ft_vfs::parent_path(&dest_path) {
-                    ensure_dir(dest.vfs.as_ref(), &parent).await?;
+                    ensure_dir(dest.bound()?.as_ref(), &parent).await?;
                 }
                 manager
                     .enqueue_file(
                         format!("{id_prefix}-{index}"),
-                        Endpoint::new(from.vfs.clone(), join_path(&from.path, &action.path))
-                            .with_remote(from.remote),
-                        Endpoint::new(dest.vfs.clone(), dest_path).with_remote(dest.remote),
+                        Endpoint::new(from.bound()?.clone(), join_path(&from.path, &action.path))
+                            .with_remote(from.remote)
+                            .with_session(from.session.clone()),
+                        Endpoint::new(dest.bound()?.clone(), dest_path)
+                            .with_remote(dest.remote)
+                            .with_session(dest.session.clone()),
                         action.size,
                     )
                     .await;
             }
-            SyncActionKind::DeleteFile => dest.vfs.remove_file(&dest_path).await?,
-            SyncActionKind::DeleteDir => dest.vfs.remove_dir_all(&dest_path).await?,
+            SyncActionKind::DeleteFile => dest.bound()?.remove_file(&dest_path).await?,
+            SyncActionKind::DeleteDir => dest.bound()?.remove_dir_all(&dest_path).await?,
         }
     }
     Ok(())
@@ -1254,6 +1440,63 @@ mod tests {
         assert_eq!(std::fs::read(src.join("only-target.txt")).unwrap(), b"down");
         assert_eq!(std::fs::read(src.join("clash.txt")).unwrap(), b"left");
         assert_eq!(std::fs::read(dst.join("clash.txt")).unwrap(), b"right-side");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// The promise of the whole feature: a job written down before the app
+    /// closed comes back paused, and resuming it finishes the copy once its
+    /// session can be resolved again.
+    struct SessionLookup;
+
+    impl EndpointResolver for SessionLookup {
+        fn resolve<'a>(&'a self, session: Option<&'a str>) -> VfsFuture<'a, (Arc<dyn Vfs>, bool)> {
+            Box::pin(async move {
+                let vfs: Arc<dyn Vfs> = Arc::new(LocalFs);
+                Ok((vfs, session.is_some()))
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn resumes_a_job_restored_from_disk() {
+        let root = temp_dir("restore");
+        let src = root.join("a.txt");
+        std::fs::write(&src, b"payload").unwrap();
+        let first = root.join("first.txt");
+
+        // A run that finished, only to be turned into the record a restart
+        // would find: saved while unfinished, with a session id but no VFS.
+        let before = TransferManager::new(1);
+        let id = before
+            .enqueue_file(
+                "job".to_string(),
+                Endpoint::new(Arc::new(LocalFs), src.to_string_lossy())
+                    .with_session(Some("session-1".to_string())),
+                Endpoint::new(Arc::new(LocalFs), first.to_string_lossy()),
+                7,
+            )
+            .await;
+        assert_eq!(wait_done(&before, &id).await.status, TransferStatus::Done);
+        let mut stored = before.list().await.remove(0);
+        assert_eq!(stored.source_session.as_deref(), Some("session-1"));
+
+        // The second run knows nothing about those bytes yet.
+        let second = root.join("second.txt");
+        std::fs::remove_file(&first).unwrap();
+        stored.status = TransferStatus::Pending;
+        stored.transferred = 0;
+        stored.target_path = second.to_string_lossy().into_owned();
+
+        let after = TransferManager::with_hooks(1, Some(Arc::new(SessionLookup)), None);
+        after.restore(vec![stored]).await;
+        let restored = after.list().await.remove(0);
+        assert_eq!(restored.status, TransferStatus::Paused);
+        assert!(restored.error.is_some());
+
+        after.resume("job").await;
+        let job = wait_done(&after, "job").await;
+        assert_eq!(job.status, TransferStatus::Done);
+        assert_eq!(std::fs::read(&second).unwrap(), b"payload");
         std::fs::remove_dir_all(&root).unwrap();
     }
 }
