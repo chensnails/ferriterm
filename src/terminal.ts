@@ -12,6 +12,7 @@ import {
 } from "./terminal-registry";
 import { terminalTheme } from "./theme";
 import i18n from "./i18n";
+import { historyForHost, historyMatches } from "./history";
 import { useAppStore } from "./store";
 
 interface SearchHit {
@@ -35,11 +36,16 @@ export class TerminalView implements TerminalHandle {
   private searchRegex = false;
   private inputBuffer = "";
   private escapeState = 0;
+  private suggestEl: HTMLDivElement;
+  private menuEl: HTMLDivElement;
+  private matches: { text: string }[] = [];
+  private suggestion = "";
+  private suggestVisible = false;
 
   constructor(
     readonly id: string,
     private kind: SessionKind,
-    container: HTMLElement,
+    private readonly container: HTMLElement,
     onSessionClosed: () => void,
   ) {
     this.term = new Terminal({
@@ -55,6 +61,19 @@ export class TerminalView implements TerminalHandle {
     this.fit.fit();
     registerTerminal(id, this);
 
+    this.suggestEl = document.createElement("div");
+    this.suggestEl.className = "term-suggest";
+    this.suggestEl.setAttribute("aria-hidden", "true");
+    this.suggestEl.hidden = true;
+    this.menuEl = document.createElement("div");
+    this.menuEl.className = "term-history";
+    this.menuEl.hidden = true;
+    container.append(this.suggestEl, this.menuEl);
+    container.addEventListener("pointerdown", (event) => {
+      if (!this.menuEl.contains(event.target as Node)) this.hideOverlays();
+    });
+    this.term.attachCustomKeyEventHandler((event) => this.handleKey(event));
+
     this.term.onData((data) => {
       this.trackInput(data);
       this.writeChain = this.writeChain.then(() => {
@@ -65,13 +84,17 @@ export class TerminalView implements TerminalHandle {
       useAppStore.getState().setFocusedSession(this.id);
     });
     this.term.onResize(({ cols, rows }) => {
+      this.hideOverlays();
       api.resize(this.kind, this.id, cols, rows).catch(() => {});
     });
 
     // 先注册事件监听，再发起连接，避免丢失服务端首批输出
     this.ready = Promise.all([
       onOutput(this.id, (bytes) => {
-        if (!this.disposed) this.term.write(bytes);
+        if (this.disposed) return;
+        this.term.write(bytes, () => {
+          if (!this.disposed) this.refreshOverlays();
+        });
       }),
       onClosed(this.id, () => {
         if (this.disposed) return;
@@ -108,6 +131,7 @@ export class TerminalView implements TerminalHandle {
   // Reconstruct the line the user is typing from raw terminal input so history
   // and the execution log do not need shell integration.
   private trackInput(data: string) {
+    let sawEscape = false;
     for (const ch of data) {
       if (this.escapeState === 2) {
         if (ch >= "@" && ch <= "~") this.escapeState = 0;
@@ -118,6 +142,7 @@ export class TerminalView implements TerminalHandle {
         continue;
       }
       if (ch === "\x1b") {
+        sawEscape = true;
         this.escapeState = 1;
         continue;
       }
@@ -136,6 +161,149 @@ export class TerminalView implements TerminalHandle {
         this.inputBuffer = this.inputBuffer.slice(-2000);
       }
     }
+    // Cursor movement or escape sequences invalidate the ghost position.
+    if (sawEscape) this.hideOverlays();
+    else this.refreshOverlays();
+  }
+
+  private handleKey(event: KeyboardEvent): boolean {
+    if (event.type !== "keydown" || !this.suggestVisible) return true;
+    if (event.metaKey || event.ctrlKey || event.altKey) return true;
+    if (event.key === "ArrowRight" || event.key === "Tab") {
+      event.preventDefault();
+      this.acceptSuggestion();
+      return false;
+    }
+    return true;
+  }
+
+  private acceptSuggestion() {
+    const extra = this.suggestion;
+    if (!extra) return;
+    this.inputBuffer += extra;
+    this.hideOverlays();
+    this.insert(extra);
+  }
+
+  private refreshOverlays() {
+    const input = this.inputBuffer;
+    if (!input.trim()) {
+      this.hideOverlays();
+      return;
+    }
+    const store = useAppStore.getState();
+    if (store.focusedSessionId !== this.id) {
+      this.hideOverlays();
+      return;
+    }
+    const session = store.sessions.find((entry) => entry.id === this.id);
+    const matches = historyMatches(
+      historyForHost(store.commandHistory, this.id, session?.hostId),
+      input,
+    );
+    if (matches.length === 0) {
+      this.hideOverlays();
+      return;
+    }
+    const metrics = this.cellMetrics();
+    const cell = this.cursorCell();
+    const buffer = this.term.buffer.active;
+    if (!metrics || !cell || cell.row < 0 || cell.row >= this.term.rows) {
+      this.hideOverlays();
+      return;
+    }
+    const line = buffer.getLine(buffer.baseY + cell.row);
+    if (!line || line.translateToString(true, cell.col).trim()) {
+      this.hideOverlays();
+      return;
+    }
+    this.matches = matches;
+    this.suggestion = matches[0].text.slice(input.length);
+    this.renderGhost(metrics, cell);
+    this.renderMenu(metrics, cell);
+  }
+
+  private cellMetrics() {
+    const screen = this.container.querySelector(".xterm-screen");
+    if (!(screen instanceof HTMLElement)) return null;
+    const rect = screen.getBoundingClientRect();
+    const base = this.container.getBoundingClientRect();
+    if (
+      rect.width <= 0 ||
+      rect.height <= 0 ||
+      !this.term.cols ||
+      !this.term.rows
+    ) {
+      return null;
+    }
+    return {
+      left: rect.left - base.left,
+      top: rect.top - base.top,
+      cellW: rect.width / this.term.cols,
+      cellH: rect.height / this.term.rows,
+    };
+  }
+
+  private cursorCell() {
+    const buffer = this.term.buffer.active;
+    return { row: buffer.cursorY - buffer.baseY, col: buffer.cursorX };
+  }
+
+  private renderGhost(
+    metrics: { left: number; top: number; cellW: number; cellH: number },
+    cell: { row: number; col: number },
+  ) {
+    const fontSize = this.term.options.fontSize;
+    this.suggestEl.textContent = this.suggestion;
+    if (typeof fontSize === "number") {
+      this.suggestEl.style.fontSize = `${fontSize}px`;
+    }
+    this.suggestEl.style.left = `${metrics.left + cell.col * metrics.cellW}px`;
+    this.suggestEl.style.top = `${metrics.top + cell.row * metrics.cellH}px`;
+    this.suggestEl.style.lineHeight = `${metrics.cellH}px`;
+    this.suggestEl.hidden = false;
+    this.suggestVisible = true;
+  }
+
+  private renderMenu(
+    metrics: { left: number; top: number; cellW: number; cellH: number },
+    cell: { row: number; col: number },
+  ) {
+    this.menuEl.replaceChildren();
+    for (const match of this.matches) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "term-history-item";
+      item.textContent = match.text;
+      item.addEventListener("mousedown", (event) => event.preventDefault());
+      item.addEventListener("click", () => this.replaceLine(match.text));
+      this.menuEl.append(item);
+    }
+    this.menuEl.hidden = false;
+    const startCol = Math.max(0, cell.col - this.inputBuffer.length);
+    const left = metrics.left + startCol * metrics.cellW;
+    const top = metrics.top + (cell.row + 1) * metrics.cellH;
+    const maxLeft = Math.max(0, this.container.clientWidth - this.menuEl.offsetWidth);
+    const maxTop = Math.max(0, this.container.clientHeight - this.menuEl.offsetHeight);
+    this.menuEl.style.left = `${Math.min(left, maxLeft)}px`;
+    this.menuEl.style.top = `${Math.min(top, maxTop)}px`;
+  }
+
+  private replaceLine(text: string) {
+    this.writeChain = this.writeChain
+      .then(() => useAppStore.getState().sendInput(this.kind, this.id, "\x15"))
+      .then(() => useAppStore.getState().sendInput(this.kind, this.id, text));
+    this.inputBuffer = text;
+    this.hideOverlays();
+    this.focus();
+  }
+
+  private hideOverlays() {
+    this.suggestion = "";
+    this.matches = [];
+    this.suggestVisible = false;
+    this.suggestEl.hidden = true;
+    this.menuEl.hidden = true;
   }
 
   fitNow() {
@@ -230,6 +398,8 @@ export class TerminalView implements TerminalHandle {
     unregisterTerminal(this.id, this);
     this.observer.disconnect();
     this.unlisten.forEach((fn) => fn());
+    this.suggestEl.remove();
+    this.menuEl.remove();
     this.term.dispose();
   }
 }

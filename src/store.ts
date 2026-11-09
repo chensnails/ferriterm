@@ -38,6 +38,7 @@ export interface HistoryEntry {
   sessionTitle: string;
   text: string;
   at: number;
+  hostId?: string;
 }
 
 export interface ExecLogEntry {
@@ -236,6 +237,8 @@ function parseHistory(raw: string | undefined): HistoryEntry[] {
           typeof entry.sessionTitle === "string" &&
           typeof entry.text === "string" &&
           typeof entry.at === "number" &&
+          (typeof entry.hostId === "undefined" ||
+            typeof entry.hostId === "string") &&
           !isSensitiveCommand(entry.text),
       )
       .slice(0, 200);
@@ -521,6 +524,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       sessionTitle: session?.title ?? "",
       text: line,
       at: Date.now(),
+      hostId: session?.hostId,
     };
     set((s) => ({
       commandHistory: [entry, ...s.commandHistory].slice(0, 200),

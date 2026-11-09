@@ -94,6 +94,7 @@ Single main window:
 | `--font-logo` | `28px` | Home logo mark |
 | `--sidebar-w` | `300px` | host sidebar + settings category pane |
 | `--dialog-w` | `440px` | dialog width cap |
+| `--suggest-w` | `420px` | inline command suggestion dropdown max width |
 | `--settings-w` | `760px` | settings center width |
 | `--settings-h` | `540px` | settings center pane height |
 | `--settings-nav-w` | `156px` | settings category nav width |
@@ -122,7 +123,7 @@ Single main window:
 | TagManagerDialog | create/rename/recolor/delete tags; deleting detaches from hosts | `--bg-panel`, `--tag-*` |
 | CommandPalette | fuzzy actions, Ctrl+Shift+P | `--bg-elevated` |
 | SettingsCenter | floating dialog; left category nav (General/Terminal/Keyboard/Transfer/Plugins/Sync/About) + scrolling pane | `--settings-w`, `--settings-h`, `--settings-nav-w` |
-| TerminalView | xterm.js host; theme mapped from tokens | `--font-terminal`, `--bg-base` |
+| TerminalView | xterm.js host; theme mapped from tokens; inline history suggestion with ghost text and prompt-anchored dropdown | `--font-terminal`, `--bg-base`, `--suggest-w` |
 | StatusStrip / Toast | connection state, transient errors | `--font-ui-sm` |
 
 ## 4. Screen specs and acceptance checklists
@@ -147,6 +148,9 @@ Acceptance = perform each path in Ferriterm and in the reference install; record
 - [ ] Drag tab to left/right/top/bottom edge creates split; gutter drag resizes; double-click gutter resets.
 - [ ] Ctrl+Shift+P opens command palette; Esc closes.
 - [ ] Search overlay finds matches with next/previous and regex toggle.
+- [ ] Typing a prefix of a previous command shows ghost completion at the cursor; Right-arrow or Tab accepts it; Escape/other cursor keys dismiss it.
+- [ ] Up to five matching commands appear in a dropdown below the prompt; clicking one replaces the current line.
+- [ ] Command history is per host when the session belongs to a host, otherwise per session.
 - [ ] Closing a session tab prompts only when a process is running (configurable).
 - [ ] Floating SFTP/monitor panels open above terminal without hiding tabs.
 
