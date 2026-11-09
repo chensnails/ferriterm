@@ -550,6 +550,12 @@
   },
   "about": {
     "devVersion": "Development version",
+    "historyTitle": "Version history",
+    "historyHint": "Each commit is a development build, newest first.",
+    "historyCount": "{count} builds",
+    "historyEmpty": "This build has no commit history available.",
+    "current": "Current",
+    "showAll": "Show all {count} builds",
     "description": "Cross-platform SSH terminal and file transfer.",
     "cleanRoom": "An independent implementation; no source code, icons or UI strings from other products are included.",
     "repository": "View source on GitHub"

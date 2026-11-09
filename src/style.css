@@ -3838,3 +3838,107 @@ mark {
 .command-insert:hover {
   border-color: var(--divider);
 }
+
+/* ---- About: version history timeline ---- */
+
+.version-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--sub-bg);
+}
+
+.version-history .ui-panel-header {
+  padding: 0;
+}
+
+.version-history-hint {
+  margin: 0;
+}
+
+.version-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 var(--space-3);
+  border-left: 1px solid var(--divider);
+  max-height: calc(var(--row-h) * 10);
+  overflow-y: auto;
+}
+
+.version-entry {
+  position: relative;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.version-entry:last-child {
+  border-bottom: 0;
+}
+
+.version-node {
+  position: absolute;
+  left: calc(-1 * var(--space-4));
+  top: var(--space-3);
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: 50%;
+  background: var(--fg-muted);
+  box-shadow: 0 0 0 2px var(--sub-bg);
+}
+
+.version-entry.current .version-node {
+  background: var(--accent);
+}
+
+.version-entry-body {
+  min-width: 0;
+}
+
+.version-entry-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.version-label {
+  color: var(--fg-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  overflow-wrap: anywhere;
+}
+
+.version-entry.current .version-label {
+  color: var(--accent);
+}
+
+.version-subject,
+.version-time {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
+
+.version-subject {
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+}
+
+.version-show-all {
+  align-self: flex-start;
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  font-size: var(--font-ui-sm);
+  cursor: pointer;
+}
+
+.version-show-all:hover {
+  background: var(--hover-bg);
+}

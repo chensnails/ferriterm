@@ -7,6 +7,7 @@ import { parseSchemeFile } from "../scheme";
 import { DEV_VERSION } from "../version";
 import { Modal } from "./Modal";
 import { ShortcutEditor } from "./ShortcutEditor";
+import { VersionHistory } from "./VersionHistory";
 import { Chip } from "./ui";
 import {
   CloudIcon,
@@ -985,6 +986,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             <span className="hint">{t("about.devVersion")}</span>
             <Chip tone="info">{DEV_VERSION}</Chip>
           </p>
+          <VersionHistory />
           <p className="hint">{t("about.description")}</p>
           <p className="hint">{t("about.cleanRoom")}</p>
           <p className="hint">
