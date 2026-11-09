@@ -173,7 +173,26 @@
     "credentials": "Credentials",
     "credentialsHint": "Passwords are stored in the system keychain. When it is unavailable, Ferriterm keeps them in an encrypted local vault.",
     "keepalive": "Keepalive interval (seconds)",
-    "keepaliveHint": "Sends a keepalive packet at this interval; 0 disables it."
+    "keepaliveHint": "Sends a keepalive packet at this interval; 0 disables it.",
+    "cat": {
+      "general": "General",
+      "terminal": "Terminal",
+      "keyboard": "Keyboard",
+      "transfer": "Transfer",
+      "plugins": "Plugins",
+      "sync": "Sync",
+      "about": "About"
+    },
+    "tabsTitle": "Tabs",
+    "tabNumbering": "Tab numbering",
+    "tabNumberingAsNeed": "As needed",
+    "tabNumberingAlways": "Always",
+    "tabNumberingNone": "Never",
+    "tabNumberingHint": "Show a number before each session tab title.",
+    "confirmClose": "Confirm before closing a running session",
+    "confirmCloseHint": "Ask for confirmation when a tab with an active process is closed.",
+    "sftpShowHidden": "Show hidden files by default",
+    "sftpShowHiddenHint": "New SFTP panes start with hidden files visible."
   },
   "monitor": {
     "open": "System monitor",
@@ -454,7 +473,14 @@
     "record": "Record session",
     "stopRecord": "Stop recording",
     "recordingStarted": "Recording started: {path}",
-    "recordingStopped": "Recording saved: {path}"
+    "recordingStopped": "Recording saved: {path}",
+    "closeConfirmTitle": "Close session?",
+    "closeConfirmBody": "\"{title}\" is still running. Close it anyway?"
+  },
+  "about": {
+    "description": "Cross-platform SSH terminal and file transfer.",
+    "cleanRoom": "An independent implementation; no source code, icons or UI strings from other products are included.",
+    "repository": "View source on GitHub"
   },
   "terminal": {
     "disconnected": "[session disconnected]",

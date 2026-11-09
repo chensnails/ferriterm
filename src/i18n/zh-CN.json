@@ -173,7 +173,26 @@
     "credentials": "凭据",
     "credentialsHint": "密码保存在系统钥匙串中；当钥匙串不可用时，Ferriterm 会使用本地加密保险库存储。",
     "keepalive": "心跳间隔（秒）",
-    "keepaliveHint": "按此间隔发送心跳包；0 表示关闭。"
+    "keepaliveHint": "按此间隔发送心跳包；0 表示关闭。",
+    "cat": {
+      "general": "常规",
+      "terminal": "终端",
+      "keyboard": "键盘",
+      "transfer": "传输",
+      "plugins": "插件",
+      "sync": "同步",
+      "about": "关于"
+    },
+    "tabsTitle": "标签页",
+    "tabNumbering": "标签序号",
+    "tabNumberingAsNeed": "需要时",
+    "tabNumberingAlways": "始终",
+    "tabNumberingNone": "从不",
+    "tabNumberingHint": "在每个会话标签标题前显示序号。",
+    "confirmClose": "关闭运行中的会话前确认",
+    "confirmCloseHint": "关闭仍有进程运行的标签时弹出确认。",
+    "sftpShowHidden": "默认显示隐藏文件",
+    "sftpShowHiddenHint": "新建的 SFTP 面板默认显示隐藏文件。"
   },
   "monitor": {
     "open": "系统监控",
@@ -454,7 +473,14 @@
     "record": "录制会话",
     "stopRecord": "停止录制",
     "recordingStarted": "已开始录制：{path}",
-    "recordingStopped": "录制已保存：{path}"
+    "recordingStopped": "录制已保存：{path}",
+    "closeConfirmTitle": "关闭会话？",
+    "closeConfirmBody": "“{title}”仍在运行，确定关闭吗？"
+  },
+  "about": {
+    "description": "跨平台 SSH 终端与文件传输。",
+    "cleanRoom": "独立实现，不包含其他产品的源代码、图标或界面文案。",
+    "repository": "在 GitHub 上查看源码"
   },
   "terminal": {
     "disconnected": "[会话已断开]",

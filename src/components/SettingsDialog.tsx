@@ -1,12 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri, type RemoteConfig } from "../api";
-import { useAppStore } from "../store";
+import { useAppStore, type TabNumbering } from "../store";
 import { BUILTIN_THEMES } from "../theme";
 import { Modal } from "./Modal";
+import { ShortcutEditor } from "./ShortcutEditor";
+
+const SETTINGS_CATEGORIES = [
+  "general",
+  "terminal",
+  "keyboard",
+  "transfer",
+  "plugins",
+  "sync",
+  "about",
+] as const;
+
+type SettingsCategory = (typeof SETTINGS_CATEGORIES)[number];
 
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
+  const [category, setCategory] = useState<SettingsCategory>("general");
   const theme = useAppStore((s) => s.theme);
   const language = useAppStore((s) => s.language);
   const languagePacks = useAppStore((s) => s.languagePacks);
@@ -18,6 +32,13 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const setTheme = useAppStore((s) => s.setTheme);
   const setLanguage = useAppStore((s) => s.setLanguage);
   const setKeepalive = useAppStore((s) => s.setKeepalive);
+  const tabNumbering = useAppStore((s) => s.tabNumbering);
+  const setTabNumbering = useAppStore((s) => s.setTabNumbering);
+  const confirmClose = useAppStore((s) => s.confirmClose);
+  const setConfirmClose = useAppStore((s) => s.setConfirmClose);
+  const sftpShowHidden = useAppStore((s) => s.sftpShowHidden);
+  const setSftpShowHidden = useAppStore((s) => s.setSftpShowHidden);
+  const resetShortcuts = useAppStore((s) => s.resetShortcuts);
   const loadHosts = useAppStore((s) => s.loadHosts);
   const loadTags = useAppStore((s) => s.loadTags);
   const [passphrase, setPassphrase] = useState("");
@@ -201,13 +222,30 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     <Modal
       title={t("settings.title")}
       onClose={onClose}
+      className="settings"
       footer={
         <button type="button" onClick={onClose}>
           {t("settings.close")}
         </button>
       }
     >
-      <div className="settings-form">
+      <div className="settings-center">
+        <nav className="settings-nav" aria-label={t("settings.title")}>
+          {SETTINGS_CATEGORIES.map((item) => (
+            <button
+              key={item}
+              type="button"
+              className={category === item ? "active" : ""}
+              aria-current={category === item ? "page" : undefined}
+              onClick={() => setCategory(item)}
+            >
+              {t(`settings.cat.${item}`)}
+            </button>
+          ))}
+        </nav>
+        <div className="settings-pane">
+          {category === "general" && (
+            <>
         <fieldset className="settings-group">
           <legend>{t("settings.theme")}</legend>
           <label className="field">
@@ -315,6 +353,39 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           )}
         </fieldset>
 
+        <fieldset className="settings-group">
+          <legend>{t("settings.tabsTitle")}</legend>
+          <label className="field">
+            <span>{t("settings.tabNumbering")}</span>
+            <select
+              value={tabNumbering}
+              onChange={(e) => setTabNumbering(e.target.value as TabNumbering)}
+            >
+              <option value="asNeed">{t("settings.tabNumberingAsNeed")}</option>
+              <option value="always">{t("settings.tabNumberingAlways")}</option>
+              <option value="none">{t("settings.tabNumberingNone")}</option>
+            </select>
+            <span className="hint">{t("settings.tabNumberingHint")}</span>
+          </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={confirmClose}
+              onChange={(e) => setConfirmClose(e.target.checked)}
+            />
+            <span>{t("settings.confirmClose")}</span>
+          </label>
+          <span className="hint">{t("settings.confirmCloseHint")}</span>
+        </fieldset>
+
+        <fieldset className="settings-group">
+          <legend>{t("settings.credentials")}</legend>
+          <p className="hint">{t("settings.credentialsHint")}</p>
+        </fieldset>
+            </>
+          )}
+          {category === "terminal" && (
+            <>
         <label className="field">
           <span>{t("settings.keepalive")}</span>
           <input
@@ -328,7 +399,36 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           />
           <span className="hint">{t("settings.keepaliveHint")}</span>
         </label>
-
+            </>
+          )}
+          {category === "keyboard" && (
+            <>
+        <div className="plugin-actions">
+          <button type="button" onClick={resetShortcuts}>
+            {t("shortcuts.resetAll")}
+          </button>
+        </div>
+        <ShortcutEditor />
+            </>
+          )}
+          {category === "transfer" && (
+            <>
+        <fieldset className="settings-group">
+          <legend>{t("settings.cat.transfer")}</legend>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={sftpShowHidden}
+              onChange={(e) => setSftpShowHidden(e.target.checked)}
+            />
+            <span>{t("settings.sftpShowHidden")}</span>
+          </label>
+          <span className="hint">{t("settings.sftpShowHiddenHint")}</span>
+        </fieldset>
+            </>
+          )}
+          {category === "sync" && (
+            <>
         <fieldset className="settings-group">
           <legend>{t("sync.title")}</legend>
           <p className="hint">{t("sync.hint")}</p>
@@ -471,7 +571,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             <p className="hint sync-message">{remoteMessage}</p>
           )}
         </fieldset>
-
+            </>
+          )}
+          {category === "plugins" && (
+            <>
         <fieldset className="settings-group">
           <legend>{t("plugins.title")}</legend>
           <p className="hint">{t("plugins.hint")}</p>
@@ -539,11 +642,28 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             </details>
           )}
         </fieldset>
-
+            </>
+          )}
+          {category === "about" && (
+            <>
         <fieldset className="settings-group">
-          <legend>{t("settings.credentials")}</legend>
-          <p className="hint">{t("settings.credentialsHint")}</p>
+          <legend>{t("settings.cat.about")}</legend>
+          <p className="about-name">{t("app.name")}</p>
+          <p className="hint">{t("about.description")}</p>
+          <p className="hint">{t("about.cleanRoom")}</p>
+          <p className="hint">
+            <a
+              href="https://github.com/chensnails/ferriterm"
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t("about.repository")}
+            </a>
+          </p>
         </fieldset>
+            </>
+          )}
+        </div>
       </div>
     </Modal>
   );

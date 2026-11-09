@@ -26,7 +26,8 @@ export function TabBar() {
   const activeId = useAppStore((s) => s.activeId);
   const activate = useAppStore((s) => s.activate);
   const goHome = useAppStore((s) => s.goHome);
-  const closeSession = useAppStore((s) => s.closeSession);
+  const requestCloseSession = useAppStore((s) => s.requestCloseSession);
+  const tabNumbering = useAppStore((s) => s.tabNumbering);
   const startRecording = useAppStore((s) => s.startRecording);
   const stopRecording = useAppStore((s) => s.stopRecording);
   const reconnect = useAppStore((s) => s.reconnect);
@@ -61,6 +62,9 @@ export function TabBar() {
 
   const isTerminalView = activeId !== HOME_TAB && activeId !== TRANSFER_TAB;
   const hasActiveSession = sessions.some((s) => s.id === activeId && !s.closed);
+  const showNumbers =
+    tabNumbering === "always" ||
+    (tabNumbering === "asNeed" && sessions.length > 1);
 
   const newMenuItems = (): MenuItem[] => [
     {
@@ -103,7 +107,7 @@ export function TabBar() {
           <HomeIcon />
           <span className="tab-label">{t("app.name")}</span>
         </div>
-        {sessions.map((s) => {
+        {sessions.map((s, index) => {
           const cls = ["tab"];
           if (s.id === activeId) cls.push("active");
           if (s.closed) cls.push("closed");
@@ -124,6 +128,7 @@ export function TabBar() {
               {s.production && (
                 <span className="prod-dot" title={t("hosts.production")} />
               )}
+              {showNumbers && <span className="tab-num">{index + 1}</span>}
               <span className="tab-label">{s.title}</span>
               {s.closed && s.lastConnect && (
                 <button
@@ -165,7 +170,7 @@ export function TabBar() {
                 aria-label={t("sessions.closeTab")}
                 onClick={(e) => {
                   e.stopPropagation();
-                  closeSession(s.id);
+                  requestCloseSession(s.id);
                 }}
               >
                 ×

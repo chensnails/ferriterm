@@ -94,6 +94,9 @@ Single main window:
 | `--font-logo` | `28px` | Home logo mark |
 | `--sidebar-w` | `300px` | host sidebar + settings category pane |
 | `--dialog-w` | `440px` | dialog width cap |
+| `--settings-w` | `760px` | settings center width |
+| `--settings-h` | `540px` | settings center pane height |
+| `--settings-nav-w` | `156px` | settings category nav width |
 | `--split-gutter` | `4px` | split drag handle |
 | `--focus-width` / `--focus-offset` | `2px` / `2px` | keyboard focus ring |
 | `--scrollbar-w` / `--scrollbar-pad` | `10px` / `2px` | thin scrollbar geometry |
@@ -118,7 +121,7 @@ Single main window:
 | ContextMenu | keyboard navigable, submenu support, customizable entries | `--bg-elevated`, `--radius-md` |
 | TagManagerDialog | create/rename/recolor/delete tags; deleting detaches from hosts | `--bg-panel`, `--tag-*` |
 | CommandPalette | fuzzy actions, Ctrl+Shift+P | `--bg-elevated` |
-| SettingsCenter | left category list + right form; search across settings | `--sidebar-w` |
+| SettingsCenter | floating dialog; left category nav (General/Terminal/Keyboard/Transfer/Plugins/Sync/About) + scrolling pane | `--settings-w`, `--settings-h`, `--settings-nav-w` |
 | TerminalView | xterm.js host; theme mapped from tokens | `--font-terminal`, `--bg-base` |
 | StatusStrip / Toast | connection state, transient errors | `--font-ui-sm` |
 

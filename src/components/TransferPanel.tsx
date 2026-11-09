@@ -59,8 +59,12 @@ export function TransferPanel() {
 
   const [localPath, setLocalPath] = useState("");
   const [remotePath, setRemotePath] = useState("");
-  const [localHidden, setLocalHidden] = useState(false);
-  const [remoteHidden, setRemoteHidden] = useState(false);
+  const [localHidden, setLocalHidden] = useState(
+    () => useAppStore.getState().sftpShowHidden,
+  );
+  const [remoteHidden, setRemoteHidden] = useState(
+    () => useAppStore.getState().sftpShowHidden,
+  );
   const [localBookmarks, setLocalBookmarks] = useState<string[]>([]);
   const [remoteBookmarks, setRemoteBookmarks] = useState<string[]>([]);
   const [error, setError] = useState("");

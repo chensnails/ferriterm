@@ -7,6 +7,7 @@ import { TerminalArea } from "./components/TerminalArea";
 import { BrowserBanner } from "./components/BrowserBanner";
 import { ExecutionLog } from "./components/ExecutionLog";
 import { BroadcastDialog } from "./components/BroadcastDialog";
+import { CloseConfirmDialog } from "./components/CloseConfirmDialog";
 import { CommandPalette } from "./components/CommandPalette";
 import { CommandRail } from "./components/CommandRail";
 import { ConnectForm } from "./components/ConnectForm";
@@ -155,6 +156,7 @@ export default function App() {
       <KeyboardInteractivePrompt />
       {broadcastRequested && <BroadcastDialog />}
       <ShortcutsDialog />
+      <CloseConfirmDialog />
       <Suspense fallback={null}>
         {settingsOpen && (
           <SettingsDialog onClose={() => setSettingsOpen(false)} />

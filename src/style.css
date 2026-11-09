@@ -52,6 +52,9 @@
   --font-logo: 28px;
   --sidebar-w: 300px;
   --dialog-w: 440px;
+  --settings-w: 760px;
+  --settings-h: 540px;
+  --settings-nav-w: 156px;
   --split-gutter: 4px;
   --focus-width: 2px;
   --focus-offset: 2px;
@@ -559,6 +562,13 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.tab-num {
+  flex-shrink: 0;
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+  font-variant-numeric: tabular-nums;
 }
 
 .tab-close {
@@ -1500,6 +1510,60 @@ mark {
   gap: var(--space-3);
 }
 
+.settings-center {
+  display: flex;
+  gap: var(--space-4);
+  height: min(var(--settings-h), 70vh);
+}
+
+.settings-nav {
+  flex-shrink: 0;
+  width: var(--settings-nav-w);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow-y: auto;
+}
+
+.settings-nav button {
+  height: auto;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-nav button:hover {
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+}
+
+.settings-nav button.active {
+  background: var(--bg-elevated);
+  border-color: var(--border);
+  color: var(--fg-primary);
+}
+
+.settings-pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  overflow-y: auto;
+  padding-right: var(--space-1);
+}
+
+.about-name {
+  margin: 0;
+  font-size: var(--font-title);
+  font-weight: 600;
+}
+
 .shortcut-list {
   display: flex;
   flex-direction: column;
@@ -2105,6 +2169,10 @@ mark {
 /* File transfer */
 .modal.wide {
   width: min(960px, 96vw, 100%);
+}
+
+.modal.settings {
+  width: min(var(--settings-w), 100%);
 }
 
 .mono {

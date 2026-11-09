@@ -7,9 +7,10 @@ interface ModalProps {
   children: ReactNode;
   footer?: ReactNode;
   wide?: boolean;
+  className?: string;
 }
 
-export function Modal({ title, onClose, children, footer, wide }: ModalProps) {
+export function Modal({ title, onClose, children, footer, wide, className }: ModalProps) {
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -28,7 +29,9 @@ export function Modal({ title, onClose, children, footer, wide }: ModalProps) {
       }}
     >
       <div
-        className={wide ? "modal wide" : "modal"}
+        className={["modal", wide ? "wide" : "", className ?? ""]
+          .filter(Boolean)
+          .join(" ")}
         role="dialog"
         aria-modal="true"
         aria-label={title}

@@ -79,6 +79,8 @@ interface Status {
 
 export type SplitDirection = "horizontal" | "vertical";
 
+export type TabNumbering = "asNeed" | "always" | "none";
+
 export const HOME_TAB = "home";
 export const TRANSFER_TAB = "transfer";
 
@@ -142,6 +144,12 @@ interface AppState {
   setTransfers: (jobs: TransferJob[]) => void;
   keepaliveSecs: number;
   setKeepalive: (seconds: number) => void;
+  tabNumbering: TabNumbering;
+  setTabNumbering: (mode: TabNumbering) => void;
+  confirmClose: boolean;
+  setConfirmClose: (value: boolean) => void;
+  sftpShowHidden: boolean;
+  setSftpShowHidden: (value: boolean) => void;
   shortcuts: ShortcutBindings;
   setShortcut: (action: ShortcutAction, combo: string) => void;
   resetShortcuts: () => void;
@@ -184,6 +192,10 @@ interface AppState {
   saveLayout: () => void;
   restoreLayout: () => Promise<void>;
   closeSession: (id: string) => void;
+  pendingCloseId: string | null;
+  requestCloseSession: (id: string) => void;
+  cancelCloseSession: () => void;
+  confirmCloseSession: () => void;
   activate: (id: string) => void;
   markClosed: (id: string) => void;
   startRecording: (id: string, cols: number, rows: number) => Promise<void>;
@@ -275,6 +287,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   quickConnectOpen: false,
   transfers: [],
   keepaliveSecs: 30,
+  tabNumbering: "asNeed",
+  confirmClose: true,
+  sftpShowHidden: false,
+  pendingCloseId: null,
   shortcuts: { ...SHORTCUT_DEFAULTS },
   commandsOpen: true,
   sidebarOpen: true,
@@ -323,6 +339,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     const value = Math.max(0, Math.round(seconds));
     set({ keepaliveSecs: value });
     if (isTauri) api.setSetting("keepalive", String(value)).catch(() => {});
+  },
+  setTabNumbering: (mode) => {
+    set({ tabNumbering: mode });
+    if (isTauri) api.setSetting("tabNumbering", mode).catch(() => {});
+  },
+  setConfirmClose: (value) => {
+    set({ confirmClose: value });
+    if (isTauri) api.setSetting("confirmClose", value ? "1" : "0").catch(() => {});
+  },
+  setSftpShowHidden: (value) => {
+    set({ sftpShowHidden: value });
+    if (isTauri) api.setSetting("sftpShowHidden", value ? "1" : "0").catch(() => {});
   },
   setShortcut: (action, combo) => {
     const value = combo ? normalizeCombo(combo) : "";
@@ -584,6 +612,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
+  requestCloseSession: (id) => {
+    const state = get();
+    const entry = state.sessions.find((s) => s.id === id);
+    if (!entry) return;
+    if (state.confirmClose && !entry.closed) set({ pendingCloseId: id });
+    else state.closeSession(id);
+  },
+
+  cancelCloseSession: () => set({ pendingCloseId: null }),
+
+  confirmCloseSession: () => {
+    const id = get().pendingCloseId;
+    set({ pendingCloseId: null });
+    if (id) get().closeSession(id);
+  },
+
   activate: (id) =>
     set((s) => ({
       activeId: id,
@@ -688,6 +732,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     const theme = settings.theme || "dark";
     const language = settings.language || get().language;
     const keepalive = Number.parseInt(settings.keepalive ?? "", 10);
+    const numbering = settings.tabNumbering;
+    const tabNumbering: TabNumbering =
+      numbering === "always" || numbering === "none" ? numbering : "asNeed";
     const pack = get().pluginScan?.themes.find((item) => item.id === theme);
     if (pack) applyThemePack(theme, pack.base, pack.tokens);
     else applyTheme(theme);
@@ -696,6 +743,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       theme,
       language,
       keepaliveSecs: Number.isFinite(keepalive) ? keepalive : get().keepaliveSecs,
+      tabNumbering,
+      confirmClose: (settings.confirmClose ?? "1") !== "0",
+      sftpShowHidden: settings.sftpShowHidden === "1",
       commandHistory: parseHistory(settings.commandHistory),
       shortcuts: parseShortcuts(settings.shortcuts),
       sidebarOpen: (settings.sidebarOpen ?? "1") !== "0",
