@@ -128,7 +128,7 @@
 | 终端核心 | 自研 XTerm（部分） | alacritty_terminal | xterm.js（VSCode 验证）；图形协议/录制列进阶期 |
 | SSH 库 | MINA SSHD | russh 0.64 | **russh 0.65**（脚手架已验证） |
 | 本地 PTY | pty4j | portable-pty 0.9 | **portable-pty 0.9**（已验证） |
-| 存储 | SQLite+ORM+加密 | TOML 配置+钥匙串 | SQLite（结构化主机/队列/历史）+ **钥匙串优先、加密文件兜底** |
+| 存储 | SQLite+ORM+加密 | TOML 配置+钥匙串 | SQLite（结构化主机/队列/历史）+ **本地加密保险库（不调用系统钥匙串）** |
 | 扩展机制 | JVM 插件目录 | WASM 沙箱 | 内置模块 + manifest；外部扩展走 **WASM 沙箱** |
 | 安全治理 | 空白 | 权限引擎/审计/托管策略 | 主机密钥 TOFU 必做；审计与权限引擎随 AI 阶段引入 |
 | 测试/工程 | 常规 | 回环 sshd + 三流水线 + 文档驱动 | **全套吸收**（testenv、CI、PRD/UI 规格、token 强制） |
@@ -170,7 +170,7 @@
 - 命令建议与历史下拉、敏感命令过滤（P2/P5）。
 - asciicast v2 录制回放（默认脱敏）、广播输入生产确认、布局快照/启动恢复（P2/P5）。
 - 目录同步（差异预览+删除确认）（P4）。
-- 钥匙串优先+加密兜底、生产主机标记（P1/P3）。
+- 本地加密保险库（不调用系统钥匙串）、生产主机标记（P1/P3）。
 - 命令面板、底部执行日志、右键/快捷键可自定义（P2/P7）。
 - 工程体系：testenv 回环 sshd、CI 三流水线、PRD/UI 规格文档、design token 强制、THIRD_PARTY_NOTICES（P0 起贯穿）。
 
@@ -208,7 +208,7 @@
 | plugin-host | manifest 注册、语言包（纯数据，首个包类型）、内置插件、WASM 沙箱（后期） | `ft-plugin` | 插件管理 UI | P1 |
 | sync | 加密打包、Gist/WebDAV 传输 | `ft-sync` | 设置页 | P1 |
 | ui-shell | 标签栏/工具栏/浮动面板/菜单/命令面板/token | — | `src/shell/` | P0 |
-| security | TOFU、钥匙串、审计接口、权限接口（预留） | `ft-security` | 指纹/确认弹窗 | P0 |
+| security | TOFU、本地加密保险库、审计接口、权限接口（预留） | `ft-security` | 指纹/确认弹窗 | P0 |
 | settings-i18n | 设置中心、主题、i18n（en 源语言 + zh 内置）、语言包加载 | `ft-store` | `src/settings/` | P1 |
 | release-eng | 打包/签名/更新/CI/testenv | `tools/`、`.github/` | — | P0 |
 
@@ -228,7 +228,7 @@
 | i18n | i18next + ICU MessageFormat；en 源语言、zh 内置；语言包经 plugin-host manifest | 英文基础双语；包接口与扩展统一（6.4） | 自研字符串字典（无复数/上下文）→ 否决；Fluent 备选 |
 | SSH | russh 0.65（ring 后端） | 已验证；ShellAX 同库交叉验证 | MINA SSHD 需 JVM → 否决 |
 | PTY | portable-pty 0.9 | 已验证；ShellAX 同库 | — |
-| 存储 | rusqlite + migration；keyring crate（钥匙串优先、加密文件兜底） | Termora 的 SQLite 经验 + ShellAX 的凭据经验 | Exposed 需 JVM → 否决 |
+| 存储 | rusqlite + migration；ring/ChaCha20-Poly1305 本地加密保险库（不调用系统钥匙串） | Termora 的 SQLite 经验 + ShellAX 的凭据经验 | Exposed 需 JVM → 否决 |
 | 异步 | tokio（sync/rt/time） | 与 russh 一致 | — |
 | 扩展 | 内置 trait 对象 + manifest；外部 WASM（wasmtime，沙箱参数学 ShellAX） | 先简后繁 | JVM 插件 → 否决 |
 | 日志/审计 | tracing；审计 JSONL+哈希链接口预留 | ShellAX 范本 | — |
@@ -244,7 +244,7 @@
 | 阶段 | 内容 | 验收 | 估时 |
 |---|---|---|---|
 | **P0 工程基准** | 参考机安装与录屏归档；PRD + UI 规格书（token 表/组件清单/验收章节，学 ShellAX 文档格式）；React 骨架替换 vanilla；workspace crate 拆分；SQLite schema；i18n 骨架（en 源语言 + key 规范）；testenv 回环 sshd；CI ci.yml；THIRD_PARTY_NOTICES | 规格书评审；testenv 内 SSH 登录自动化通过 | 4–5 |
-| **P1 Home 与主机** | 主机树/标签/搜索/右键全菜单/属性框；导入器(Xshell/FinalShell/ssh_config)；钥匙串+兜底；生产标记；多窗口 | 与 Termora Home 逐菜单比对 | 6–8 |
+| **P1 Home 与主机** | 主机树/标签/搜索/右键全菜单/属性框；导入器(Xshell/FinalShell/ssh_config)；本地加密保险库；生产标记；多窗口 | 与 Termora Home 逐菜单比对 | 6–8 |
 | **P2 终端主视图** | 一体化标签+工具栏；分屏拖拽；搜索/快捷键矩阵；命令面板；命令建议+历史下拉+敏感过滤；布局快照/恢复；会话日志；录制接口落地(asciicast v2 脱敏) | 分屏/搜索/建议/恢复矩阵比对；testenv 回归绿 | 8–10 |
 | **P3 SSH 补齐** | 公钥/agent/2FA；TOFU 弹窗；跳板链；-L/-R/-D + 自动启动 + 流量统计；X11 实验性；重连；tmux 保会话可选 | 真机+testenv 认证/转发矩阵全通 | 7–9 |
 | **P4 SFTP 与传输** | 浮动面板/Transfer 多 pane；六列表+右键+rwx 编辑；编辑器窗口+自动上传+冲突检测；队列 6 并发/递归/中继/断点/暂停重试；目录同步(预览+删除确认) | 1GB 队列行为比对；同步差异预览正确 | 10–12 |
@@ -273,7 +273,7 @@
 | russh 能力缺口（X11/agent 平台差异） | 中 | X11 标实验性；Windows agent 走 OpenSSH pipe；必要时上游 PR |
 | A↔B 中继带宽翻倍 | 中 | UI 明示中继；队列限速选项 |
 | GPUI 路线诱惑/技术摇摆 | 中 | 第 8 章已否决并记录理由；变更需 RFC |
-| 凭据安全 | 高 | 钥匙串优先+加密兜底；配置文件零明文；testenv 覆盖凭据路径 |
+| 凭据安全 | 高 | 本地加密保险库（不调用系统钥匙串）；配置文件零明文；testenv 覆盖凭据路径 |
 | 主机密钥 MITM | 高 | P3 TOFU 必做指纹弹窗；known_hosts 持久化 |
 | 浮动面板/拖拽前端复杂度 | 中 | P0 组件库先行；TanStack + 自研 dock 组件；Playwright 冒烟 |
 | 单人带宽 | 中 | 里程碑 dogfood 切分；M4 不承诺日期 |

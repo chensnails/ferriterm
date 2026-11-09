@@ -103,15 +103,12 @@ export function CredentialVault() {
               ? status?.locked
                 ? t("vault.stateLocked")
                 : t("vault.stateUnlocked")
-              : t("vault.stateKeychain")}
+              : t("vault.stateLocal")}
           </span>
           <span className="hint">
-            {t(masterMode ? "vault.modeMaster" : "vault.modeKeychain")}
+            {t(masterMode ? "vault.modeMaster" : "vault.modeLocal")}
           </span>
         </p>
-        {!masterMode && status && !status.keychainAvailable && (
-          <p className="hint">{t("vault.keychainUnavailable")}</p>
-        )}
         <p className="hint">{t("vault.entriesCount", { count: status?.entries ?? 0 })}</p>
         <div className="plugin-actions">
           {masterMode && status?.locked && (

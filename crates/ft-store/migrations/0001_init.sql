@@ -1,6 +1,6 @@
 -- Initial schema: host tree, tags, credential references, settings.
 -- Credential secrets never live here; credentials_ref holds opaque pointers
--- into the keyring / encrypted-file backend (ft-security, P1+).
+-- into the encrypted local vault (ft-security, P1+).
 
 CREATE TABLE hosts (
   id             TEXT PRIMARY KEY,

@@ -125,7 +125,7 @@ Single main window:
 | TagManagerDialog | create/rename/recolor/delete tags; deleting detaches from hosts | `--bg-panel`, `--tag-*` |
 | CommandPalette | fuzzy actions, Ctrl+Shift+P | `--bg-elevated` |
 | SettingsCenter | floating dialog; left category nav (General/Credentials/Terminal/Keyboard/Transfer/Plugins/Sync/About) + scrolling pane; 12 built-in themes (each with a full ANSI palette) plus iTerm2/TOML scheme import; terminal pane offers bundled font presets, custom stacks and a live preview; credentials section manages the vault; the Plugins pane has Installed and Market tabs, the market listing coming from the GitHub-hosted index | `--settings-w`, `--settings-h`, `--settings-nav-w` |
-| CredentialVault | Settings › Credentials pane: vault mode badge (keychain / master password), lock state, unlock/enable/disable/change/reset actions, auto-lock selector, per-host stored-secret list with delete/clear, recent access log | `--bg-panel`, `--radius-md`, `--danger` |
+| CredentialVault | Settings › Credentials pane: vault mode badge (local vault / master password), lock state, unlock/enable/disable/change/reset actions, auto-lock selector, per-host stored-secret list with delete/clear, recent access log | `--bg-panel`, `--radius-md`, `--danger` |
 | KeyManagerDialog | list managed keys (name, algorithm, SHA256 fingerprint, comment, passphrase badge); import from `~/.ssh` scan, a file path, pasted OpenSSH text with live inspection, or generate ed25519/RSA; copy public key; delete | `--dialog-w`, `--font-mono`, `--row-h` |
 | KnownHostsDialog | list trusted host keys (host, port, algorithm, fingerprint) with remove action, opened from the credentials section | `--dialog-w`, `--font-mono`, `--danger` |
 | UnlockDialog | master-password entry on startup or when a connect needs a locked vault; wrong-password feedback and cancel | `--dialog-w`, `--control-h`, `--danger` |
@@ -196,9 +196,9 @@ Acceptance = perform each path in Ferriterm and in the reference install; record
 
 ### 4.6 Credentials, keys and host trust
 
-- [ ] Settings › Credentials shows the vault mode and lock state; keychain mode is the default.
+- [ ] Settings › Credentials shows the vault mode and lock state; the encrypted local vault is the default and the system keychain is never used.
 - [ ] Enabling a master password migrates stored secrets, requires the password on later launches and after auto-lock; cancelling the unlock dialog leaves the app usable but blocks SSH connects with a clear message.
-- [ ] Changing the master password re-encrypts existing entries; disabling it returns to keychain mode; resetting wipes secrets, managed keys and their host references after confirmation.
+- [ ] Changing the master password re-encrypts existing entries; disabling it returns to the local vault; resetting wipes secrets, managed keys and their host references after confirmation.
 - [ ] Auto-lock selects 0/5/15/30/60 minutes of inactivity and locks without a restart.
 - [ ] Stored-secret list shows one row per host with password and/or passphrase entries, each deletable; "clear all" asks for confirmation; deleting a host removes its secrets.
 - [ ] Recent access log lists the last credential reads, writes and deletes with timestamps.

@@ -111,7 +111,7 @@ Milestone tags: M1 = internal dogfood, M2 = public beta, M3 = v1.0.
 | I18N-03 | Other locales as downloadable language packs (manifest + checksum, no code execution) | M3 |
 | I18N-04 | Missing keys fall back to `en` and are reported | M3 |
 | SEC-01 | Host-key TOFU (see SSH-05) | M2 |
-| SEC-02 | Credentials in system keyring first, encrypted-file fallback; never in config files | M1 |
+| SEC-02 | Credentials in an encrypted local vault (the system keychain is never used); never in config files | M1 |
 | SEC-03 | Audit-log and permission-decision traits reserved at P0 even though enforcement lands later | M1 |
 | SEC-04 | Recording/history masking defaults (see TERM-09, TERM-08) | M3 |
 | REL-01 | Signed packages: macOS notarized, Windows signed, Linux deb/AppImage | M3 |

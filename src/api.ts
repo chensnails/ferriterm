@@ -113,12 +113,11 @@ export interface SshConnectArgs {
   rows: number;
 }
 
-export type VaultMode = "keychain" | "master";
+export type VaultMode = "local" | "master";
 
 export interface VaultStatus {
   mode: VaultMode;
   locked: boolean;
-  keychainAvailable: boolean;
   entries: number;
 }
 

@@ -1363,9 +1363,7 @@ pub fn vault_reset(
     store: State<'_, Arc<ft_store::Store>>,
     credentials: State<'_, Credentials>,
 ) -> Result<(), String> {
-    credentials
-        .reset(&known_secret_refs(&store))
-        .map_err(|e| e.to_string())?;
+    credentials.reset().map_err(|e| e.to_string())?;
     let _ = store.clear_vault_entries();
     let _ = store.append_audit("vault.reset", "vault", "all secrets removed");
     Ok(())
@@ -1761,7 +1759,7 @@ pub fn delete_host(
     id: String,
 ) -> Result<(), String> {
     for reference in [password_ref(&id), passphrase_ref(&id), id.clone()] {
-        // Best effort: a failing keychain must not block removing the host.
+        // Best effort: a failing vault delete must not block removing the host.
         if let Err(err) = credentials.delete(&reference) {
             let _ = state.append_audit("secret.delete.failed", &id, &err.to_string());
         }
