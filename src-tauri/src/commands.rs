@@ -406,6 +406,21 @@ pub fn recording_stop(recorders: State<'_, RecorderRegistry>, id: String) -> Opt
 }
 
 #[tauri::command]
+pub fn recording_list(
+    recorders: State<'_, RecorderRegistry>,
+) -> Result<Vec<ft_core::RecordingMeta>, String> {
+    recorders.list()
+}
+
+#[tauri::command]
+pub fn recording_read(
+    recorders: State<'_, RecorderRegistry>,
+    name: String,
+) -> Result<ft_core::CastFile, String> {
+    recorders.read(&name)
+}
+
+#[tauri::command]
 pub fn import_preview(format: String, content: String) -> Result<ft_import::ImportPreview, String> {
     let format = if format == "auto" {
         None

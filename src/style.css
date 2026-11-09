@@ -56,6 +56,8 @@
   --settings-w: 760px;
   --settings-h: 540px;
   --settings-nav-w: 156px;
+  --recordings-list-w: 240px;
+  --player-h: 360px;
   --split-gutter: 4px;
   --focus-width: 2px;
   --focus-offset: 2px;
@@ -2216,6 +2218,112 @@ mark {
 
 .modal.settings {
   width: min(var(--settings-w), 100%);
+}
+
+.recordings-layout {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.recordings-list {
+  flex-shrink: 0;
+  width: var(--recordings-list-w);
+  max-height: calc(var(--settings-h) + var(--space-4));
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.recordings-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  height: auto;
+  padding: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.recordings-item:hover {
+  background: var(--bg-elevated);
+}
+
+.recordings-item.active {
+  background: var(--bg-elevated);
+  border-color: var(--border);
+}
+
+.recordings-item-title {
+  font-size: var(--font-ui);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recordings-item-meta {
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recordings-stage {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.recordings-player {
+  height: var(--player-h);
+  overflow: auto;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+}
+
+.recordings-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.recordings-controls button {
+  height: var(--button-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  cursor: pointer;
+}
+
+.recordings-controls button:hover {
+  background: var(--bg-elevated);
+}
+
+.recordings-controls input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.recordings-controls select {
+  height: var(--button-h);
+}
+
+.recordings-time {
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .mono {

@@ -432,7 +432,19 @@
     "splitDirection": "切换分屏方向",
     "shortcuts": "快捷键",
     "empty": "没有匹配的命令",
-    "log": "切换执行日志"
+    "log": "切换执行日志",
+    "recordings": "回放会话录制"
+  },
+  "recordings": {
+    "title": "会话录像",
+    "loading": "正在加载录像…",
+    "empty": "还没有录像。可在会话标签上的红点处开始录制。",
+    "select": "选择一条录像即可在此回放。",
+    "play": "播放",
+    "pause": "暂停",
+    "restart": "重新播放",
+    "speed": "播放速度",
+    "seek": "播放进度"
   },
   "split": {
     "start": "分屏",

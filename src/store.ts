@@ -168,6 +168,8 @@ interface AppState {
   setSettingsOpen: (open: boolean) => void;
   shortcutsOpen: boolean;
   setShortcutsOpen: (open: boolean) => void;
+  recordingsOpen: boolean;
+  setRecordingsOpen: (open: boolean) => void;
   importRequested: boolean;
   requestImport: () => void;
   clearImportRequest: () => void;
@@ -301,6 +303,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   searchOpen: false,
   settingsOpen: false,
   shortcutsOpen: false,
+  recordingsOpen: false,
   importRequested: false,
   tagsRequested: false,
   newHostRequested: false,
@@ -384,6 +387,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   closeSearch: () => set({ searchOpen: false }),
   setSettingsOpen: (open) => set({ settingsOpen: open }),
   setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
+  setRecordingsOpen: (open) => set({ recordingsOpen: open }),
   requestImport: () => set({ importRequested: true }),
   clearImportRequest: () => set({ importRequested: false }),
   requestNewHost: () => set({ newHostRequested: true, activeId: HOME_TAB }),

@@ -113,6 +113,15 @@ export function ForwardIcon({ size = 14 }: { size?: number }) {
   );
 }
 
+export function PlayIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <circle cx="8" cy="8" r="6" />
+      <path d="M6.8 5.4l3.8 2.6-3.8 2.6z" />
+    </svg>
+  );
+}
+
 export function BroadcastIcon({ size = 14 }: { size?: number }) {
   return (
     <svg {...base(size)}>

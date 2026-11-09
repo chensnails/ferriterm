@@ -39,6 +39,11 @@ const SettingsDialog = lazy(() =>
     default: module.SettingsDialog,
   })),
 );
+const RecordingsDialog = lazy(() =>
+  import("./components/RecordingsDialog").then((module) => ({
+    default: module.RecordingsDialog,
+  })),
+);
 
 const initialConnect = new URLSearchParams(window.location.search).get("connect");
 
@@ -51,6 +56,7 @@ export default function App() {
   const activeId = useAppStore((s) => s.activeId);
   const settingsOpen = useAppStore((s) => s.settingsOpen);
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen);
+  const recordingsOpen = useAppStore((s) => s.recordingsOpen);
   const quickConnectOpen = useAppStore((s) => s.quickConnectOpen);
   const setQuickConnectOpen = useAppStore((s) => s.setQuickConnectOpen);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
@@ -162,6 +168,7 @@ export default function App() {
           <SettingsDialog onClose={() => setSettingsOpen(false)} />
         )}
       </Suspense>
+      <Suspense fallback={null}>{recordingsOpen && <RecordingsDialog />}</Suspense>
       {quickConnectOpen && (
         <Modal
           title={t("connect.quick")}

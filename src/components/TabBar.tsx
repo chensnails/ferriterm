@@ -12,6 +12,7 @@ import {
   HomeIcon,
   ListIcon,
   LogIcon,
+  PlayIcon,
   PlusIcon,
   PulseIcon,
   SearchIcon,
@@ -50,6 +51,8 @@ export function TabBar() {
   const toggleMonitor = useAppStore((s) => s.toggleMonitor);
   const forwardOpen = useAppStore((s) => s.forwardOpen);
   const toggleForward = useAppStore((s) => s.toggleForward);
+  const recordingsOpen = useAppStore((s) => s.recordingsOpen);
+  const setRecordingsOpen = useAppStore((s) => s.setRecordingsOpen);
   const openSearch = useAppStore((s) => s.openSearch);
   const toggleTheme = useAppStore((s) => s.toggleTheme);
   const language = useAppStore((s) => s.language);
@@ -294,6 +297,15 @@ export function TabBar() {
           onClick={toggleForward}
         >
           <ForwardIcon />
+        </button>
+        <button
+          className={recordingsOpen ? "icon-btn active" : "icon-btn"}
+          title={t("recordings.title")}
+          aria-label={t("recordings.title")}
+          aria-pressed={recordingsOpen}
+          onClick={() => setRecordingsOpen(!recordingsOpen)}
+        >
+          <PlayIcon />
         </button>
         <button
           className="icon-btn"

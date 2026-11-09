@@ -21,6 +21,10 @@ interface SearchHit {
   length: number;
 }
 
+export const TERMINAL_FONT_SIZE = 14;
+export const TERMINAL_FONT_FAMILY =
+  '"JetBrains Mono", "Cascadia Code", Menlo, Consolas, "Courier New", monospace';
+
 export class TerminalView implements TerminalHandle {
   readonly term: Terminal;
   readonly ready: Promise<void>;
@@ -50,9 +54,8 @@ export class TerminalView implements TerminalHandle {
   ) {
     this.term = new Terminal({
       cursorBlink: true,
-      fontSize: 14,
-      fontFamily:
-        '"JetBrains Mono", "Cascadia Code", Menlo, Consolas, "Courier New", monospace',
+      fontSize: TERMINAL_FONT_SIZE,
+      fontFamily: TERMINAL_FONT_FAMILY,
       theme: terminalTheme(),
     });
     this.term.loadAddon(this.fit);

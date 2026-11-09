@@ -117,6 +117,11 @@ export function CommandPalette() {
         label: t("palette.log"),
         run: () => store.toggleExecLog(),
       },
+      {
+        id: "recordings",
+        label: t("palette.recordings"),
+        run: () => store.setRecordingsOpen(true),
+      },
     ];
   }, [hosts, t]);
 

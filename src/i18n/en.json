@@ -432,7 +432,19 @@
     "splitDirection": "Toggle split direction",
     "shortcuts": "Keyboard shortcuts",
     "empty": "No matching commands",
-    "log": "Toggle execution log"
+    "log": "Toggle execution log",
+    "recordings": "Replay session recordings"
+  },
+  "recordings": {
+    "title": "Recordings",
+    "loading": "Loading recordings…",
+    "empty": "No recordings yet. Start one from the red dot on a session tab.",
+    "select": "Select a recording to replay it here.",
+    "play": "Play",
+    "pause": "Pause",
+    "restart": "Restart",
+    "speed": "Playback speed",
+    "seek": "Playback position"
   },
   "split": {
     "start": "Split terminal",

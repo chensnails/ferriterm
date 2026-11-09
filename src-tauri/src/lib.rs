@@ -56,6 +56,8 @@ pub fn run() {
             commands::pty_kill,
             commands::recording_start,
             commands::recording_stop,
+            commands::recording_list,
+            commands::recording_read,
             commands::import_preview,
             commands::monitor_sample,
             commands::export_backup,

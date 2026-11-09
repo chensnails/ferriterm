@@ -77,6 +77,27 @@ export interface SshConnectArgs {
 
 export type ImportFormat = "ssh_config" | "xshell" | "finalshell";
 
+export interface RecordingMeta {
+  name: string;
+  title: string;
+  timestamp: number;
+  size: number;
+  width: number;
+  height: number;
+  duration: number;
+}
+
+export interface CastEvent {
+  time: number;
+  data: string;
+}
+
+export interface CastFile {
+  header: { width: number; height: number; timestamp: number; title: string };
+  events: CastEvent[];
+  duration: number;
+}
+
 export interface ImportedHost {
   name: string;
   host: string;
@@ -462,6 +483,8 @@ export const api = {
   recordingStart: (id: string, title: string, cols: number, rows: number) =>
     invoke<string>("recording_start", { id, title, cols, rows }),
   recordingStop: (id: string) => invoke<string | null>("recording_stop", { id }),
+  recordingList: () => invoke<RecordingMeta[]>("recording_list"),
+  recordingRead: (name: string) => invoke<CastFile>("recording_read", { name }),
 
   importPreview: (format: ImportFormat | "auto", content: string) =>
     invoke<ImportPreview>("import_preview", { format, content }),

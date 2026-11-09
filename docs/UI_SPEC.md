@@ -98,6 +98,8 @@ Single main window:
 | `--settings-w` | `760px` | settings center width |
 | `--settings-h` | `540px` | settings center pane height |
 | `--settings-nav-w` | `156px` | settings category nav width |
+| `--recordings-list-w` | `240px` | recordings list column width |
+| `--player-h` | `360px` | asciicast replay viewport height |
 | `--split-gutter` | `4px` | split drag handle |
 | `--focus-width` / `--focus-offset` | `2px` / `2px` | keyboard focus ring |
 | `--scrollbar-w` / `--scrollbar-pad` | `10px` / `2px` | thin scrollbar geometry |
@@ -124,6 +126,7 @@ Single main window:
 | CommandPalette | fuzzy actions, Ctrl+Shift+P | `--bg-elevated` |
 | SettingsCenter | floating dialog; left category nav (General/Terminal/Keyboard/Transfer/Plugins/Sync/About) + scrolling pane | `--settings-w`, `--settings-h`, `--settings-nav-w` |
 | TerminalView | xterm.js host; theme mapped from tokens; inline history suggestion with ghost text and prompt-anchored dropdown | `--font-terminal`, `--bg-base`, `--suggest-w` |
+| RecordingsDialog | list of stored `.cast` files (title, date, length, size); read-only replay with play/pause, restart, seek and 1×/2×/4× speed | `--recordings-list-w`, `--player-h`, `--bg-base` |
 | StatusStrip / Toast | connection state, transient errors | `--font-ui-sm` |
 
 ## 4. Screen specs and acceptance checklists
@@ -151,6 +154,7 @@ Acceptance = perform each path in Ferriterm and in the reference install; record
 - [ ] Typing a prefix of a previous command shows ghost completion at the cursor; Right-arrow or Tab accepts it; Escape/other cursor keys dismiss it.
 - [ ] Up to five matching commands appear in a dropdown below the prompt; clicking one replaces the current line.
 - [ ] Command history is per host when the session belongs to a host, otherwise per session.
+- [ ] Recordings dialog lists saved `.cast` files and replays output-only content with play/pause, restart, seek and speed control.
 - [ ] Closing a session tab prompts only when a process is running (configurable).
 - [ ] Floating SFTP/monitor panels open above terminal without hiding tabs.
 

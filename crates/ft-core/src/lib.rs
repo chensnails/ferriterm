@@ -3,7 +3,7 @@ pub mod recording;
 pub mod session;
 pub mod sink;
 
-pub use recording::RecorderRegistry;
+pub use recording::{CastEvent, CastFile, CastHeader, RecorderRegistry, RecordingMeta};
 pub use session::{
     PtySession, RemoteForwardHandler, ServerKeyVerifier, Session, SessionRegistry, SshHandler,
     SshSession, X11ChannelHandler,
