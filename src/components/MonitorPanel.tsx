@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri, type MonitorSnapshot } from "../api";
 import { useAppStore } from "../store";
+import { IconButton, PanelHeader } from "./ui";
 
 function formatBytes(bytes: number): string {
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -60,16 +61,19 @@ export function MonitorPanel() {
 
   return (
     <section className="monitor-panel" aria-label={t("monitor.title")}>
-      <header className="monitor-head">
-        <h3>{t("monitor.title")}</h3>
-        <button
-          className="icon-btn"
-          aria-label={t("common.close")}
-          onClick={toggleMonitor}
-        >
-          ×
-        </button>
-      </header>
+      <PanelHeader
+        title={t("monitor.title")}
+        compact
+        actions={
+          <IconButton
+            label={t("common.close")}
+            onClick={toggleMonitor}
+            size="sm"
+          >
+            ×
+          </IconButton>
+        }
+      />
       {!isTauri ? (
         <p className="hint">{t("monitor.desktopOnly")}</p>
       ) : !snapshot ? (

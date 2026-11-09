@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { DialogHeader } from "./ui";
 
 interface ModalProps {
   title: string;
@@ -36,12 +37,11 @@ export function Modal({ title, onClose, children, footer, wide, className }: Mod
         aria-modal="true"
         aria-label={title}
       >
-        <header className="modal-head">
-          <h3>{title}</h3>
-          <button className="icon-btn" onClick={onClose} aria-label={t("common.close")}>
-            ×
-          </button>
-        </header>
+        <DialogHeader
+          title={title}
+          closeLabel={t("common.close")}
+          onClose={onClose}
+        />
         <div className="modal-body">{children}</div>
         {footer && <footer className="modal-foot">{footer}</footer>}
       </div>

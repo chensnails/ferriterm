@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
+import { EmptyState, IconButton, Island, PanelHeader } from "./ui";
 
 function formatTime(at: number): string {
   return new Date(at).toLocaleTimeString(undefined, {
@@ -19,31 +20,31 @@ export function ExecutionLog() {
   if (!open) return null;
 
   return (
-    <section className="exec-log" aria-label={t("log.title")}>
-      <header className="exec-log-head">
-        <h3>{t("log.title")}</h3>
-        <div className="exec-log-tools">
-          <button
-            type="button"
-            className="link-btn"
-            onClick={clearExecLog}
-            disabled={entries.length === 0}
-          >
-            {t("log.clear")}
-          </button>
-          <button
-            type="button"
-            className="icon-btn"
-            aria-label={t("common.close")}
-            title={t("common.close")}
-            onClick={toggleExecLog}
-          >
-            ×
-          </button>
-        </div>
-      </header>
+    <Island className="exec-log" plain aria-label={t("log.title")}>
+      <PanelHeader
+        title={t("log.title")}
+        actions={
+          <>
+            <button
+              type="button"
+              className="link-btn"
+              onClick={clearExecLog}
+              disabled={entries.length === 0}
+            >
+              {t("log.clear")}
+            </button>
+            <IconButton
+              label={t("common.close")}
+              onClick={toggleExecLog}
+              size="sm"
+            >
+              ×
+            </IconButton>
+          </>
+        }
+      />
       {entries.length === 0 ? (
-        <p className="hint exec-log-empty">{t("log.empty")}</p>
+        <EmptyState className="exec-log-empty" title={t("log.empty")} />
       ) : (
         <ul className="exec-log-list">
           {entries.map((entry) => (
@@ -57,6 +58,6 @@ export function ExecutionLog() {
           ))}
         </ul>
       )}
-    </section>
+    </Island>
   );
 }
