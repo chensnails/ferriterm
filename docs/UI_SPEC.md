@@ -86,10 +86,10 @@ Single main window:
 | `--space-1..5` | `4, 8, 12, 16, 24px` | spacing scale |
 | `--radius-sm/md/lg` | `4, 6, 10px` | controls / cards / dialogs |
 | `--control-h` | `28px` | inputs |
-| `--button-h` | `32px` | buttons |
-| `--row-h` | `32px` | tree/table rows |
-| `--tab-h` | `36px` | tab bar |
-| `--tab-max-w` | `220px` | maximum width of a session tab |
+| `--button-h` | `30px` | buttons |
+| `--row-h` | `30px` | tree/table rows |
+| `--tab-h` | `30px` | tab bar (compact chrome; 36px total with padding and rule) |
+| `--tab-max-w` | `200px` | maximum width of a session tab |
 | `--home-w` | `720px` | Home content column max width |
 | `--font-logo` | `28px` | Home logo mark |
 | `--sidebar-w` | `300px` | host sidebar + settings category pane |

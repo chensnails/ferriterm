@@ -44,11 +44,11 @@
   --radius-md: 6px;
   --radius-lg: 10px;
   --control-h: 28px;
-  --button-h: 32px;
-  --row-h: 32px;
-  --tab-h: 36px;
-  --tab-max-w: 220px;
-  --title-bar-h: 40px;
+  --button-h: 30px;
+  --row-h: 30px;
+  --tab-h: 30px;
+  --tab-max-w: 200px;
+  --title-bar-h: 36px;
   --home-w: 720px;
   --font-logo: 28px;
   --sidebar-w: 300px;
@@ -84,8 +84,8 @@
   --danger-bg: rgb(239 68 68 / 0.14);
   --divider: var(--border);
   --sub-bg: var(--bg-elevated);
-  --panel-header-h: 36px;
-  --status-bar-h: 28px;
+  --panel-header-h: 32px;
+  --status-bar-h: 24px;
   --status-dot: 6px;
   --activity-rail-w: 40px;
   --tool-strip-w: 40px;
@@ -436,7 +436,7 @@ body {
   display: flex;
   align-items: flex-end;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3) 0;
+  padding: var(--space-1) var(--space-2) 0;
   border-bottom: 1px solid var(--border);
   background: var(--bg-panel);
   flex-shrink: 0;
@@ -555,7 +555,7 @@ body {
   gap: var(--space-2);
   height: var(--tab-h);
   max-width: var(--tab-max-w);
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-2);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   background: var(--bg-panel);
   border: 1px solid var(--border);
