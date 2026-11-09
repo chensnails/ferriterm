@@ -4,6 +4,7 @@ import { isTauri } from "../api";
 import { HOME_TAB, TRANSFER_TAB, useAppStore } from "../store";
 import { terminalHandle } from "../terminal-registry";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
+import { Modal } from "./Modal";
 import {
   BroadcastIcon,
   FilesIcon,
@@ -28,6 +29,10 @@ export function TabBar() {
   const activate = useAppStore((s) => s.activate);
   const goHome = useAppStore((s) => s.goHome);
   const requestCloseSession = useAppStore((s) => s.requestCloseSession);
+  const closeSession = useAppStore((s) => s.closeSession);
+  const renameSession = useAppStore((s) => s.renameSession);
+  const closeOtherSessions = useAppStore((s) => s.closeOtherSessions);
+  const closeAllSessions = useAppStore((s) => s.closeAllSessions);
   const tabNumbering = useAppStore((s) => s.tabNumbering);
   const startRecording = useAppStore((s) => s.startRecording);
   const stopRecording = useAppStore((s) => s.stopRecording);
@@ -62,6 +67,13 @@ export function TabBar() {
   const openSession = useAppStore((s) => s.openSession);
 
   const [newMenu, setNewMenu] = useState<{ x: number; y: number } | null>(null);
+  const [tabMenu, setTabMenu] = useState<{
+    id: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
 
   const isTerminalView = activeId !== HOME_TAB && activeId !== TRANSFER_TAB;
   const hasActiveSession = sessions.some((s) => s.id === activeId && !s.closed);
@@ -81,6 +93,42 @@ export function TabBar() {
       onSelect: () => setQuickConnectOpen(true),
     },
   ];
+
+  const tabMenuItems = (id: string): MenuItem[] => {
+    const entry = sessions.find((s) => s.id === id);
+    if (!entry) return [];
+    return [
+      {
+        label: t("sessions.rename"),
+        onSelect: () => {
+          setRenameId(id);
+          setRenameDraft(entry.title);
+        },
+      },
+      ...(entry.closed && entry.lastConnect
+        ? [
+            {
+              label: t("sessions.reconnect"),
+              onSelect: () => reconnect(id),
+            },
+          ]
+        : []),
+      {
+        label: t("sessions.closeTab"),
+        onSelect: () => requestCloseSession(id),
+      },
+      {
+        label: t("sessions.closeOthers"),
+        disabled: sessions.length < 2,
+        onSelect: () => closeOtherSessions(id),
+      },
+      {
+        label: t("sessions.closeAll"),
+        onSelect: () => closeAllSessions(),
+      },
+      { label: t("sessions.shiftCloseHint"), disabled: true },
+    ];
+  };
 
   return (
     <div id="tabbar">
@@ -126,6 +174,10 @@ export function TabBar() {
                 e.dataTransfer.effectAllowed = "move";
               }}
               onClick={() => activate(s.id)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setTabMenu({ id: s.id, x: e.clientX, y: e.clientY });
+              }}
             >
               <TerminalIcon />
               {s.production && (
@@ -173,7 +225,8 @@ export function TabBar() {
                 aria-label={t("sessions.closeTab")}
                 onClick={(e) => {
                   e.stopPropagation();
-                  requestCloseSession(s.id);
+                  if (e.shiftKey) closeSession(s.id);
+                  else requestCloseSession(s.id);
                 }}
               >
                 ×
@@ -348,6 +401,51 @@ export function TabBar() {
           items={newMenuItems()}
           onClose={() => setNewMenu(null)}
         />
+      )}
+      {tabMenu && (
+        <ContextMenu
+          x={tabMenu.x}
+          y={tabMenu.y}
+          items={tabMenuItems(tabMenu.id)}
+          onClose={() => setTabMenu(null)}
+        />
+      )}
+      {renameId && (
+        <Modal
+          title={t("sessions.renameTitle")}
+          onClose={() => setRenameId(null)}
+        >
+          <form
+            className="form-grid"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!renameDraft.trim()) return;
+              renameSession(renameId, renameDraft);
+              setRenameId(null);
+            }}
+          >
+            <label className="field">
+              <span>{t("sessions.renameLabel")}</span>
+              <input
+                autoFocus
+                value={renameDraft}
+                onChange={(e) => setRenameDraft(e.target.value)}
+              />
+            </label>
+            <div className="actions">
+              <button type="button" onClick={() => setRenameId(null)}>
+                {t("common.cancel")}
+              </button>
+              <button
+                type="submit"
+                className="primary"
+                disabled={!renameDraft.trim()}
+              >
+                {t("sessions.renameSave")}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );

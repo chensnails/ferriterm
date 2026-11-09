@@ -33,6 +33,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const loadLanguagePacks = useAppStore((s) => s.loadLanguagePacks);
   const bumpCommandLibrary = useAppStore((s) => s.bumpCommandLibrary);
   const keepaliveSecs = useAppStore((s) => s.keepaliveSecs);
+  const terminalFontFamily = useAppStore((s) => s.terminalFontFamily);
+  const setTerminalFontFamily = useAppStore((s) => s.setTerminalFontFamily);
+  const terminalFontSize = useAppStore((s) => s.terminalFontSize);
+  const setTerminalFontSize = useAppStore((s) => s.setTerminalFontSize);
+  const terminalScrollback = useAppStore((s) => s.terminalScrollback);
+  const setTerminalScrollback = useAppStore((s) => s.setTerminalScrollback);
+  const terminalCursorBlink = useAppStore((s) => s.terminalCursorBlink);
+  const setTerminalCursorBlink = useAppStore((s) => s.setTerminalCursorBlink);
   const osc52 = useAppStore((s) => s.osc52);
   const setOsc52 = useAppStore((s) => s.setOsc52);
   const keywordHighlights = useAppStore((s) => s.keywordHighlights);
@@ -479,6 +487,63 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           )}
           {category === "terminal" && (
             <>
+        <fieldset className="settings-group">
+          <legend>{t("settings.terminalAppearance")}</legend>
+          <p className="hint">{t("settings.appearanceHint")}</p>
+          <label className="field">
+            <span>{t("settings.fontFamily")}</span>
+            <input
+              value={terminalFontFamily}
+              spellCheck={false}
+              onChange={(e) => setTerminalFontFamily(e.target.value)}
+            />
+            <span className="hint">{t("settings.fontFamilyHint")}</span>
+          </label>
+          <label className="field">
+            <span>{t("settings.fontSize")}</span>
+            <select
+              value={terminalFontSize}
+              onChange={(e) => setTerminalFontSize(Number(e.target.value))}
+            >
+              {Array.from(
+                new Set([10, 12, 13, 14, 15, 16, 18, 20, 24, 28, 32, terminalFontSize]),
+              )
+                .sort((a, b) => a - b)
+                .map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>{t("settings.scrollback")}</span>
+            <select
+              value={terminalScrollback}
+              onChange={(e) => setTerminalScrollback(Number(e.target.value))}
+            >
+              {Array.from(
+                new Set([1000, 2000, 5000, 10000, 20000, 50000, terminalScrollback]),
+              )
+                .sort((a, b) => a - b)
+                .map((lines) => (
+                  <option key={lines} value={lines}>
+                    {lines}
+                  </option>
+                ))}
+            </select>
+            <span className="hint">{t("settings.scrollbackHint")}</span>
+          </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={terminalCursorBlink}
+              onChange={(e) => setTerminalCursorBlink(e.target.checked)}
+            />
+            <span>{t("settings.cursorBlink")}</span>
+          </label>
+        </fieldset>
+
         <label className="field">
           <span>{t("settings.keepalive")}</span>
           <input

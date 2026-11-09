@@ -33,6 +33,13 @@ import i18n, {
   type Language,
 } from "./i18n";
 
+// Terminal appearance defaults live here (instead of terminal.ts) so the store
+// can own persisted settings without a circular import back into terminal.ts.
+export const DEFAULT_TERMINAL_FONT_SIZE = 14;
+export const DEFAULT_TERMINAL_FONT_FAMILY =
+  '"JetBrains Mono", "Cascadia Code", Menlo, Consolas, "Courier New", monospace';
+export const DEFAULT_TERMINAL_SCROLLBACK = 5000;
+
 export interface LanguageOption {
   id: string;
   name: string;
@@ -203,6 +210,14 @@ interface AppState {
   setTransfers: (jobs: TransferJob[]) => void;
   keepaliveSecs: number;
   setKeepalive: (seconds: number) => void;
+  terminalFontFamily: string;
+  setTerminalFontFamily: (value: string) => void;
+  terminalFontSize: number;
+  setTerminalFontSize: (value: number) => void;
+  terminalScrollback: number;
+  setTerminalScrollback: (value: number) => void;
+  terminalCursorBlink: boolean;
+  setTerminalCursorBlink: (value: boolean) => void;
   osc52: boolean;
   setOsc52: (enabled: boolean) => void;
   keywordHighlights: KeywordRule[];
@@ -257,6 +272,9 @@ interface AppState {
   saveLayout: () => void;
   restoreLayout: () => Promise<void>;
   closeSession: (id: string) => void;
+  renameSession: (id: string, title: string) => void;
+  closeOtherSessions: (id: string) => void;
+  closeAllSessions: () => void;
   pendingCloseId: string | null;
   requestCloseSession: (id: string) => void;
   cancelCloseSession: () => void;
@@ -356,6 +374,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   quickConnectOpen: false,
   transfers: [],
   keepaliveSecs: 30,
+  terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
+  terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
+  terminalScrollback: DEFAULT_TERMINAL_SCROLLBACK,
+  terminalCursorBlink: true,
   osc52: true,
   keywordHighlights: DEFAULT_KEYWORD_RULES,
   tabNumbering: "asNeed",
@@ -411,6 +433,43 @@ export const useAppStore = create<AppState>((set, get) => ({
     const value = Math.max(0, Math.round(seconds));
     set({ keepaliveSecs: value });
     if (isTauri) api.setSetting("keepalive", String(value)).catch(() => {});
+  },
+  setTerminalFontFamily: (value) => {
+    const terminalFontFamily = value.trim() || DEFAULT_TERMINAL_FONT_FAMILY;
+    set({ terminalFontFamily });
+    if (isTauri) {
+      api.setSetting("terminalFontFamily", terminalFontFamily).catch(() => {});
+    }
+  },
+  setTerminalFontSize: (value) => {
+    const terminalFontSize = Math.min(
+      32,
+      Math.max(8, Math.round(value) || DEFAULT_TERMINAL_FONT_SIZE),
+    );
+    set({ terminalFontSize });
+    if (isTauri) {
+      api.setSetting("terminalFontSize", String(terminalFontSize)).catch(() => {});
+    }
+  },
+  setTerminalScrollback: (value) => {
+    const terminalScrollback = Math.min(
+      50000,
+      Math.max(200, Math.round(value) || DEFAULT_TERMINAL_SCROLLBACK),
+    );
+    set({ terminalScrollback });
+    if (isTauri) {
+      api
+        .setSetting("terminalScrollback", String(terminalScrollback))
+        .catch(() => {});
+    }
+  },
+  setTerminalCursorBlink: (value) => {
+    set({ terminalCursorBlink: value });
+    if (isTauri) {
+      api
+        .setSetting("terminalCursorBlink", value ? "1" : "0")
+        .catch(() => {});
+    }
   },
   setOsc52: (enabled) => {
     set({ osc52: enabled });
@@ -699,6 +758,46 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
+  renameSession: (id, title) =>
+    set((s) => ({
+      sessions: s.sessions.map((x) =>
+        x.id === id ? { ...x, title: title.trim() || x.title } : x,
+      ),
+    })),
+
+  closeOtherSessions: (id) => {
+    const state = get();
+    if (!state.sessions.some((s) => s.id === id)) return;
+    state.sessions
+      .filter((session) => session.id !== id)
+      .forEach((session) => {
+        api.close(session.kind, session.id).catch(() => {});
+        if (session.recording) api.recordingStop(session.id).catch(() => {});
+      });
+    set((s) => ({
+      sessions: s.sessions.filter((x) => x.id === id),
+      activeId: id,
+      splitId: null,
+      broadcastTargets: s.broadcastTargets.filter((target) => target === id),
+      focusedSessionId: s.focusedSessionId === id ? s.focusedSessionId : null,
+    }));
+  },
+
+  closeAllSessions: () => {
+    const state = get();
+    state.sessions.forEach((session) => {
+      api.close(session.kind, session.id).catch(() => {});
+      if (session.recording) api.recordingStop(session.id).catch(() => {});
+    });
+    set({
+      sessions: [],
+      activeId: HOME_TAB,
+      splitId: null,
+      broadcastTargets: [],
+      focusedSessionId: null,
+    });
+  },
+
   requestCloseSession: (id) => {
     const state = get();
     const entry = state.sessions.find((s) => s.id === id);
@@ -853,6 +952,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     const theme = settings.theme || "dark";
     const language = settings.language || get().language;
     const keepalive = Number.parseInt(settings.keepalive ?? "", 10);
+    const fontSize = Number.parseInt(settings.terminalFontSize ?? "", 10);
+    const scrollback = Number.parseInt(settings.terminalScrollback ?? "", 10);
+    const fontFamily = settings.terminalFontFamily?.trim();
     const numbering = settings.tabNumbering;
     const tabNumbering: TabNumbering =
       numbering === "always" || numbering === "none" ? numbering : "asNeed";
@@ -876,6 +978,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       importedThemes,
       language,
       keepaliveSecs: Number.isFinite(keepalive) ? keepalive : get().keepaliveSecs,
+      terminalFontFamily: fontFamily || DEFAULT_TERMINAL_FONT_FAMILY,
+      terminalFontSize: Number.isFinite(fontSize)
+        ? Math.min(32, Math.max(8, fontSize))
+        : get().terminalFontSize,
+      terminalScrollback: Number.isFinite(scrollback)
+        ? Math.min(50000, Math.max(200, scrollback))
+        : get().terminalScrollback,
+      terminalCursorBlink: (settings.terminalCursorBlink ?? "1") !== "0",
       osc52: (settings.osc52 ?? "1") !== "0",
       keywordHighlights: parseKeywordRules(settings.keywordHighlights),
       tabNumbering,

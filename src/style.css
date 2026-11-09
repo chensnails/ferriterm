@@ -326,7 +326,8 @@ body {
   flex: 1;
 }
 
-#conn-form input {
+#conn-form input,
+#conn-form select {
   background: var(--bg-base);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -339,7 +340,8 @@ body {
   transition: border-color var(--motion-fast);
 }
 
-#conn-form input:focus {
+#conn-form input:focus,
+#conn-form select:focus {
   border-color: var(--accent);
 }
 
@@ -2024,6 +2026,13 @@ mark {
 .rail-mini:hover {
   color: var(--danger);
   background: var(--bg-elevated);
+}
+
+.rail-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 0 0 auto;
 }
 
 .rail-foot {

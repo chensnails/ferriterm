@@ -565,6 +565,12 @@ export const api = {
 export const outputEvent = (id: string) => `terminal://${id}/output`;
 export const closedEvent = (id: string) => `terminal://${id}/closed`;
 export const transferUpdateEvent = "transfer://update";
+export const forwardErrorEvent = "forward://error";
+
+export interface ForwardError {
+  sessionId: string;
+  message: string;
+}
 
 export function onOutput(
   id: string,
@@ -581,4 +587,10 @@ export function onTransferUpdate(
   cb: (job: TransferJob) => void,
 ): Promise<UnlistenFn> {
   return listen<TransferJob>(transferUpdateEvent, (e) => cb(e.payload));
+}
+
+export function onForwardError(
+  cb: (error: ForwardError) => void,
+): Promise<UnlistenFn> {
+  return listen<ForwardError>(forwardErrorEvent, (e) => cb(e.payload));
 }

@@ -19,7 +19,12 @@ import { terminalTheme } from "./theme";
 import i18n from "./i18n";
 import { historyForHost, historyMatches } from "./history";
 import { blendHex } from "./scheme";
-import { useAppStore, type KeywordRule } from "./store";
+import {
+  DEFAULT_TERMINAL_FONT_FAMILY,
+  DEFAULT_TERMINAL_FONT_SIZE,
+  useAppStore,
+  type KeywordRule,
+} from "./store";
 
 interface SearchHit {
   row: number;
@@ -27,9 +32,27 @@ interface SearchHit {
   length: number;
 }
 
-export const TERMINAL_FONT_SIZE = 14;
-export const TERMINAL_FONT_FAMILY =
-  '"JetBrains Mono", "Cascadia Code", Menlo, Consolas, "Courier New", monospace';
+// Kept for the asciicast replay viewer (cast.ts), which always uses the
+// default font stack; live terminals read the user's appearance settings.
+export const TERMINAL_FONT_SIZE = DEFAULT_TERMINAL_FONT_SIZE;
+export const TERMINAL_FONT_FAMILY = DEFAULT_TERMINAL_FONT_FAMILY;
+
+interface TerminalAppearance {
+  fontFamily: string;
+  fontSize: number;
+  scrollback: number;
+  cursorBlink: boolean;
+}
+
+function currentAppearance(): TerminalAppearance {
+  const state = useAppStore.getState();
+  return {
+    fontFamily: state.terminalFontFamily,
+    fontSize: state.terminalFontSize,
+    scrollback: state.terminalScrollback,
+    cursorBlink: state.terminalCursorBlink,
+  };
+}
 
 export class TerminalView implements TerminalHandle {
   readonly term: Terminal;
@@ -63,11 +86,13 @@ export class TerminalView implements TerminalHandle {
     private readonly container: HTMLElement,
     onSessionClosed: () => void,
   ) {
+    const appearance = currentAppearance();
     this.term = new Terminal({
       allowProposedApi: true,
-      cursorBlink: true,
-      fontSize: TERMINAL_FONT_SIZE,
-      fontFamily: TERMINAL_FONT_FAMILY,
+      cursorBlink: appearance.cursorBlink,
+      fontSize: appearance.fontSize,
+      fontFamily: appearance.fontFamily,
+      scrollback: appearance.scrollback,
       theme: terminalTheme(),
     });
     this.term.loadAddon(this.fit);
@@ -140,6 +165,15 @@ export class TerminalView implements TerminalHandle {
   refreshTheme() {
     this.term.options.theme = terminalTheme();
     this.scheduleKeywords(true);
+  }
+
+  refreshAppearance() {
+    const appearance = currentAppearance();
+    this.term.options.fontFamily = appearance.fontFamily;
+    this.term.options.fontSize = appearance.fontSize;
+    this.term.options.scrollback = appearance.scrollback;
+    this.term.options.cursorBlink = appearance.cursorBlink;
+    this.fit.fit();
   }
 
   setKeywords(rules: KeywordRule[]) {

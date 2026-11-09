@@ -40,7 +40,7 @@ function runAction(action: ShortcutAction): boolean {
         return true;
       }
       if (!store.activeId || store.activeId === HOME_TAB) return false;
-      store.closeSession(store.activeId);
+      store.requestCloseSession(store.activeId);
       return true;
     case "nextTab":
       if (store.sessions.length < 2) return false;

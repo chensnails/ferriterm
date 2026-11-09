@@ -18,6 +18,10 @@ export function TerminalPanel({
   const viewRef = useRef<TerminalView | null>(null);
   const themeVersion = useAppStore((s) => s.themeVersion);
   const keywordHighlights = useAppStore((s) => s.keywordHighlights);
+  const terminalFontFamily = useAppStore((s) => s.terminalFontFamily);
+  const terminalFontSize = useAppStore((s) => s.terminalFontSize);
+  const terminalScrollback = useAppStore((s) => s.terminalScrollback);
+  const terminalCursorBlink = useAppStore((s) => s.terminalCursorBlink);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -71,6 +75,15 @@ export function TerminalPanel({
   useEffect(() => {
     viewRef.current?.setKeywords(keywordHighlights);
   }, [keywordHighlights]);
+
+  useEffect(() => {
+    viewRef.current?.refreshAppearance();
+  }, [
+    terminalFontFamily,
+    terminalFontSize,
+    terminalScrollback,
+    terminalCursorBlink,
+  ]);
 
   const menuItems = (): MenuItem[] => {
     const view = viewRef.current;

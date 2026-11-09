@@ -30,10 +30,22 @@
     "username": "Username",
     "usernamePlaceholder": "root",
     "password": "Password",
-    "passwordPlaceholder": "Password (key auth not yet supported)",
+    "passwordPlaceholder": "Password",
     "submit": "Connect SSH",
     "local": "Local terminal",
-    "connecting": "Connecting…"
+    "connecting": "Connecting…",
+    "authMethod": "Authentication",
+    "authPassword": "Password",
+    "authKey": "Private key",
+    "authAgent": "SSH agent",
+    "authInteractive": "Keyboard-interactive (2FA)",
+    "keyPath": "Private key file",
+    "keyPathPlaceholder": "~/.ssh/id_ed25519",
+    "passphrase": "Key passphrase",
+    "uriHint": "Paste ssh://user@host:port to fill in host, user and port.",
+    "agentHint": "Uses the keys already loaded in your SSH agent.",
+    "interactiveHint": "The server will prompt for passwords or one-time codes during sign-in.",
+    "invalidHost": "Enter a host and username, or paste an ssh:// URI."
   },
   "hosts": {
     "title": "Hosts",
@@ -213,7 +225,15 @@
     "confirmClose": "Confirm before closing a running session",
     "confirmCloseHint": "Ask for confirmation when a tab with an active process is closed.",
     "sftpShowHidden": "Show hidden files by default",
-    "sftpShowHiddenHint": "New SFTP panes start with hidden files visible."
+    "sftpShowHiddenHint": "New SFTP panes start with hidden files visible.",
+    "terminalAppearance": "Terminal appearance",
+    "appearanceHint": "Changes apply to open terminals immediately.",
+    "fontFamily": "Font family",
+    "fontFamilyHint": "Comma-separated font stack used by the terminal.",
+    "fontSize": "Font size",
+    "scrollback": "Scrollback lines",
+    "scrollbackHint": "Number of lines kept in terminal history.",
+    "cursorBlink": "Blinking cursor"
   },
   "monitor": {
     "open": "System monitor",
@@ -267,7 +287,8 @@
     "noRules": "No saved forwarding rules.",
     "autoStart": "Auto-start",
     "deleteRule": "Delete rule",
-    "desktopOnly": "Available in the desktop app."
+    "desktopOnly": "Available in the desktop app.",
+    "autoStartError": "Automatic port forwarding failed: {message}"
   },
   "commands": {
     "title": "Quick commands",
@@ -288,7 +309,11 @@
     "clearHistory": "Clear history",
     "variablesTitle": "Run {name}",
     "variablesHint": "Fill in the template variables, then insert the command into the focused terminal.",
-    "insert": "Insert"
+    "insert": "Insert",
+    "editCommand": "Edit command",
+    "editGroup": "Rename group",
+    "saveCommand": "Save command",
+    "saveGroup": "Save group"
   },
   "sync": {
     "title": "Encrypted backup",
@@ -508,7 +533,14 @@
     "recordingStarted": "Recording started: {path}",
     "recordingStopped": "Recording saved: {path}",
     "closeConfirmTitle": "Close session?",
-    "closeConfirmBody": "\"{title}\" is still running. Close it anyway?"
+    "closeConfirmBody": "\"{title}\" is still running. Close it anyway?",
+    "rename": "Rename tab",
+    "renameTitle": "Rename tab",
+    "renameLabel": "Tab title",
+    "renameSave": "Save",
+    "closeOthers": "Close other tabs",
+    "closeAll": "Close all tabs",
+    "shiftCloseHint": "Shift-click × closes without confirmation"
   },
   "about": {
     "description": "Cross-platform SSH terminal and file transfer.",

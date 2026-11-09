@@ -25,6 +25,11 @@ export function CommandRail() {
     name: string;
     template: string;
   } | null>(null);
+  const [editing, setEditing] = useState<
+    | { type: "group"; id: string }
+    | { type: "command"; id: string; groupId: string }
+    | null
+  >(null);
 
   const reload = async () => {
     if (!isTauri) return;
@@ -45,13 +50,24 @@ export function CommandRail() {
 
   if (!open) return null;
 
+  const clearEdit = () => {
+    setEditing(null);
+    setGroupName("");
+    setName("");
+    setTemplate("");
+  };
+
   const addGroup = async (e: FormEvent) => {
     e.preventDefault();
     const trimmed = groupName.trim();
     if (!trimmed) return;
     try {
-      await api.createCommandGroup(crypto.randomUUID(), trimmed);
-      setGroupName("");
+      if (editing?.type === "group") {
+        await api.updateCommandGroup(editing.id, trimmed);
+      } else {
+        await api.createCommandGroup(crypto.randomUUID(), trimmed);
+      }
+      clearEdit();
       await reload();
     } catch (err) {
       setStatus(String(err), true);
@@ -64,14 +80,17 @@ export function CommandRail() {
     const itemTemplate = template.trim();
     if (!itemName || !itemTemplate || !groupId) return;
     try {
-      await api.createCommand(
-        crypto.randomUUID(),
-        groupId,
-        itemName,
-        itemTemplate,
-      );
-      setName("");
-      setTemplate("");
+      if (editing?.type === "command") {
+        await api.updateCommand(editing.id, itemName, itemTemplate);
+      } else {
+        await api.createCommand(
+          crypto.randomUUID(),
+          groupId,
+          itemName,
+          itemTemplate,
+        );
+      }
+      clearEdit();
       await reload();
     } catch (err) {
       setStatus(String(err), true);
@@ -81,6 +100,7 @@ export function CommandRail() {
   const removeCommand = async (id: string) => {
     try {
       await api.deleteCommand(id);
+      if (editing?.type === "command" && editing.id === id) clearEdit();
       await reload();
     } catch (err) {
       setStatus(String(err), true);
@@ -90,6 +110,9 @@ export function CommandRail() {
   const removeGroup = async (id: string) => {
     try {
       await api.deleteCommandGroup(id);
+      if (editing && (editing.id === id || ("groupId" in editing && editing.groupId === id))) {
+        clearEdit();
+      }
       await reload();
     } catch (err) {
       setStatus(String(err), true);
@@ -169,14 +192,29 @@ export function CommandRail() {
           <section key={group.id} className="command-group">
             <header className="command-group-head">
               <span>{group.name}</span>
-              <button
-                className="rail-mini"
-                title={t("commands.deleteGroup")}
-                aria-label={t("commands.deleteGroup")}
-                onClick={() => removeGroup(group.id)}
-              >
-                ×
-              </button>
+              <span className="rail-tools">
+                <button
+                  className="rail-mini"
+                  title={t("commands.editGroup")}
+                  aria-label={t("commands.editGroup")}
+                  onClick={() => {
+                    setEditing({ type: "group", id: group.id });
+                    setGroupName(group.name);
+                    setName("");
+                    setTemplate("");
+                  }}
+                >
+                  ✎
+                </button>
+                <button
+                  className="rail-mini"
+                  title={t("commands.deleteGroup")}
+                  aria-label={t("commands.deleteGroup")}
+                  onClick={() => removeGroup(group.id)}
+                >
+                  ×
+                </button>
+              </span>
             </header>
             {group.commands.map((item) => (
               <div key={item.id} className="command-item">
@@ -186,6 +224,24 @@ export function CommandRail() {
                   onClick={() => runCommand(item.name, item.template)}
                 >
                   {item.name}
+                </button>
+                <button
+                  className="rail-mini"
+                  title={t("commands.editCommand")}
+                  aria-label={t("commands.editCommand")}
+                  onClick={() => {
+                    setEditing({
+                      type: "command",
+                      id: item.id,
+                      groupId: group.id,
+                    });
+                    setGroupId(group.id);
+                    setName(item.name);
+                    setTemplate(item.template);
+                    setGroupName("");
+                  }}
+                >
+                  ✎
                 </button>
                 <button
                   className="rail-mini"
@@ -202,46 +258,65 @@ export function CommandRail() {
       </div>
 
       <footer className="rail-foot">
-        <form className="rail-form" onSubmit={addCommand}>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t("commands.name")}
-          />
-          <input
-            value={template}
-            onChange={(e) => setTemplate(e.target.value)}
-            placeholder={t("commands.template")}
-          />
-          <select
-            value={groupId}
-            onChange={(e) => setGroupId(e.target.value)}
-            aria-label={t("commands.group")}
-          >
-            {groups.map((group) => (
-              <option key={group.id} value={group.id}>
-                {group.name}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            className="primary"
-            disabled={!groupId || !name.trim() || !template.trim()}
-          >
-            {t("commands.addCommand")}
-          </button>
-        </form>
-        <form className="rail-form" onSubmit={addGroup}>
-          <input
-            value={groupName}
-            onChange={(e) => setGroupName(e.target.value)}
-            placeholder={t("commands.newGroup")}
-          />
-          <button type="submit" disabled={!groupName.trim()}>
-            {t("commands.addGroup")}
-          </button>
-        </form>
+        {editing?.type !== "group" && (
+          <form className="rail-form" onSubmit={addCommand}>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t("commands.name")}
+            />
+            <input
+              value={template}
+              onChange={(e) => setTemplate(e.target.value)}
+              placeholder={t("commands.template")}
+            />
+            <select
+              value={groupId}
+              disabled={editing?.type === "command"}
+              onChange={(e) => setGroupId(e.target.value)}
+              aria-label={t("commands.group")}
+            >
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="primary"
+              disabled={!groupId || !name.trim() || !template.trim()}
+            >
+              {editing?.type === "command"
+                ? t("commands.saveCommand")
+                : t("commands.addCommand")}
+            </button>
+            {editing?.type === "command" && (
+              <button type="button" onClick={clearEdit}>
+                {t("common.cancel")}
+              </button>
+            )}
+          </form>
+        )}
+        {editing?.type !== "command" && (
+          <form className="rail-form" onSubmit={addGroup}>
+            <input
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              placeholder={t("commands.newGroup")}
+            />
+            <button type="submit" disabled={!groupName.trim()}>
+              {editing?.type === "group"
+                ? t("commands.saveGroup")
+                : t("commands.addGroup")}
+            </button>
+            {editing?.type === "group" && (
+              <button type="button" onClick={clearEdit}>
+                {t("common.cancel")}
+              </button>
+            )}
+          </form>
+        )}
       </footer>
       {pending && (
         <CommandVarsDialog

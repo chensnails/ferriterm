@@ -15,7 +15,8 @@ import { HostKeyPrompt } from "./components/HostKeyPrompt";
 import { KeyboardInteractivePrompt } from "./components/KeyboardInteractivePrompt";
 import { Modal } from "./components/Modal";
 import { ShortcutsDialog } from "./components/ShortcutsDialog";
-import { api, isTauri, onTransferUpdate } from "./api";
+import { api, isTauri, onForwardError, onTransferUpdate } from "./api";
+import i18n from "./i18n";
 import { installShortcuts } from "./shortcuts";
 import { HOME_TAB, TRANSFER_TAB, useAppStore } from "./store";
 
@@ -71,23 +72,42 @@ export default function App() {
   useEffect(() => {
     if (!isTauri) return;
     let disposed = false;
-    let unlisten: (() => void) | undefined;
+    const stops: (() => void)[] = [];
     void (async () => {
       try {
         const jobs = await api.transferList();
         if (!disposed) useAppStore.getState().setTransfers(jobs);
+      } catch {
+        // the transfer list is best-effort
+      }
+      try {
         const stop = await onTransferUpdate((job) =>
           useAppStore.getState().upsertTransfer(job),
         );
         if (disposed) stop();
-        else unlisten = stop;
+        else stops.push(stop);
       } catch {
         // transfer events are best-effort
+      }
+      try {
+        const stop = await onForwardError((error) => {
+          const message = i18n.t("forward.autoStartError", {
+            message: error.message,
+          });
+          const state = useAppStore.getState();
+          state.setStatus(message, true);
+          state.logEvent(message);
+          if (!state.execLogOpen) state.toggleExecLog();
+        });
+        if (disposed) stop();
+        else stops.push(stop);
+      } catch {
+        // forwarding diagnostics are best-effort
       }
     })();
     return () => {
       disposed = true;
-      unlisten?.();
+      stops.forEach((stop) => stop());
     };
   }, []);
 

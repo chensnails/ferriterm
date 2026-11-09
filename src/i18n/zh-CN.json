@@ -30,10 +30,22 @@
     "username": "用户名",
     "usernamePlaceholder": "root",
     "password": "密码",
-    "passwordPlaceholder": "密码（暂不支持密钥登录）",
+    "passwordPlaceholder": "密码",
     "submit": "连接 SSH",
     "local": "本地终端",
-    "connecting": "正在连接…"
+    "connecting": "正在连接…",
+    "authMethod": "认证方式",
+    "authPassword": "密码",
+    "authKey": "私钥",
+    "authAgent": "SSH agent",
+    "authInteractive": "键盘交互（2FA）",
+    "keyPath": "私钥文件",
+    "keyPathPlaceholder": "~/.ssh/id_ed25519",
+    "passphrase": "私钥口令",
+    "uriHint": "粘贴 ssh://user@host:port 可自动填写主机、用户名与端口。",
+    "agentHint": "使用 SSH agent 中已加载的密钥。",
+    "interactiveHint": "服务端将在登录时提示输入密码或一次性验证码。",
+    "invalidHost": "请输入主机和用户名，或粘贴 ssh:// URI。"
   },
   "hosts": {
     "title": "主机",
@@ -213,7 +225,15 @@
     "confirmClose": "关闭运行中的会话前确认",
     "confirmCloseHint": "关闭仍有进程运行的标签时弹出确认。",
     "sftpShowHidden": "默认显示隐藏文件",
-    "sftpShowHiddenHint": "新建的 SFTP 面板默认显示隐藏文件。"
+    "sftpShowHiddenHint": "新建的 SFTP 面板默认显示隐藏文件。",
+    "terminalAppearance": "终端外观",
+    "appearanceHint": "修改会立即作用于已打开的终端。",
+    "fontFamily": "字体",
+    "fontFamilyHint": "终端使用的字体，多个字体用逗号分隔。",
+    "fontSize": "字号",
+    "scrollback": "回滚行数",
+    "scrollbackHint": "终端历史保留的行数。",
+    "cursorBlink": "光标闪烁"
   },
   "monitor": {
     "open": "系统监控",
@@ -267,7 +287,8 @@
     "noRules": "暂无已保存的转发规则。",
     "autoStart": "自动启动",
     "deleteRule": "删除规则",
-    "desktopOnly": "仅在桌面应用中可用。"
+    "desktopOnly": "仅在桌面应用中可用。",
+    "autoStartError": "自动端口转发失败：{message}"
   },
   "commands": {
     "title": "快捷指令",
@@ -288,7 +309,11 @@
     "clearHistory": "清空历史",
     "variablesTitle": "执行 {name}",
     "variablesHint": "填写模板变量后，将命令插入当前焦点终端。",
-    "insert": "插入"
+    "insert": "插入",
+    "editCommand": "编辑指令",
+    "editGroup": "重命名分组",
+    "saveCommand": "保存指令",
+    "saveGroup": "保存分组"
   },
   "sync": {
     "title": "加密备份",
@@ -508,7 +533,14 @@
     "recordingStarted": "已开始录制：{path}",
     "recordingStopped": "录制已保存：{path}",
     "closeConfirmTitle": "关闭会话？",
-    "closeConfirmBody": "“{title}”仍在运行，确定关闭吗？"
+    "closeConfirmBody": "“{title}”仍在运行，确定关闭吗？",
+    "rename": "重命名标签",
+    "renameTitle": "重命名标签",
+    "renameLabel": "标签标题",
+    "renameSave": "保存",
+    "closeOthers": "关闭其他标签",
+    "closeAll": "关闭所有标签",
+    "shiftCloseHint": "按住 Shift 单击 × 可直接关闭"
   },
   "about": {
     "description": "跨平台 SSH 终端与文件传输。",
