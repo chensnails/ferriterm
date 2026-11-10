@@ -424,6 +424,8 @@
     "perSecond": "/s",
     "disksEmpty": "主机未报告任何文件系统。",
     "netEmpty": "未获取到网卡计数。",
+    "primaryAdapter": "主用网卡",
+    "netTotals": "累计接收 {rx} · 发送 {tx}",
     "procEmpty": "主机未报告进程列表。",
     "latency": "延迟",
     "latencyShort": "{ms}ms",
@@ -1015,7 +1017,8 @@
     "monitorLocal": "本机",
     "monitorFailed": "采样失败",
     "monitorOpen": "打开监视面板",
-    "monitorToggle": "在底栏显示监控"
+    "monitorToggle": "在底栏显示监控",
+    "netRate": "主用网卡：下行 {down}，上行 {up}"
   },
   "knownHosts": {
     "title": "已信任主机",

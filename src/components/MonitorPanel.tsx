@@ -11,6 +11,7 @@ import {
   type RemoteSnapshot,
 } from "../api";
 import i18n from "../i18n";
+import { formatRate } from "../format";
 import { useAppStore } from "../store";
 import {
   CpuIcon,
@@ -331,27 +332,42 @@ export function MonitorPanel() {
           </Section>
 
           <Section icon={<NetworkIcon size={13} />} title={t("monitor.network")}>
-            {view.net.length === 0 ? (
-              <p className="hint">{t("monitor.netEmpty")}</p>
-            ) : (
-              view.net.map((iface) => (
-                <div className="host-net-row" key={iface.name}>
-                  <span className="host-net-name" title={iface.name}>
-                    {iface.name}
+            {/* One row, one adapter: the card mirrors the status bar, so the
+                extra interfaces only live in the raw probe output. */}
+            {(() => {
+              const primary =
+                view.net.find((iface) => iface.primary) ?? view.net[0];
+              if (!primary) {
+                return <p className="hint">{t("monitor.netEmpty")}</p>;
+              }
+              return (
+                <div className="host-net-row" key={primary.name}>
+                  <span className="host-net-name" title={primary.name}>
+                    {primary.name}
                   </span>
-                  <span className="host-net-rate">
+                  <span
+                    className="host-net-rate"
+                    title={t("monitor.netTotals", {
+                      rx: formatBytes(primary.rxTotal),
+                      tx: formatBytes(primary.txTotal),
+                    })}
+                  >
                     <span aria-hidden>↓</span>
-                    {formatBytes(iface.rxRate)}
-                    {t("monitor.perSecond")}
+                    {formatRate(primary.rxRate)}
                   </span>
-                  <span className="host-net-rate">
+                  <span
+                    className="host-net-rate"
+                    title={t("monitor.netTotals", {
+                      rx: formatBytes(primary.rxTotal),
+                      tx: formatBytes(primary.txTotal),
+                    })}
+                  >
                     <span aria-hidden>↑</span>
-                    {formatBytes(iface.txRate)}
-                    {t("monitor.perSecond")}
+                    {formatRate(primary.txRate)}
                   </span>
                 </div>
-              ))
-            )}
+              );
+            })()}
           </Section>
 
           <Section

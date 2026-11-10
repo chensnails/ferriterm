@@ -424,6 +424,8 @@
     "perSecond": "/s",
     "disksEmpty": "The host did not report any filesystems.",
     "netEmpty": "No interface counters reported.",
+    "primaryAdapter": "Primary adapter",
+    "netTotals": "Received {rx}, sent {tx}",
     "procEmpty": "The host did not report any processes.",
     "latency": "Latency",
     "latencyShort": "{ms}ms",
@@ -1015,7 +1017,8 @@
     "monitorLocal": "This machine",
     "monitorFailed": "Sampling failed",
     "monitorOpen": "Open the monitor card",
-    "monitorToggle": "Show monitor in the status bar"
+    "monitorToggle": "Show monitor in the status bar",
+    "netRate": "Primary adapter: down {down}, up {up}"
   },
   "knownHosts": {
     "title": "Known hosts",

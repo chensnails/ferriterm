@@ -249,6 +249,12 @@ export interface NetInterface {
   name: string;
   rxRate: number;
   txRate: number;
+  /** Bytes since boot; used for the tooltip totals and to rank adapters. */
+  rxTotal: number;
+  txTotal: number;
+  /** The adapter that carries this host's traffic — the only one shown in
+   *  compact readouts. */
+  primary: boolean;
 }
 
 export interface ProcessInfo {

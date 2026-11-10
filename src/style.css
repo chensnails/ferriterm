@@ -5695,6 +5695,28 @@ label.sync-action {
   color: var(--success);
 }
 
+/* Network: one arrow pair for the primary adapter. Tabular figures keep the
+   two rates from jittering sideways while they change. */
+.statusbar-net {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.statusbar-net-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.statusbar-net-arrow {
+  font-size: var(--fs-xs);
+  color: var(--accent);
+}
+
 .statusbar-latency {
   color: var(--fg-muted);
 }
@@ -5797,6 +5819,15 @@ label.sync-action {
   }
 
   .statusbar-meta {
+    display: none;
+  }
+}
+
+/* < 620: the rate pair goes. It is the widest single readout and the one the
+   host tools card can still show, whereas the gauges cannot be reconstructed
+   from a caption-free bar. */
+@media (max-width: 620px) {
+  .statusbar-net {
     display: none;
   }
 }

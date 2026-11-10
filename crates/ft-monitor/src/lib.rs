@@ -43,6 +43,69 @@ pub struct NetInterface {
     pub name: String,
     pub rx_rate: u64,
     pub tx_rate: u64,
+    /// Bytes received since boot. Ranking needs a counter that does not sit at
+    /// zero while the link is idle, and the tooltip shows it as a total.
+    pub rx_total: u64,
+    pub tx_total: u64,
+    /// The one adapter that carries this host's traffic. Only it is shown in
+    /// compact readouts; every other adapter stays in the full list.
+    pub primary: bool,
+}
+
+/// Loopback, container bridges, hypervisor switches and VPN taps never carry
+/// the traffic a user means by "the network", so they can be listed but must
+/// not win the primary slot on an idle host.
+fn is_virtual_link(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    [
+        "loopback",
+        "vethernet",
+        "virtualbox",
+        "vmware",
+        "docker",
+        "veth",
+        "virbr",
+        "br-",
+        "bridge",
+        "tun",
+        "tap",
+        "utun",
+        "bluetooth",
+        "teredo",
+        "isatap",
+        "wintun",
+        "wireguard",
+        "npcap",
+        "hyper-v",
+        "default switch",
+    ]
+    .iter()
+    .any(|part| lower.contains(part))
+}
+
+/// Marks the adapter the host routes through. A default route is authoritative
+/// when the platform reports one; otherwise the busiest physical adapter wins,
+/// and a virtual one is only used when nothing else exists.
+fn mark_primary(net: &mut [NetInterface], default_route: Option<&str>) {
+    let chosen = default_route
+        .filter(|name| !name.is_empty())
+        .and_then(|name| net.iter().position(|item| item.name == name))
+        .or_else(|| {
+            net.iter()
+                .enumerate()
+                .filter(|(_, item)| !is_virtual_link(&item.name))
+                .max_by_key(|(_, item)| item.rx_total + item.tx_total)
+                .map(|(index, _)| index)
+        })
+        .or_else(|| {
+            net.iter()
+                .enumerate()
+                .max_by_key(|(_, item)| item.rx_total + item.tx_total)
+                .map(|(index, _)| index)
+        });
+    if let Some(index) = chosen {
+        net[index].primary = true;
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -152,9 +215,19 @@ impl Monitor {
                 name: name.clone(),
                 rx_rate: (data.received() as f64 / elapsed) as u64,
                 tx_rate: (data.transmitted() as f64 / elapsed) as u64,
+                rx_total: data.total_received(),
+                tx_total: data.total_transmitted(),
+                primary: false,
             })
             .collect();
-        net.sort_by(|a, b| (b.rx_rate + b.tx_rate).cmp(&(a.rx_rate + a.tx_rate)));
+        mark_primary(&mut net, None);
+        // The primary adapter leads even while it is idle, so the compact
+        // readout never jumps between adapters on a quiet host.
+        net.sort_by(|a, b| {
+            b.primary.cmp(&a.primary).then_with(|| {
+                (b.rx_rate + b.tx_rate).cmp(&(a.rx_rate + a.tx_rate))
+            })
+        });
         net.truncate(DISK_LIMIT);
         net
     }
@@ -235,6 +308,7 @@ echo "uptime $(cut -d' ' -f1 /proc/uptime 2>/dev/null)"
 echo "load $(cut -d' ' -f1-3 /proc/loadavg 2>/dev/null)"
 echo "mem $(awk '/^(MemTotal|MemAvailable|MemFree|Buffers|Cached|SwapTotal|SwapFree):/ {gsub(":", ""); printf "%s=%s ", $1, $2}' /proc/meminfo 2>/dev/null)"
 echo "cpu $(head -n 1 /proc/stat 2>/dev/null)"
+echo "route $(awk '$2 == "00000000" {print $1; exit}' /proc/net/route 2>/dev/null)"
 df -Pk 2>/dev/null | awk 'NR > 1 && $2 > 0 {print "diskrow", $6, $3, $2}'
 awk -F'[: ]+' 'NR > 2 && $2 != "lo" && $2 != "" {print "netrow", $2, $3, $11}' /proc/net/dev 2>/dev/null
 ps -eo pid=,pcpu=,pmem=,comm= 2>/dev/null | head -n 40 | awk '{name = $4; for (i = 5; i <= NF; i++) name = name " " $i; print "procrow", $1, $2, $3, name}'
@@ -385,7 +459,7 @@ impl RemoteMonitor {
             }
             _ => 0.0,
         };
-        let net: Vec<NetInterface> = net_rows
+        let mut net: Vec<NetInterface> = net_rows
             .iter()
             .map(|(name, rx, tx)| {
                 let rates = match prev_net.get(name) {
@@ -403,9 +477,18 @@ impl RemoteMonitor {
                     name: name.clone(),
                     rx_rate: rates.0,
                     tx_rate: rates.1,
+                    rx_total: *rx,
+                    tx_total: *tx,
+                    primary: false,
                 }
             })
             .collect();
+        mark_primary(&mut net, fields.get("route").copied().map(str::trim));
+        net.sort_by(|a, b| {
+            b.primary
+                .cmp(&a.primary)
+                .then_with(|| (b.rx_rate + b.tx_rate).cmp(&(a.rx_rate + a.tx_rate)))
+        });
         guard.insert(
             session_id.to_string(),
             PrevSample {
@@ -778,6 +861,7 @@ uptime 3623.55
 load 0.15 0.09 0.04
 mem MemTotal=2031244 MemAvailable=1523100 MemFree=610500 Buffers=84032 Cached=822568 SwapTotal=1048572 SwapFree=1048572 
 cpu cpu  102030 800 15300 2010010 2400 0 320 0 0 0
+route eth0
 diskrow / 7311104 30517344
 diskrow /boot/efi 6144 99328
 netrow eth0 1500000 400000
@@ -815,6 +899,53 @@ procrow 812 0.4 1.2 nginx worker
         // No previous counters yet, so the first poll reports no usage.
         assert_eq!(first.cpu_usage, 0.0);
         assert!(first.net.iter().all(|iface| iface.rx_rate == 0));
+        // The default route decides which adapter is "the" network, and only
+        // one adapter may claim the slot.
+        let primaries: Vec<&str> = first
+            .net
+            .iter()
+            .filter(|iface| iface.primary)
+            .map(|iface| iface.name.as_str())
+            .collect();
+        assert_eq!(primaries, vec!["eth0"]);
+    }
+
+    fn iface(name: &str, rx: u64, tx: u64) -> NetInterface {
+        NetInterface {
+            name: name.to_string(),
+            rx_rate: 0,
+            tx_rate: 0,
+            rx_total: rx,
+            tx_total: tx,
+            primary: false,
+        }
+    }
+
+    #[test]
+    fn primary_adapter_follows_the_route_then_the_traffic() {
+        // Without a route the busiest physical adapter wins, even on an idle
+        // host, and a container bridge is never promoted over a real link.
+        let mut net = vec![
+            iface("docker0", 9_000_000, 10),
+            iface("ens3", 1_000, 2_000),
+        ];
+        mark_primary(&mut net, None);
+        assert!(net[1].primary);
+        assert!(!net[0].primary);
+
+        // An explicit default route beats raw counters.
+        let mut net = vec![
+            iface("docker0", 9_000_000, 10),
+            iface("ens3", 1_000, 2_000),
+        ];
+        mark_primary(&mut net, Some("docker0"));
+        assert!(net[0].primary);
+        assert!(!net[1].primary);
+
+        // A route naming an adapter that was not reported falls back to traffic.
+        let mut net = vec![iface("ens3", 10, 10), iface("ens4", 20, 20)];
+        mark_primary(&mut net, Some("ens9"));
+        assert!(net[1].primary);
     }
 
     #[test]

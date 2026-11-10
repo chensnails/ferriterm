@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri, type RemoteSnapshot } from "../api";
-import { formatBytes } from "../format";
+import { formatBytes, formatRate } from "../format";
 import i18n from "../i18n";
 import { useAppStore } from "../store";
 import { PulseIcon } from "./icons";
@@ -24,6 +24,12 @@ interface Readout {
   load5: number;
   load15: number;
   latency: number;
+  /** Primary adapter only: compact readouts never show a second NIC. */
+  netName: string;
+  rxRate: number;
+  txRate: number;
+  rxTotal: number;
+  txTotal: number;
   at: number;
 }
 
@@ -135,6 +141,7 @@ export function StatusMonitor() {
           sample.disks.find((item) =>
             target === LOCAL_TARGET ? true : item.mount === "/",
           ) ?? sample.disks[0];
+        const nic = sample.net.find((item) => item.primary) ?? sample.net[0];
         setReadout({
           host: sample.hostName,
           cpu: sample.cpuUsage,
@@ -147,6 +154,11 @@ export function StatusMonitor() {
           load1: sample.load1,
           load5: sample.load5,
           load15: sample.load15,
+          netName: nic?.name ?? "",
+          rxRate: nic?.rxRate ?? 0,
+          txRate: nic?.txRate ?? 0,
+          rxTotal: nic?.rxTotal ?? 0,
+          txTotal: nic?.txTotal ?? 0,
           // Local sampling has no network hop, so there is no latency to show.
           latency: target === LOCAL_TARGET ? 0 : (sample as RemoteSnapshot).latencyMs,
           at: Date.now(),
@@ -227,6 +239,32 @@ export function StatusMonitor() {
               {readout ? readout.load1.toFixed(2) : "—"}
             </span>
           </span>
+          {/* Only the primary adapter: a second NIC pair would double the cell
+              without answering the question the bar is asked. */}
+          <span
+            className="statusbar-net"
+            aria-label={t("status.netRate", {
+              down: readout ? formatRate(readout.rxRate) : "—",
+              up: readout ? formatRate(readout.txRate) : "—",
+            })}
+          >
+            <span className="statusbar-net-pair">
+              <span className="statusbar-net-arrow" aria-hidden>
+                ↓
+              </span>
+              <span className="statusbar-mono">
+                {readout ? formatRate(readout.rxRate) : "—"}
+              </span>
+            </span>
+            <span className="statusbar-net-pair">
+              <span className="statusbar-net-arrow" aria-hidden>
+                ↑
+              </span>
+              <span className="statusbar-mono">
+                {readout ? formatRate(readout.txRate) : "—"}
+              </span>
+            </span>
+          </span>
           {readout && readout.latency > 0 && (
             <span
               className={[
@@ -265,6 +303,20 @@ export function StatusMonitor() {
             {t("monitor.load")} {readout.load1.toFixed(2)} /{" "}
             {readout.load5.toFixed(2)} / {readout.load15.toFixed(2)}
           </span>
+          {readout.netName && (
+            <>
+              <span>
+                {t("monitor.primaryAdapter")} {readout.netName} · ↓
+                {formatRate(readout.rxRate)} ↑{formatRate(readout.txRate)}
+              </span>
+              <span>
+                {t("monitor.netTotals", {
+                  rx: formatBytes(readout.rxTotal),
+                  tx: formatBytes(readout.txTotal),
+                })}
+              </span>
+            </>
+          )}
           {readout.latency > 0 && (
             <span>
               {t("monitor.latency")} {t("monitor.latencyShort", { ms: readout.latency })}
