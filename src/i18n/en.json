@@ -210,6 +210,12 @@
     "optional": "Optional",
     "clear": "Clear"
   },
+  "errors": {
+    "boundaryTitle": "The interface hit an error",
+    "boundaryDetail": "Your sessions keep running in the background. Retry to redraw the interface, or reload the app if the problem persists.",
+    "retryUi": "Retry",
+    "reloadApp": "Reload app"
+  },
   "settings": {
     "open": "Settings",
     "title": "Settings",

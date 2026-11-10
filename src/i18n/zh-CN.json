@@ -210,6 +210,12 @@
     "optional": "可选",
     "clear": "清空"
   },
+  "errors": {
+    "boundaryTitle": "界面出现错误",
+    "boundaryDetail": "你的会话仍在后台运行。可重试重新绘制界面；若问题持续，请重新加载应用。",
+    "retryUi": "重试",
+    "reloadApp": "重新加载应用"
+  },
   "settings": {
     "open": "设置",
     "title": "设置",
