@@ -9,6 +9,11 @@ use tokio::sync::{broadcast, Mutex, OwnedSemaphorePermit, Semaphore};
 
 const CHUNK_SIZE: u32 = 256 * 1024;
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(150);
+/// Bytes compared per probe when a resume decides whether to trust what is
+/// already on the target.
+const RESUME_PROBE_LEN: u64 = 64 * 1024;
+/// Probes spread across a prefix longer than `RESUME_PROBE_LEN * RESUME_PROBE_COUNT`.
+const RESUME_PROBE_COUNT: u64 = 8;
 pub const DEFAULT_CONCURRENCY: usize = 6;
 pub const MAX_CONCURRENCY: usize = 16;
 
@@ -744,10 +749,13 @@ async fn copy_file(
     let mut truncate = true;
     if let Ok(existing) = target.stat(target_path).await {
         if existing.size == source_entry.size && !existing.is_dir {
-            progress.advance(source_entry.size).await;
-            return Ok(());
-        }
-        if existing.size < source_entry.size {
+            if prefix_matches(source, source_path, target, target_path, existing.size).await? {
+                progress.advance(source_entry.size).await;
+                return Ok(());
+            }
+        } else if existing.size < source_entry.size
+            && prefix_matches(source, source_path, target, target_path, existing.size).await?
+        {
             offset = existing.size;
             truncate = false;
         }
@@ -785,6 +793,62 @@ async fn copy_file(
     let _ = target.chmod(target_path, source_entry.mode).await;
     let _ = target.set_times(target_path, source_entry.mtime).await;
     Ok(())
+}
+
+/// Checks that the bytes already on the target really are the first bytes of
+/// the source. Size alone is not enough: an unrelated file left at the target
+/// path would otherwise be kept and the finished copy would be corrupt.
+/// Short prefixes are compared byte for byte; longer ones get evenly spaced
+/// probes, which is enough to catch a mismatched file without re-reading
+/// gigabytes over the wire.
+async fn prefix_matches(
+    source: &dyn Vfs,
+    source_path: &str,
+    target: &dyn Vfs,
+    target_path: &str,
+    prefix: u64,
+) -> Result<bool, String> {
+    if prefix == 0 {
+        return Ok(true);
+    }
+    let mut reader = source.open(source_path, OpenMode::Read).await?;
+    let mut existing = target.open(target_path, OpenMode::Read).await?;
+    let probes = probe_offsets(prefix);
+    for (at, len) in probes {
+        let expected = reader.read(at, len as u32).await?;
+        let actual = existing.read(at, len as u32).await?;
+        if expected != actual {
+            let _ = reader.close().await;
+            let _ = existing.close().await;
+            return Ok(false);
+        }
+    }
+    let _ = reader.close().await;
+    let _ = existing.close().await;
+    Ok(true)
+}
+
+fn probe_offsets(prefix: u64) -> Vec<(u64, u64)> {
+    if prefix <= RESUME_PROBE_LEN * RESUME_PROBE_COUNT {
+        let mut probes = Vec::new();
+        let mut at = 0u64;
+        while at < prefix {
+            let len = RESUME_PROBE_LEN.min(prefix - at);
+            probes.push((at, len));
+            at += len;
+        }
+        probes
+    } else {
+        let step = prefix / RESUME_PROBE_COUNT;
+        let mut probes: Vec<(u64, u64)> = (0..RESUME_PROBE_COUNT)
+            .map(|i| {
+                let at = i * step;
+                (at, RESUME_PROBE_LEN.min(prefix - at))
+            })
+            .collect();
+        probes.push((prefix - RESUME_PROBE_LEN, RESUME_PROBE_LEN));
+        probes
+    }
 }
 
 async fn ensure_dir(vfs: &dyn Vfs, path: &str) -> Result<(), String> {
@@ -1292,6 +1356,102 @@ mod tests {
         assert_eq!(job.status, TransferStatus::Done);
         assert_eq!(std::fs::read(&target).unwrap(), b"hello transfer");
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn restarts_when_the_partial_is_not_the_source_prefix() {
+        let root = temp_dir("resume-mismatch");
+        let source = root.join("source.txt");
+        std::fs::write(&source, b"hello transfer").unwrap();
+        let target = root.join("target.txt");
+        // Same length as the real prefix, but it came from another file.
+        std::fs::write(&target, b"goodby ").unwrap();
+
+        let manager = TransferManager::new(2);
+        let id = manager
+            .enqueue_file(
+                "one".to_string(),
+                Endpoint::new(Arc::new(LocalFs), source.to_string_lossy()),
+                Endpoint::new(Arc::new(LocalFs), target.to_string_lossy()),
+                14,
+            )
+            .await;
+        let job = wait_done(&manager, &id).await;
+        assert_eq!(job.status, TransferStatus::Done);
+        assert_eq!(std::fs::read(&target).unwrap(), b"hello transfer");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn rewrites_a_same_size_file_that_is_not_the_source() {
+        let root = temp_dir("same-size");
+        let source = root.join("source.txt");
+        std::fs::write(&source, b"hello transfer").unwrap();
+        let target = root.join("target.txt");
+        std::fs::write(&target, b"goodbye person").unwrap();
+
+        let manager = TransferManager::new(2);
+        let id = manager
+            .enqueue_file(
+                "one".to_string(),
+                Endpoint::new(Arc::new(LocalFs), source.to_string_lossy()),
+                Endpoint::new(Arc::new(LocalFs), target.to_string_lossy()),
+                14,
+            )
+            .await;
+        let job = wait_done(&manager, &id).await;
+        assert_eq!(job.status, TransferStatus::Done);
+        assert_eq!(std::fs::read(&target).unwrap(), b"hello transfer");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn spot_checks_a_prefix_longer_than_the_compare_window() {
+        let root = temp_dir("resume-sampled");
+        let source = root.join("source.bin");
+        let target = root.join("target.bin");
+        let full: Vec<u8> = (0..(RESUME_PROBE_LEN * RESUME_PROBE_COUNT + 4096) as usize)
+            .map(|i| (i % 251) as u8)
+            .collect();
+        std::fs::write(&source, &full).unwrap();
+        let mut partial = full[..(RESUME_PROBE_LEN * RESUME_PROBE_COUNT) as usize].to_vec();
+        // Damage inside the tail probe, past the byte-for-byte window.
+        let torn = partial.len() - 8;
+        partial[torn] ^= 0xff;
+        std::fs::write(&target, &partial).unwrap();
+
+        let manager = TransferManager::new(2);
+        let id = manager
+            .enqueue_file(
+                "one".to_string(),
+                Endpoint::new(Arc::new(LocalFs), source.to_string_lossy()),
+                Endpoint::new(Arc::new(LocalFs), target.to_string_lossy()),
+                full.len() as u64,
+            )
+            .await;
+        let job = wait_done(&manager, &id).await;
+        assert_eq!(job.status, TransferStatus::Done);
+        assert_eq!(std::fs::read(&target).unwrap(), full);
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn probes_stay_inside_the_prefix_and_cover_its_end() {
+        for prefix in [1u64, 4096, RESUME_PROBE_LEN * RESUME_PROBE_COUNT, 1 << 24] {
+            let probes = probe_offsets(prefix);
+            assert!(!probes.is_empty(), "{prefix}");
+            assert!(
+                probes
+                    .iter()
+                    .all(|(at, len)| *at < prefix && *at + *len <= prefix),
+                "{prefix}: {probes:?}"
+            );
+            assert_eq!(
+                probes.iter().map(|(at, len)| at + len).max(),
+                Some(prefix),
+                "{prefix}: the tail is never left unchecked"
+            );
+        }
     }
 
     #[tokio::test]

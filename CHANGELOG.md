@@ -15,9 +15,18 @@ package version in `src-tauri/tauri.conf.json`.
   progress, SHA-256/size verification, then platform install (macOS in-place
   replace + restart, Linux AppImage, Windows installer handoff).
 - Baseline content security policy for production and development webviews.
+- Global React error boundary with retry/reload, plus `window.onerror` and
+  `unhandledrejection` logging.
+- Vault password-throttle state persists across restarts and reboots, and
+  derived key material is zeroized when dropped.
 
 ### Fixed
 
+- Transfer progress forwarding survives a lagged broadcast instead of stopping
+  the UI feed for every running job.
+- Resume no longer trusts a target file's size alone: the bytes already there
+  are compared against the source before the copy continues, and a mismatch
+  restarts the copy instead of silently producing a corrupt file.
 - Vault and known_hosts files are replaced atomically and keep a previous
   generation; interrupted enable/disable/change-master windows roll back on
   startup or unlock instead of leaving an undecryptable vault (kill -9
