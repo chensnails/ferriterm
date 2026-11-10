@@ -6,6 +6,11 @@
 //! device key, so protection matches file permissions. In master-password mode
 //! the file is encrypted with a PBKDF2-derived key that only exists in memory
 //! while the vault is unlocked.
+//!
+//! Every private file is replaced atomically (tmp + fsync + rename) and keeps
+//! its previous generation in a `.bak` sidecar, so a crash mid-write or midway
+//! through a mode switch never leaves an undecryptable vault: startup and
+//! unlock roll back to the last consistent generation.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -118,7 +123,7 @@ impl CredentialStore {
         } else {
             (VaultMode::Local, false)
         };
-        Self {
+        let store = Self {
             dir,
             inner: Mutex::new(Inner {
                 key: None,
@@ -127,6 +132,36 @@ impl CredentialStore {
                 failures: 0,
                 blocked_until: None,
             }),
+        };
+        store.recover();
+        store
+    }
+
+    /// Repairs crash windows left by interrupted writes or mode switches.
+    /// Master-mode windows need the password and are repaired in `unlock`.
+    fn recover(&self) {
+        for base in [VAULT_FILE, INDEX_FILE, MASTER_FILE, KEY_FILE] {
+            for suffix in ["tmp", "bak.tmp"] {
+                let _ = fs::remove_file(self.dir.join(format!("{base}.{suffix}")));
+            }
+        }
+        if self.inner.lock().unwrap().mode != VaultMode::Local {
+            return;
+        }
+        if !self.vault_path().exists() {
+            return;
+        }
+        let Ok(device) = self.read_device_key() else {
+            return;
+        };
+        if self.vault_decrypts_with(&device) {
+            return;
+        }
+        // Interrupted enable: the vault already holds master-key ciphertext
+        // while the master file was never written. The backup still decrypts
+        // with the device key, so roll back to it.
+        if self.bak_decrypts_with(&device) {
+            let _ = self.restore_vault_from_bak();
         }
     }
 
@@ -225,6 +260,13 @@ impl CredentialStore {
             }
             return Err(CredentialError::WrongPassword);
         }
+        if !self.vault_decrypts_with(&key) {
+            self.recover_master_window(&key)?;
+            let inner = self.inner.lock().unwrap();
+            if inner.mode == VaultMode::Local {
+                return Ok(());
+            }
+        }
         let mut inner = self.inner.lock().unwrap();
         inner.key = Some(key);
         inner.locked = false;
@@ -297,8 +339,10 @@ impl CredentialStore {
 
         let raw = serde_json::to_vec(&master)
             .map_err(|e| CredentialError::Storage(format!("serialize master file: {e}")))?;
-        write_private(&self.master_path(), &raw)?;
+        // Vault first: a crash before the master file lands leaves a Local-mode
+        // vault whose backup still decrypts with the device key (see recover).
         self.write_vault(&vault)?;
+        write_private(&self.master_path(), &raw)?;
         self.write_index(&migrated)?;
         let _ = fs::remove_file(self.key_path());
 
@@ -405,6 +449,11 @@ impl CredentialStore {
                 Err(err) => return Err(err.into()),
             }
         }
+        for base in [VAULT_FILE, INDEX_FILE, MASTER_FILE, KEY_FILE] {
+            for suffix in ["tmp", "bak.tmp", "bak"] {
+                let _ = fs::remove_file(self.dir.join(format!("{base}.{suffix}")));
+            }
+        }
         let mut inner = self.inner.lock().unwrap();
         inner.mode = VaultMode::Local;
         inner.key = None;
@@ -482,13 +531,86 @@ impl CredentialStore {
     }
 
     fn read_vault(&self) -> Result<BTreeMap<String, String>, CredentialError> {
-        let path = self.vault_path();
-        match fs::read_to_string(&path) {
+        self.read_vault_at(&self.vault_path())
+    }
+
+    fn read_vault_at(&self, path: &Path) -> Result<BTreeMap<String, String>, CredentialError> {
+        match fs::read_to_string(path) {
             Ok(raw) => serde_json::from_str(&raw)
                 .map_err(|e| CredentialError::Storage(format!("corrupt vault file: {e}"))),
             Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(BTreeMap::new()),
             Err(err) => Err(err.into()),
         }
+    }
+
+    fn bak_path(&self) -> PathBuf {
+        PathBuf::from(format!("{}.bak", self.vault_path().display()))
+    }
+
+    fn read_device_key(&self) -> Result<[u8; 32], CredentialError> {
+        let bytes = fs::read(self.key_path())?;
+        bytes
+            .try_into()
+            .map_err(|_| CredentialError::Storage("vault key has unexpected length".to_string()))
+    }
+
+    fn vault_decrypts_with(&self, key: &[u8; 32]) -> bool {
+        self.map_decrypts_with(&self.read_vault(), key)
+    }
+
+    fn bak_decrypts_with(&self, key: &[u8; 32]) -> bool {
+        self.map_decrypts_with(&self.read_vault_at(&self.bak_path()), key)
+    }
+
+    fn map_decrypts_with(
+        &self,
+        vault: &Result<BTreeMap<String, String>, CredentialError>,
+        key: &[u8; 32],
+    ) -> bool {
+        match vault {
+            Ok(map) => map
+                .values()
+                .next()
+                .map_or(true, |blob| self.decrypt_with(key, blob).is_ok()),
+            Err(_) => false,
+        }
+    }
+
+    fn restore_vault_from_bak(&self) -> Result<(), CredentialError> {
+        let raw = fs::read(self.bak_path())?;
+        atomic_replace(&self.vault_path(), &raw, false)?;
+        let _ = fs::remove_file(self.bak_path());
+        Ok(())
+    }
+
+    /// Repairs Master-mode crash windows once the password proved correct:
+    /// a rotated vault whose master file never landed rolls back to the
+    /// backup; a device-key vault left under a master file completes the
+    /// interrupted disable instead of staying undecryptable.
+    fn recover_master_window(&self, key: &[u8; 32]) -> Result<(), CredentialError> {
+        if self.bak_decrypts_with(key) {
+            return self.restore_vault_from_bak();
+        }
+        if let Ok(device) = self.read_device_key() {
+            let vault_ok = self.vault_decrypts_with(&device);
+            let bak_ok = self.bak_decrypts_with(&device);
+            if vault_ok || bak_ok {
+                if !vault_ok {
+                    self.restore_vault_from_bak()?;
+                }
+                let _ = fs::remove_file(self.master_path());
+                let mut inner = self.inner.lock().unwrap();
+                inner.mode = VaultMode::Local;
+                inner.key = None;
+                inner.locked = false;
+                inner.failures = 0;
+                inner.blocked_until = None;
+                return Ok(());
+            }
+        }
+        Err(CredentialError::Storage(
+            "vault is not decryptable with any known key; restore a backup".to_string(),
+        ))
     }
 
     fn write_vault(&self, vault: &BTreeMap<String, String>) -> Result<(), CredentialError> {
@@ -597,6 +719,7 @@ fn load_or_create_key(path: &Path) -> Result<[u8; 32], CredentialError> {
             if let Some(parent) = path.parent() {
                 fs::create_dir_all(parent)?;
             }
+            let tmp = PathBuf::from(format!("{}.tmp", path.display()));
             let mut opts = fs::OpenOptions::new();
             opts.write(true).create_new(true);
             #[cfg(unix)]
@@ -604,8 +727,12 @@ fn load_or_create_key(path: &Path) -> Result<[u8; 32], CredentialError> {
                 use std::os::unix::fs::OpenOptionsExt;
                 opts.mode(0o600);
             }
-            let mut file = opts.open(path)?;
+            let mut file = opts.open(&tmp)?;
             file.write_all(&key)?;
+            file.sync_all()?;
+            drop(file);
+            fs::rename(&tmp, path)?;
+            sync_dir(path);
             Ok(key)
         }
         Err(err) => Err(err.into()),
@@ -613,6 +740,17 @@ fn load_or_create_key(path: &Path) -> Result<[u8; 32], CredentialError> {
 }
 
 fn write_private(path: &Path, data: &[u8]) -> Result<(), CredentialError> {
+    atomic_replace(path, data, true)
+}
+
+/// tmp + fsync + rename. With `keep_backup` the previous generation is first
+/// copied to `<name>.bak` (itself replaced atomically) so recovery always has
+/// a consistent generation to fall back to after a crash.
+fn atomic_replace(path: &Path, data: &[u8], keep_backup: bool) -> Result<(), CredentialError> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let tmp = PathBuf::from(format!("{}.tmp", path.display()));
     let mut opts = fs::OpenOptions::new();
     opts.write(true).create(true).truncate(true);
     #[cfg(unix)]
@@ -620,10 +758,31 @@ fn write_private(path: &Path, data: &[u8]) -> Result<(), CredentialError> {
         use std::os::unix::fs::OpenOptionsExt;
         opts.mode(0o600);
     }
-    let mut file = opts.open(path)?;
+    let mut file = opts.open(&tmp)?;
     file.write_all(data)?;
     file.sync_all()?;
+    drop(file);
+    if keep_backup && path.exists() {
+        let bak = PathBuf::from(format!("{}.bak", path.display()));
+        let bak_tmp = PathBuf::from(format!("{}.bak.tmp", path.display()));
+        fs::copy(path, &bak_tmp)?;
+        fs::File::open(&bak_tmp)?.sync_all()?;
+        fs::rename(&bak_tmp, &bak)?;
+    }
+    fs::rename(&tmp, path)?;
+    sync_dir(path);
     Ok(())
+}
+
+fn sync_dir(path: &Path) {
+    #[cfg(unix)]
+    if let Some(parent) = path.parent() {
+        if let Ok(dir) = fs::File::open(parent) {
+            let _ = dir.sync_all();
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = path;
 }
 
 fn hex_encode(bytes: &[u8]) -> String {
@@ -854,5 +1013,122 @@ mod tests {
         store.delete("a").unwrap();
         store.unlock("pw-pass").unwrap();
         assert_eq!(store.get("a").unwrap(), None);
+    }
+
+    #[test]
+    fn backup_keeps_previous_generation() {
+        let (_guard, store) = temp_store("backup");
+        store.set("a", "one").unwrap();
+        store.set("a", "two").unwrap();
+        let bak: BTreeMap<String, String> =
+            serde_json::from_str(&fs::read_to_string(store.bak_path()).unwrap()).unwrap();
+        let key = store.read_device_key().unwrap();
+        assert_eq!(store.decrypt_with(&key, &bak["a"]).unwrap(), "one");
+        assert_eq!(store.get("a").unwrap().as_deref(), Some("two"));
+    }
+
+    #[test]
+    fn local_recovery_restores_backup_after_corrupt_vault() {
+        let (guard, store) = temp_store("corrupt");
+        store.set("a", "one").unwrap();
+        store.set("b", "two").unwrap();
+        fs::write(store.vault_path(), b"{ truncated").unwrap();
+        let reopened = CredentialStore::new(guard.0.clone());
+        assert_eq!(reopened.get("a").unwrap().as_deref(), Some("one"));
+    }
+
+    #[test]
+    fn enable_crash_window_rolls_back_to_local() {
+        let (guard, store) = temp_store("enable-crash");
+        store.set("a", "one").unwrap();
+        // Crash after the master-key vault landed but before the master file:
+        // vault ciphertext under an unknown key, backup still device-keyed.
+        fs::copy(store.vault_path(), store.bak_path()).unwrap();
+        let mut unknown = BTreeMap::new();
+        unknown.insert(
+            "a".to_string(),
+            store.encrypt_with(&[7u8; 32], "one").unwrap(),
+        );
+        fs::write(store.vault_path(), serde_json::to_vec(&unknown).unwrap()).unwrap();
+        let reopened = CredentialStore::new(guard.0.clone());
+        assert_eq!(reopened.status().mode, VaultMode::Local);
+        assert_eq!(reopened.get("a").unwrap().as_deref(), Some("one"));
+    }
+
+    #[test]
+    fn disable_crash_window_rolls_back_to_master() {
+        let (guard, store) = temp_store("disable-crash");
+        store.set("a", "one").unwrap();
+        store.enable_master_password("pw-pass", &[]).unwrap();
+        // Crash after the device-key vault landed but before the master file
+        // was removed: write_vault keeps the master-keyed vault as backup.
+        let device = store.device_key().unwrap();
+        let mut next = BTreeMap::new();
+        next.insert("a".to_string(), store.encrypt_with(&device, "one").unwrap());
+        store.write_vault(&next).unwrap();
+        let reopened = CredentialStore::new(guard.0.clone());
+        assert_eq!(reopened.status().mode, VaultMode::Master);
+        reopened.unlock("pw-pass").unwrap();
+        assert_eq!(reopened.get("a").unwrap().as_deref(), Some("one"));
+    }
+
+    #[test]
+    fn change_crash_window_restores_old_password() {
+        let (guard, store) = temp_store("change-crash");
+        store.set("a", "one").unwrap();
+        store.enable_master_password("first-pass", &[]).unwrap();
+        let old_master = fs::read(store.master_path()).unwrap();
+        store
+            .change_master_password("first-pass", "second-pass")
+            .unwrap();
+        // Crash after the rotated vault landed but before the master file.
+        fs::write(store.master_path(), old_master).unwrap();
+        let reopened = CredentialStore::new(guard.0.clone());
+        reopened.unlock("first-pass").unwrap();
+        assert_eq!(reopened.get("a").unwrap().as_deref(), Some("one"));
+        reopened.lock();
+        assert!(matches!(
+            reopened.unlock("second-pass"),
+            Err(CredentialError::WrongPassword)
+        ));
+    }
+
+    #[test]
+    #[ignore = "spawned by crash_injection_during_vault_writes"]
+    fn vault_write_loop() {
+        let dir = std::env::var_os("FERRITERM_CRASH_DIR").expect("crash dir env");
+        let store = CredentialStore::new(PathBuf::from(dir));
+        let mut n = 0u64;
+        loop {
+            n += 1;
+            store.set("k", &format!("value-{n}")).unwrap();
+        }
+    }
+
+    #[test]
+    fn crash_injection_during_vault_writes() {
+        let dir = std::env::temp_dir().join(format!("ferriterm-crash-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let _guard = TempDir(dir.clone());
+        let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--ignored",
+                "--exact",
+                "tests::vault_write_loop",
+                "--nocapture",
+            ])
+            .env("FERRITERM_CRASH_DIR", &dir)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(300));
+        child.kill().unwrap();
+        let _ = child.wait();
+        let store = CredentialStore::new(dir.clone());
+        let value = store.get("k").unwrap().expect("entry survived the crash");
+        assert!(value.starts_with("value-"));
+        assert_eq!(store.status().entries, 1);
     }
 }

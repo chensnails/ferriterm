@@ -190,6 +190,8 @@ fn home_dir() -> Option<PathBuf> {
 }
 
 fn write_private(path: &Path, data: &[u8]) -> io::Result<()> {
+    // Atomic replace: a crash mid-write must never truncate the trust store.
+    let tmp = PathBuf::from(format!("{}.tmp", path.display()));
     let mut opts = fs::OpenOptions::new();
     opts.write(true).create(true).truncate(true);
     #[cfg(unix)]
@@ -197,9 +199,18 @@ fn write_private(path: &Path, data: &[u8]) -> io::Result<()> {
         use std::os::unix::fs::OpenOptionsExt;
         opts.mode(0o600);
     }
-    let mut file = opts.open(path)?;
+    let mut file = opts.open(&tmp)?;
     file.write_all(data)?;
-    file.sync_all()
+    file.sync_all()?;
+    drop(file);
+    fs::rename(&tmp, path)?;
+    #[cfg(unix)]
+    if let Some(parent) = path.parent() {
+        if let Ok(dir) = fs::File::open(parent) {
+            let _ = dir.sync_all();
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
