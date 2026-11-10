@@ -2,10 +2,14 @@
 //! plus remote transports (GitHub Gist, WebDAV) for the sealed bundles.
 
 pub mod remote;
+pub mod versions;
 
 pub use remote::{
     gist_download, gist_test, gist_upload, webdav_download, webdav_test, webdav_upload, GistConfig,
     RemoteError, RemoteUpload, WebdavConfig,
+};
+pub use versions::{
+    VersionEntry, VersionIndex, VersionSource, VersionStore, INDEX_VERSION, MAX_VERSIONS,
 };
 
 use std::fmt;
@@ -60,6 +64,10 @@ impl BackupStore {
 
     pub fn export(&self, passphrase: &str, payload: &[u8]) -> Result<PathBuf, SyncError> {
         let sealed = seal(passphrase, payload)?;
+        self.write_bundle(&sealed)
+    }
+
+    fn write_bundle(&self, sealed: &str) -> Result<PathBuf, SyncError> {
         fs::create_dir_all(&self.dir)?;
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -68,6 +76,47 @@ impl BackupStore {
         let path = self.dir.join(format!("ferriterm-backup-{stamp}.ftbak"));
         fs::write(&path, sealed)?;
         Ok(path)
+    }
+
+    /// Version history lives under the same backups directory as exported
+    /// `.ftbak` files, so it follows the app data directory automatically.
+    pub fn versions(&self) -> VersionStore {
+        VersionStore::new(self.dir.join("versions"))
+    }
+
+    /// Seals once, writes the standalone export and records it in the version
+    /// history. Used by the manual export button.
+    pub fn export_versioned(
+        &self,
+        passphrase: &str,
+        payload: &[u8],
+        scope: Vec<String>,
+        summary: serde_json::Value,
+        note: &str,
+    ) -> Result<(PathBuf, VersionEntry), SyncError> {
+        let sealed = seal(passphrase, payload)?;
+        let path = self.write_bundle(&sealed)?;
+        let entry = self.record_version(
+            &sealed,
+            scope,
+            summary,
+            VersionSource::Local,
+            note,
+        )?;
+        Ok((path, entry))
+    }
+
+    /// Records an already-sealed bundle (a remote sync) in local history.
+    pub fn record_version(
+        &self,
+        sealed: &str,
+        scope: Vec<String>,
+        summary: serde_json::Value,
+        source: VersionSource,
+        note: &str,
+    ) -> Result<VersionEntry, SyncError> {
+        self.versions()
+            .add(sealed, scope, summary, source, note)
     }
 }
 

@@ -91,6 +91,8 @@ pub fn run() {
             commands::sync_remote_test,
             commands::sync_remote_upload,
             commands::sync_remote_download,
+            commands::sync_versions_list,
+            commands::sync_version_restore,
             commands::list_language_packs,
             commands::plugin_scan,
             commands::plugin_open_dir,

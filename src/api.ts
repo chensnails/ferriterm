@@ -372,6 +372,39 @@ export interface RemoteUpload {
   id: string;
 }
 
+/** Per-type counts carried by a version record (no decryption needed). */
+export interface BackupSummary {
+  hosts: number;
+  tags: number;
+  secrets: number;
+  sshKeys: number;
+  macros: number;
+  highlights: number;
+  shortcuts: number;
+}
+
+export type VersionSource =
+  | "local"
+  | "webdav"
+  | "gist"
+  | "restorePoint";
+
+export interface VersionEntry {
+  id: string;
+  createdAt: number;
+  scope: SyncScope[];
+  summary: BackupSummary;
+  source: VersionSource;
+  bytes: number;
+  note: string;
+}
+
+export interface VersionRestoreResult {
+  stats: ImportStats;
+  restorePointId: string;
+  restorePointAt: number;
+}
+
 export interface RemoteMountInfo {
   id: string;
   label: string;
@@ -899,6 +932,18 @@ export const api = {
     }),
   syncRemoteDownload: (config: RemoteConfig, passphrase: string) =>
     invoke<ImportStats>("sync_remote_download", { config, passphrase }),
+  syncVersionsList: (config: RemoteConfig) =>
+    invoke<VersionEntry[]>("sync_versions_list", { config }),
+  syncVersionRestore: (
+    config: RemoteConfig,
+    passphrase: string,
+    versionId: string,
+  ) =>
+    invoke<VersionRestoreResult>("sync_version_restore", {
+      config,
+      passphrase,
+      versionId,
+    }),
 
   remoteMountAdd: (id: string, label: string, config: RemoteMountConfig) =>
     invoke<void>("remote_mount_add", { id, label, config }),

@@ -900,11 +900,26 @@ pub fn export_backup(
     passphrase: String,
     scope: Vec<String>,
 ) -> Result<String, String> {
-    let (payload, _) = backup_payload(&store, Some(&credentials), &scope)?;
-    backups
-        .export(&passphrase, &payload)
-        .map(|path| path.display().to_string())
-        .map_err(|e| e.to_string())
+    let scope = normalize_scope(&scope);
+    let (payload, summary) = backup_payload(&store, Some(&credentials), &scope)?;
+    let (path, _) = backups
+        .export_versioned(
+            &passphrase,
+            &payload,
+            scope,
+            serde_json::to_value(&summary).map_err(|e| e.to_string())?,
+            "manual export",
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(path.display().to_string())
+}
+
+fn normalize_scope(scope: &[String]) -> Vec<String> {
+    scope
+        .iter()
+        .filter(|item| ALL_SCOPES.contains(&item.as_str()))
+        .cloned()
+        .collect()
 }
 
 /// Builds the sealed-ready JSON payload for the requested scopes, plus the
@@ -917,11 +932,7 @@ fn backup_payload(
 ) -> Result<(Vec<u8>, BackupSummary), String> {
     // Drop unknown keys here as well as in `wants`, so the recorded scope in
     // the bundle always describes exactly the sections it carries.
-    let scope: Vec<String> = scope
-        .iter()
-        .filter(|item| ALL_SCOPES.contains(&item.as_str()))
-        .cloned()
-        .collect();
+    let scope = normalize_scope(scope);
     let wants = |key: &str| scope.iter().any(|item| item == key);
     let mut payload = BackupPayload {
         version: BACKUP_PAYLOAD_VERSION,
@@ -1374,6 +1385,7 @@ pub async fn sync_remote_test(
 
 #[tauri::command]
 pub async fn sync_remote_upload(
+    backups: State<'_, ft_sync::BackupStore>,
     store: State<'_, Arc<ft_store::Store>>,
     credentials: State<'_, Credentials>,
     config: RemoteConfig,
@@ -1381,19 +1393,46 @@ pub async fn sync_remote_upload(
     scope: Vec<String>,
 ) -> Result<ft_sync::RemoteUpload, String> {
     let config = config.resolve_secrets(&credentials)?;
-    let (payload, _) = backup_payload(&store, Some(&credentials), &scope)?;
+    let scope = normalize_scope(&scope);
+    let (payload, summary) = backup_payload(&store, Some(&credentials), &scope)?;
     let sealed = ft_sync::seal(&passphrase, &payload).map_err(|e| e.to_string())?;
-    if let Some(gist) = config.gist() {
+    let summary_json = serde_json::to_value(&summary).map_err(|e| e.to_string())?;
+    let is_gist = config.gist().is_some();
+
+    // Upload first: a failed sync must not leave a version record claiming
+    // the data reached the remote.
+    let upload = if let Some(gist) = config.gist() {
         ft_sync::gist_upload(&gist, &sealed)
             .await
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string())?
     } else if let Some(webdav) = config.webdav() {
         ft_sync::webdav_upload(&webdav, &sealed)
             .await
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string())?
     } else {
-        Err("unsupported sync provider".to_string())
+        return Err("unsupported sync provider".to_string());
+    };
+
+    let source = if is_gist {
+        ft_sync::VersionSource::Gist
+    } else {
+        ft_sync::VersionSource::Webdav
+    };
+    let entry = backups
+        .record_version(&sealed, scope, summary_json, source, "remote sync")
+        .map_err(|e| e.to_string())?;
+
+    // WebDAV can hold many files, so mirror the version and update the remote
+    // index. A failure here only costs the *remote* history: the local copy
+    // recorded above still makes this version restorable.
+    if let Some(webdav) = config.webdav() {
+        if let Err(err) =
+            push_webdav_version(backups.inner(), &webdav, &entry, &sealed).await
+        {
+            eprintln!("ferriterm: remote version index update failed: {err}");
+        }
     }
+    Ok(upload)
 }
 
 #[tauri::command]
@@ -1416,6 +1455,137 @@ pub async fn sync_remote_download(
     let parsed: BackupPayload =
         serde_json::from_slice(&plain).map_err(|e| format!("invalid backup payload: {e}"))?;
     apply_backup_payload(&store, &credentials, &parsed, RestoreMode::Merge)
+}
+
+/// Mirrors a local version entry to WebDAV: one timestamped bundle plus the
+/// shared JSON index. Older remote bundles are pruned to the same limit as the
+/// local history.
+async fn push_webdav_version(
+    backups: &ft_sync::BackupStore,
+    config: &ft_sync::WebdavConfig,
+    entry: &ft_sync::VersionEntry,
+    sealed: &str,
+) -> Result<(), String> {
+    use ft_sync::remote;
+
+    remote::webdav_put_version(config, &entry.id, sealed)
+        .await
+        .map_err(|e| e.to_string())?;
+    // A missing or damaged remote index is rebuilt from local history rather
+    // than wiping versions another device may have uploaded.
+    let mut index = remote::webdav_read_index(config)
+        .await
+        .unwrap_or_else(|_| backups.versions().index());
+    index.version = ft_sync::INDEX_VERSION;
+    index.entries.retain(|item| item.id != entry.id);
+    index.entries.push(entry.clone());
+    let removed = index.keep_newest(ft_sync::MAX_VERSIONS);
+    remote::webdav_write_index(config, &index)
+        .await
+        .map_err(|e| e.to_string())?;
+    for id in removed {
+        let _ = remote::webdav_delete_version(config, &id).await;
+    }
+    Ok(())
+}
+
+/// Version records for the history list. WebDAV returns its remote index (so
+/// a fresh install can see every version); Gist and an unreachable WebDAV fall
+/// back to the local history.
+#[tauri::command]
+pub async fn sync_versions_list(
+    backups: State<'_, ft_sync::BackupStore>,
+    credentials: State<'_, Credentials>,
+    config: RemoteConfig,
+) -> Result<Vec<ft_sync::VersionEntry>, String> {
+    let config = config.resolve_secrets(&credentials)?;
+    let local = backups.versions().list();
+    if let Some(webdav) = config.webdav() {
+        match ft_sync::remote::webdav_read_index(&webdav).await {
+            Ok(index) if !index.entries.is_empty() => Ok(index.entries),
+            _ => Ok(local),
+        }
+    } else {
+        Ok(local)
+    }
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionRestoreResult {
+    stats: ft_store::ImportStats,
+    restore_point_id: String,
+    restore_point_at: u64,
+}
+
+/// Rewinds managed data to a chosen version. Before touching anything the
+/// current state is sealed as a restore-point version, so the rollback itself
+/// is reversible from the same list.
+#[tauri::command]
+pub async fn sync_version_restore(
+    backups: State<'_, ft_sync::BackupStore>,
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+    config: RemoteConfig,
+    passphrase: String,
+    version_id: String,
+) -> Result<VersionRestoreResult, String> {
+    let config = config.resolve_secrets(&credentials)?;
+    let versions = backups.versions();
+
+    let mut entry = versions
+        .list()
+        .into_iter()
+        .find(|item| item.id == version_id);
+    if entry.is_none() {
+        if let Some(webdav) = config.webdav() {
+            if let Ok(index) = ft_sync::remote::webdav_read_index(&webdav).await {
+                entry = index
+                    .entries
+                    .into_iter()
+                    .find(|item| item.id == version_id);
+            }
+        }
+    }
+    let entry = entry.ok_or_else(|| "version not found".to_string())?;
+
+    let sealed = match versions.read(&entry.id) {
+        Ok(text) => text,
+        Err(_) => {
+            let webdav = config
+                .webdav()
+                .ok_or_else(|| "version bundle is not available locally".to_string())?;
+            ft_sync::remote::webdav_get_version(&webdav, &entry.id)
+                .await
+                .map_err(|e| e.to_string())?
+        }
+    };
+
+    // Validate the bundle before snapshotting: a wrong passphrase must not
+    // leave a stray restore point behind.
+    let plain = ft_sync::open(&passphrase, &sealed).map_err(|e| e.to_string())?;
+    let parsed: BackupPayload =
+        serde_json::from_slice(&plain).map_err(|e| format!("invalid backup payload: {e}"))?;
+
+    let all: Vec<String> = ALL_SCOPES.iter().map(|item| item.to_string()).collect();
+    let (current, current_summary) = backup_payload(&store, Some(&credentials), &all)?;
+    let current_sealed = ft_sync::seal(&passphrase, &current).map_err(|e| e.to_string())?;
+    let point = versions
+        .add(
+            &current_sealed,
+            all,
+            serde_json::to_value(&current_summary).map_err(|e| e.to_string())?,
+            ft_sync::VersionSource::RestorePoint,
+            format!("before {}", entry.id),
+        )
+        .map_err(|e| e.to_string())?;
+
+    let stats = apply_backup_payload(&store, &credentials, &parsed, RestoreMode::Replace)?;
+    Ok(VersionRestoreResult {
+        stats,
+        restore_point_id: point.id,
+        restore_point_at: point.created_at,
+    })
 }
 
 type Credentials = Arc<ft_security::CredentialStore>;
