@@ -7,9 +7,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
-use sysinfo::{
-    Disks, LoadAvg, Networks, ProcessesToUpdate, System,
-};
+use sysinfo::{Disks, LoadAvg, Networks, ProcessesToUpdate, System};
 
 const GPU_CACHE: Duration = Duration::from_secs(15);
 const GPU_PROBE_TIMEOUT: Duration = Duration::from_millis(2500);
@@ -224,9 +222,9 @@ impl Monitor {
         // The primary adapter leads even while it is idle, so the compact
         // readout never jumps between adapters on a quiet host.
         net.sort_by(|a, b| {
-            b.primary.cmp(&a.primary).then_with(|| {
-                (b.rx_rate + b.tx_rate).cmp(&(a.rx_rate + a.tx_rate))
-            })
+            b.primary
+                .cmp(&a.primary)
+                .then_with(|| (b.rx_rate + b.tx_rate).cmp(&(a.rx_rate + a.tx_rate)))
         });
         net.truncate(DISK_LIMIT);
         net
@@ -422,7 +420,12 @@ impl RemoteMonitor {
                 let name = parts.next().unwrap_or("").trim().to_string();
                 if let Some(pid) = pid {
                     if !name.is_empty() {
-                        processes.push(ProcessInfo { pid, name, cpu, mem });
+                        processes.push(ProcessInfo {
+                            pid,
+                            name,
+                            cpu,
+                            mem,
+                        });
                     }
                 }
             } else if let Some((key, value)) = line.split_once(' ') {
@@ -925,19 +928,13 @@ procrow 812 0.4 1.2 nginx worker
     fn primary_adapter_follows_the_route_then_the_traffic() {
         // Without a route the busiest physical adapter wins, even on an idle
         // host, and a container bridge is never promoted over a real link.
-        let mut net = vec![
-            iface("docker0", 9_000_000, 10),
-            iface("ens3", 1_000, 2_000),
-        ];
+        let mut net = vec![iface("docker0", 9_000_000, 10), iface("ens3", 1_000, 2_000)];
         mark_primary(&mut net, None);
         assert!(net[1].primary);
         assert!(!net[0].primary);
 
         // An explicit default route beats raw counters.
-        let mut net = vec![
-            iface("docker0", 9_000_000, 10),
-            iface("ens3", 1_000, 2_000),
-        ];
+        let mut net = vec![iface("docker0", 9_000_000, 10), iface("ens3", 1_000, 2_000)];
         mark_primary(&mut net, Some("docker0"));
         assert!(net[0].primary);
         assert!(!net[1].primary);

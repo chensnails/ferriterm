@@ -96,13 +96,7 @@ impl BackupStore {
     ) -> Result<(PathBuf, VersionEntry), SyncError> {
         let sealed = seal(passphrase, payload)?;
         let path = self.write_bundle(&sealed)?;
-        let entry = self.record_version(
-            &sealed,
-            scope,
-            summary,
-            VersionSource::Local,
-            note,
-        )?;
+        let entry = self.record_version(&sealed, scope, summary, VersionSource::Local, note)?;
         Ok((path, entry))
     }
 
@@ -115,8 +109,7 @@ impl BackupStore {
         source: VersionSource,
         note: &str,
     ) -> Result<VersionEntry, SyncError> {
-        self.versions()
-            .add(sealed, scope, summary, source, note)
+        self.versions().add(sealed, scope, summary, source, note)
     }
 }
 

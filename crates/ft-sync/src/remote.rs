@@ -340,10 +340,7 @@ pub async fn webdav_put(
     })
 }
 
-pub async fn webdav_get(
-    config: &WebdavConfig,
-    filename: &str,
-) -> Result<String, RemoteError> {
+pub async fn webdav_get(config: &WebdavConfig, filename: &str) -> Result<String, RemoteError> {
     let url = webdav_file_url(config, filename)?;
     let response = auth(client()?.get(url), config)
         .send()
@@ -358,10 +355,7 @@ pub async fn webdav_get(
         .map_err(|err| RemoteError::Format(err.to_string()))
 }
 
-pub async fn webdav_delete(
-    config: &WebdavConfig,
-    filename: &str,
-) -> Result<(), RemoteError> {
+pub async fn webdav_delete(config: &WebdavConfig, filename: &str) -> Result<(), RemoteError> {
     let url = webdav_file_url(config, filename)?;
     let response = auth(client()?.delete(url), config)
         .send()
@@ -415,8 +409,8 @@ pub async fn webdav_write_index(
     config: &WebdavConfig,
     index: &crate::versions::VersionIndex,
 ) -> Result<(), RemoteError> {
-    let body = serde_json::to_string_pretty(index)
-        .map_err(|err| RemoteError::Format(err.to_string()))?;
+    let body =
+        serde_json::to_string_pretty(index).map_err(|err| RemoteError::Format(err.to_string()))?;
     webdav_put(config, WEBDAV_INDEX_FILE, &body).await?;
     Ok(())
 }
@@ -430,17 +424,11 @@ pub async fn webdav_put_version(
     Ok(())
 }
 
-pub async fn webdav_get_version(
-    config: &WebdavConfig,
-    id: &str,
-) -> Result<String, RemoteError> {
+pub async fn webdav_get_version(config: &WebdavConfig, id: &str) -> Result<String, RemoteError> {
     webdav_get(config, &version_filename(id)?).await
 }
 
-pub async fn webdav_delete_version(
-    config: &WebdavConfig,
-    id: &str,
-) -> Result<(), RemoteError> {
+pub async fn webdav_delete_version(config: &WebdavConfig, id: &str) -> Result<(), RemoteError> {
     webdav_delete(config, &version_filename(id)?).await
 }
 

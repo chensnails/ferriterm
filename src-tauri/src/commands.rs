@@ -500,7 +500,9 @@ pub async fn monitor_kill_process(
         return Err("refusing to signal pid 1".to_string());
     }
     if !remote.is_visible(&session_id, pid) {
-        return Err("that process is no longer in the monitored list; refresh the panel".to_string());
+        return Err(
+            "that process is no longer in the monitored list; refresh the panel".to_string(),
+        );
     }
     ft_ssh::exec(
         &sessions,
@@ -955,9 +957,7 @@ fn backup_payload(
     if wants(SCOPE_HOSTS) {
         payload.hosts = store.list_hosts().map_err(|e| e.to_string())?;
         payload.tags = store.list_tags().map_err(|e| e.to_string())?;
-        payload.forward_rules = store
-            .list_forward_rules(None)
-            .map_err(|e| e.to_string())?;
+        payload.forward_rules = store.list_forward_rules(None).map_err(|e| e.to_string())?;
     }
 
     if wants(SCOPE_SECRETS) {
@@ -1009,9 +1009,7 @@ fn backup_payload(
     }
 
     if wants(SCOPE_MACROS) {
-        payload.command_groups = store
-            .list_command_groups()
-            .map_err(|e| e.to_string())?;
+        payload.command_groups = store.list_command_groups().map_err(|e| e.to_string())?;
     }
 
     if wants(SCOPE_HIGHLIGHTS) {
@@ -1134,13 +1132,7 @@ fn apply_backup_payload(
                 let commands: Vec<(String, String, String)> = group
                     .commands
                     .iter()
-                    .map(|item| {
-                        (
-                            item.id.clone(),
-                            item.name.clone(),
-                            item.template.clone(),
-                        )
-                    })
+                    .map(|item| (item.id.clone(), item.name.clone(), item.template.clone()))
                     .collect();
                 let inserted = store
                     .import_command_group(&group.id, &group.name, &commands)
@@ -1151,15 +1143,12 @@ fn apply_backup_payload(
     }
 
     if requested(SCOPE_SECRETS) {
-        stats.secrets_imported =
-            import_backup_secrets(store, credentials, &parsed.secrets, mode)?;
+        stats.secrets_imported = import_backup_secrets(store, credentials, &parsed.secrets, mode)?;
         stats.ssh_keys_imported =
             import_backup_ssh_keys(store, credentials, &parsed.ssh_keys, mode)?;
     }
 
-    if requested(SCOPE_HIGHLIGHTS)
-        && (!parsed.highlights.trim().is_empty() || replace)
-    {
+    if requested(SCOPE_HIGHLIGHTS) && (!parsed.highlights.trim().is_empty() || replace) {
         store
             .set_setting("keywordHighlights", &parsed.highlights)
             .map_err(|e| e.to_string())?;
@@ -1192,9 +1181,7 @@ fn import_backup_secrets(
             if reference.starts_with("sync:") || keep.contains(&reference) {
                 continue;
             }
-            credentials
-                .delete(&reference)
-                .map_err(|e| e.to_string())?;
+            credentials.delete(&reference).map_err(|e| e.to_string())?;
             let _ = store.delete_vault_entry(&reference);
         }
     }
@@ -1606,10 +1593,7 @@ pub async fn sync_version_restore(
     if entry.is_none() {
         if let Some(webdav) = config.webdav() {
             if let Ok(index) = ft_sync::remote::webdav_read_index(&webdav).await {
-                entry = index
-                    .entries
-                    .into_iter()
-                    .find(|item| item.id == version_id);
+                entry = index.entries.into_iter().find(|item| item.id == version_id);
             }
         }
     }
@@ -2387,9 +2371,7 @@ fn key_bundle_payload(
 /// Plain, unencrypted JSON: public keys plus metadata only. Safe to paste into
 /// an issue tracker or a config repo. Never contains private key material.
 #[tauri::command]
-pub fn ssh_key_export_public(
-    store: State<'_, Arc<ft_store::Store>>,
-) -> Result<String, String> {
+pub fn ssh_key_export_public(store: State<'_, Arc<ft_store::Store>>) -> Result<String, String> {
     let payload = key_bundle_payload(&store, None)?;
     String::from_utf8(payload).map_err(|e| e.to_string())
 }
@@ -2547,7 +2529,9 @@ pub fn ssh_key_rotate(
     };
     let new_passphrase = passphrase.trim();
     if current.has_passphrase && new_passphrase.is_empty() {
-        return Err("the existing key is encrypted; enter a passphrase for the new key".to_string());
+        return Err(
+            "the existing key is encrypted; enter a passphrase for the new key".to_string(),
+        );
     }
     let new_comment = if comment.trim().is_empty() {
         current.comment.clone()

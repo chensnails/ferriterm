@@ -953,9 +953,8 @@ mod tests {
 
     #[test]
     fn algorithms_payload_is_optional_and_camel_cased() {
-        let plain = algorithms_payload(
-            r#"{"host":"h","port":22,"username":"u","cols":80,"rows":24}"#,
-        );
+        let plain =
+            algorithms_payload(r#"{"host":"h","port":22,"username":"u","cols":80,"rows":24}"#);
         assert_eq!(
             plain.preferred.kex.as_ref(),
             Config::default().preferred.kex.as_ref()
@@ -1017,8 +1016,14 @@ mod tests {
             config.preferred.cipher.as_ref(),
             defaults.preferred.cipher.as_ref()
         );
-        assert_eq!(config.preferred.mac.as_ref(), defaults.preferred.mac.as_ref());
-        assert_eq!(config.preferred.key.as_ref(), defaults.preferred.key.as_ref());
+        assert_eq!(
+            config.preferred.mac.as_ref(),
+            defaults.preferred.mac.as_ref()
+        );
+        assert_eq!(
+            config.preferred.key.as_ref(),
+            defaults.preferred.key.as_ref()
+        );
         assert_eq!(
             config.preferred.compression.as_ref(),
             defaults.preferred.compression.as_ref()

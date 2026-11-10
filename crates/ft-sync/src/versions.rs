@@ -144,8 +144,8 @@ impl VersionStore {
 
     pub fn write_index(&self, index: &VersionIndex) -> Result<(), SyncError> {
         fs::create_dir_all(&self.dir)?;
-        let bytes = serde_json::to_vec_pretty(index)
-            .map_err(|err| SyncError::Format(err.to_string()))?;
+        let bytes =
+            serde_json::to_vec_pretty(index).map_err(|err| SyncError::Format(err.to_string()))?;
         let target = self.index_path();
         let temp = self.dir.join(format!("{INDEX_FILE}.tmp"));
         fs::write(&temp, bytes)?;
@@ -245,10 +245,22 @@ mod tests {
     fn add_writes_bundle_and_index_newest_first() {
         let store = VersionStore::new(temp_dir());
         let first = store
-            .add("SEALED-1", vec!["hosts".into()], serde_json::json!({}), VersionSource::Local, "")
+            .add(
+                "SEALED-1",
+                vec!["hosts".into()],
+                serde_json::json!({}),
+                VersionSource::Local,
+                "",
+            )
             .unwrap();
         let second = store
-            .add("SEALED-2", vec!["macros".into()], serde_json::json!({}), VersionSource::Webdav, "")
+            .add(
+                "SEALED-2",
+                vec!["macros".into()],
+                serde_json::json!({}),
+                VersionSource::Webdav,
+                "",
+            )
             .unwrap();
         assert_eq!(store.read(&first.id).unwrap(), "SEALED-1");
         assert_eq!(store.read(&second.id).unwrap(), "SEALED-2");
@@ -272,7 +284,10 @@ mod tests {
         assert_eq!(listed.len(), MAX_VERSIONS);
         assert_eq!(listed[0].id, format!("v{}", MAX_VERSIONS + 4));
         assert!(store.read("v0").is_err());
-        assert_eq!(store.read(&format!("v{}", MAX_VERSIONS + 4)).unwrap(), "SEALED");
+        assert_eq!(
+            store.read(&format!("v{}", MAX_VERSIONS + 4)).unwrap(),
+            "SEALED"
+        );
     }
 
     #[test]
@@ -281,9 +296,7 @@ mod tests {
         assert!(store.read("../secret").is_err());
         assert!(store.read("").is_err());
         assert!(store.read("a/b").is_err());
-        assert!(store
-            .insert(entry("../escape", 1), "SEALED")
-            .is_err());
+        assert!(store.insert(entry("../escape", 1), "SEALED").is_err());
     }
 
     #[test]
@@ -293,7 +306,13 @@ mod tests {
         fs::write(store.dir().join(INDEX_FILE), "not json").unwrap();
         assert!(store.list().is_empty());
         store
-            .add("SEALED", vec![], serde_json::json!({}), VersionSource::Local, "")
+            .add(
+                "SEALED",
+                vec![],
+                serde_json::json!({}),
+                VersionSource::Local,
+                "",
+            )
             .unwrap();
         assert_eq!(store.list().len(), 1);
     }

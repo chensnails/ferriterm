@@ -1769,7 +1769,9 @@ mod tests {
     #[test]
     fn replace_hosts_rewinds_the_whole_tree() {
         let store = Store::open_in_memory().unwrap();
-        store.create_host(&folder_input("f1", "prod", None)).unwrap();
+        store
+            .create_host(&folder_input("f1", "prod", None))
+            .unwrap();
         let tag = Tag {
             id: "t1".into(),
             name: "web".into(),
@@ -1832,8 +1834,12 @@ mod tests {
     #[test]
     fn replace_hosts_empty_snapshot_clears_the_tree() {
         let store = Store::open_in_memory().unwrap();
-        store.create_host(&folder_input("f1", "prod", None)).unwrap();
-        store.create_host(&host_input("h1", "child", Some("f1"))).unwrap();
+        store
+            .create_host(&folder_input("f1", "prod", None))
+            .unwrap();
+        store
+            .create_host(&host_input("h1", "child", Some("f1")))
+            .unwrap();
         store.save_forward_rule(&rule("r1", "h1", 8080)).unwrap();
 
         let stats = store.replace_hosts(&[], &[]).unwrap();
@@ -1850,8 +1856,8 @@ mod tests {
 
         let added = store
             .import_forward_rules(&[
-                rule("r1", "h1", 9999),     // same id, keep the local row
-                rule("r2", "h1", 8081),     // new
+                rule("r1", "h1", 9999),      // same id, keep the local row
+                rule("r2", "h1", 8081),      // new
                 rule("r3", "missing", 8082), // orphan, skipped
             ])
             .unwrap();
@@ -1869,7 +1875,9 @@ mod tests {
         let snapshot = store.list_command_groups().unwrap();
 
         store.create_command_group("g2", "Extra").unwrap();
-        store.update_command("c1", "changed", "echo changed").unwrap();
+        store
+            .update_command("c1", "changed", "echo changed")
+            .unwrap();
         store.create_command("c2", "g1", "added", "extra").unwrap();
 
         store.replace_command_groups(&snapshot).unwrap();
