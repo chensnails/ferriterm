@@ -85,6 +85,7 @@ pub fn run() {
             commands::import_preview,
             commands::monitor_sample,
             commands::monitor_remote,
+            commands::monitor_kill_process,
             commands::export_backup,
             commands::import_backup,
             commands::sync_remote_test,

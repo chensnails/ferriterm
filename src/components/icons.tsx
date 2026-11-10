@@ -142,6 +142,43 @@ export function ListIcon({ size = 14 }: { size?: number }) {
   );
 }
 
+export function CpuIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <rect x="4.5" y="4.5" width="7" height="7" rx="1.2" />
+      <path d="M6.5 2v2.5M9.5 2v2.5M6.5 11.5V14M9.5 11.5V14M2 6.5h2.5M2 9.5h2.5M11.5 6.5H14M11.5 9.5H14" />
+    </svg>
+  );
+}
+
+export function MemoryIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <rect x="2" y="4.5" width="12" height="7" rx="1.2" />
+      <path d="M5 6.5v3M8 6.5v3M11 6.5v3" />
+    </svg>
+  );
+}
+
+export function DiskIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <rect x="2" y="3.5" width="12" height="9" rx="1.5" />
+      <path d="M2 9.5h12" />
+      <path d="M10.5 11.5h1" strokeWidth={2} />
+    </svg>
+  );
+}
+
+export function NetworkIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M5 3.5v6M5 9.5l-2 2M5 9.5l2 2" />
+      <path d="M11 12.5v-6M11 6.5l-2-2M11 6.5l2-2" />
+    </svg>
+  );
+}
+
 export function ForwardIcon({ size = 14 }: { size?: number }) {
   return (
     <svg {...base(size)}>

@@ -237,6 +237,28 @@ export interface GpuInfo {
   memoryTotal: number | null;
 }
 
+/** One mounted filesystem; `used` already excludes reserved blocks. */
+export interface DiskUsage {
+  mount: string;
+  used: number;
+  total: number;
+}
+
+/** Bytes per second over the last sampling interval. */
+export interface NetInterface {
+  name: string;
+  rxRate: number;
+  txRate: number;
+}
+
+export interface ProcessInfo {
+  pid: number;
+  name: string;
+  /** Percent of one core. */
+  cpu: number;
+  mem: number;
+}
+
 export interface MonitorSnapshot {
   cpuUsage: number;
   cpuBrand: string;
@@ -253,6 +275,9 @@ export interface MonitorSnapshot {
   osName: string;
   kernelVersion: string;
   gpus: GpuInfo[];
+  disks: DiskUsage[];
+  net: NetInterface[];
+  processes: ProcessInfo[];
 }
 
 /** A remote Linux host sampled over an open SSH session. GPU probing is not
@@ -271,8 +296,11 @@ export interface RemoteSnapshot {
   hostName: string;
   osName: string;
   kernelVersion: string;
-  diskUsed: number;
-  diskTotal: number;
+  disks: DiskUsage[];
+  net: NetInterface[];
+  processes: ProcessInfo[];
+  /** Round trip of the probe itself. */
+  latencyMs: number;
 }
 
 export interface CommandItem {
@@ -808,6 +836,8 @@ export const api = {
   monitorSample: () => invoke<MonitorSnapshot>("monitor_sample"),
   monitorRemote: (sessionId: string) =>
     invoke<RemoteSnapshot>("monitor_remote", { sessionId }),
+  monitorKillProcess: (sessionId: string, pid: number) =>
+    invoke<void>("monitor_kill_process", { sessionId, pid }),
 
   listCommandGroups: () => invoke<CommandGroup[]>("list_command_groups"),
   createCommandGroup: (id: string, name: string) =>

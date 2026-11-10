@@ -2269,97 +2269,215 @@ mark {
   height: 22px;
 }
 
-.monitor-body {
+/* ---- Host tools: overview / cpu / memory / disk / network / processes ---- */
+
+.host-tools {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
-.monitor-target {
+.host-card {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--space-2);
-  font-size: var(--font-ui-sm);
-  color: var(--fg-muted);
-}
-
-.monitor-target select {
-  flex: 1;
-  min-width: 0;
-  height: 24px;
-  padding: 0 var(--space-1);
+  padding: var(--space-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
-  color: var(--fg-primary);
-  font-family: inherit;
-  font-size: var(--font-ui-sm);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
 }
 
-.monitor-row {
-  display: grid;
-  grid-template-columns: 52px 1fr auto;
+.host-card-head {
+  display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: var(--font-ui-sm);
+  min-width: 0;
 }
 
-.monitor-label {
+.host-card-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
   color: var(--fg-muted);
 }
 
-.monitor-value {
-  color: var(--fg-primary);
-  font-family: var(--font-mono);
-  font-size: 11px;
-}
-
-.meter {
-  height: 6px;
-  background: var(--bg-elevated);
-  border-radius: var(--radius-sm);
+.host-card-head h4 {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-ui-sm);
+  font-weight: 600;
+  color: var(--fg-primary);
 }
 
-.meter span {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-  border-radius: inherit;
-  transition: width var(--motion-fast);
-}
-
-.monitor-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  color: var(--fg-muted);
-  font-size: 11px;
+.host-card-meta {
+  flex: 0 0 auto;
   font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
 }
 
-.monitor-system {
+.host-card-body {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--border);
-  font-size: 11px;
+  min-width: 0;
 }
 
-.monitor-system-row {
+.host-kv {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  font-size: var(--font-ui-sm);
+}
+
+.host-kv > div {
   display: grid;
-  grid-template-columns: 56px 1fr;
+  grid-template-columns: 5.5em minmax(0, 1fr);
   gap: var(--space-2);
+}
+
+.host-kv dt {
+  color: var(--fg-muted);
+}
+
+.host-kv dd {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--fg-primary);
 }
 
-.monitor-system-row .monitor-label {
-  width: auto;
+/* One measurement row: label, bar, value. The bar takes the free space so
+   short and long values never change the column widths. */
+.host-line {
+  display: grid;
+  grid-template-columns: 5.5em minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-xs);
 }
 
-.monitor-gpu {
+.host-line-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-muted);
+}
+
+.host-line-value {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--fg-primary);
+  white-space: nowrap;
+}
+
+.host-meter {
   display: block;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--fg-muted) 22%, transparent);
+}
+
+.host-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width var(--motion-panel);
+}
+
+.host-meter-fill.warn {
+  background: var(--warning);
+}
+
+.host-hint {
+  margin: 0;
+  font-size: var(--fs-xs);
+}
+
+.host-net-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--space-2);
+  font-size: var(--fs-xs);
+}
+
+.host-net-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-primary);
+}
+
+.host-net-rate {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font-mono);
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.host-proc {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--fs-xs);
+}
+
+.host-proc-head,
+.host-proc-row {
+  display: grid;
+  grid-template-columns: 4.5em minmax(0, 1fr) 3.2em 3.2em 3em;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.host-proc-head {
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--divider);
+  color: var(--fg-muted);
+}
+
+.host-proc-row {
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.host-proc-row:last-child {
+  border-bottom: 0;
+}
+
+.host-proc-pid,
+.host-proc-num {
+  font-family: var(--font-mono);
+  color: var(--fg-muted);
+  text-align: right;
+}
+
+.host-proc-pid {
+  text-align: left;
+}
+
+.host-proc-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-primary);
+}
+
+.host-proc-kill {
+  justify-self: end;
+  font-size: var(--fs-xs);
 }
 
 .command-rail {
@@ -5199,28 +5317,82 @@ label.sync-action {
   opacity: 0.8;
 }
 
-.statusbar-gauge-track {
-  width: 2.25rem;
-  height: 3px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--fg-muted) 30%, transparent);
+.statusbar-ring {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
 }
 
-.statusbar-gauge-fill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent);
-  transition: width var(--motion-panel);
+.statusbar-ring-track {
+  stroke: color-mix(in srgb, var(--fg-muted) 35%, transparent);
 }
 
-.statusbar-gauge-fill.high {
-  background: var(--warning);
+.statusbar-ring-fill {
+  stroke: var(--success);
+  transition: stroke-dashoffset var(--motion-panel);
 }
 
-.statusbar-monitor-error {
+.statusbar-ring-fill.warn {
+  stroke: var(--warning);
+}
+
+.statusbar-ring-fill.danger {
+  stroke: var(--danger);
+}
+
+.statusbar-load {
+  color: var(--success);
+}
+
+.statusbar-latency {
+  color: var(--fg-muted);
+}
+
+.statusbar-latency.warn {
   color: var(--warning);
+}
+
+.statusbar-latency.danger {
+  color: var(--danger);
+}
+
+.statusbar-monitor {
+  position: relative;
+}
+
+/* Details on hover: the bar carries the glance, the popover carries the
+   numbers that do not fit (mount point, load spread, probe latency). */
+.statusbar-pop {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-1));
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 16em;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-panel);
+  color: var(--fg-primary);
+  font-size: var(--fs-sm);
+  text-align: left;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.statusbar-pop-title {
+  font-family: var(--font-mono);
+  color: var(--fg-primary);
+}
+
+.statusbar-pop-hint {
+  margin-top: var(--space-1);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--divider);
+  color: var(--fg-muted);
 }
 
 /* Narrow windows: drop the host name first; the numbers are the point. */

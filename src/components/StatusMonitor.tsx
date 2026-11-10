@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, isTauri } from "../api";
+import { api, isTauri, type RemoteSnapshot } from "../api";
+import { formatBytes } from "../format";
+import i18n from "../i18n";
 import { useAppStore } from "../store";
 import { PulseIcon } from "./icons";
 
@@ -12,7 +14,17 @@ const POLL_MS = 5000;
 interface Readout {
   host: string;
   cpu: number;
-  memory: number;
+  cores: number;
+  memUsed: number;
+  memTotal: number;
+  mount: string;
+  diskUsed: number;
+  diskTotal: number;
+  load1: number;
+  load5: number;
+  load15: number;
+  latency: number;
+  at: number;
 }
 
 /** The remote probe is Linux `/proc`-based. These two messages are the only
@@ -25,24 +37,56 @@ function isUnsupported(message: string): boolean {
   );
 }
 
-function Gauge({ label, value }: { label: string; value: number | null }) {
+function percent(used: number, total: number): number {
+  return total > 0 ? Math.min(100, (used / total) * 100) : 0;
+}
+
+function tone(value: number): string {
+  if (value >= 95) return "danger";
+  if (value >= 85) return "warn";
+  return "";
+}
+
+/** Circular gauge: 13px ring plus the value, matching the host-tools readout. */
+function Ring({
+  label,
+  value,
+  display,
+}: {
+  label: string;
+  value: number;
+  display: string;
+}) {
+  const radius = 5.25;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - Math.min(100, Math.max(0, value)) / 100);
   return (
     <span className="statusbar-gauge">
       <span className="statusbar-gauge-label">{label}</span>
-      <span className="statusbar-gauge-track" aria-hidden>
-        <span
-          className={[
-            "statusbar-gauge-fill",
-            value !== null && value >= 85 ? "high" : "",
-          ]
+      <svg className="statusbar-ring" viewBox="0 0 14 14" aria-hidden>
+        <circle
+          className="statusbar-ring-track"
+          cx="7"
+          cy="7"
+          r={radius}
+          fill="none"
+          strokeWidth="2"
+        />
+        <circle
+          className={["statusbar-ring-fill", tone(value)]
             .filter(Boolean)
             .join(" ")}
-          style={{ width: `${value ?? 0}%` }}
+          cx="7"
+          cy="7"
+          r={radius}
+          fill="none"
+          strokeWidth="2"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          transform="rotate(-90 7 7)"
         />
-      </span>
-      <span className="statusbar-mono">
-        {value === null ? "—" : `${value}%`}
-      </span>
+      </svg>
+      <span className="statusbar-mono">{display}</span>
     </span>
   );
 }
@@ -63,6 +107,7 @@ export function StatusMonitor() {
   const setMonitorTarget = useAppStore((s) => s.setMonitorTarget);
   const [readout, setReadout] = useState<Readout | null>(null);
   const [failed, setFailed] = useState(false);
+  const [hovered, setHovered] = useState(false);
   const [unsupported, setUnsupported] = useState<Record<string, boolean>>({});
 
   const session = sessions.find(
@@ -86,13 +131,25 @@ export function StatusMonitor() {
             ? await api.monitorSample()
             : await api.monitorRemote(target);
         if (cancelled) return;
+        const disk =
+          sample.disks.find((item) =>
+            target === LOCAL_TARGET ? true : item.mount === "/",
+          ) ?? sample.disks[0];
         setReadout({
           host: sample.hostName,
           cpu: sample.cpuUsage,
-          memory:
-            sample.memTotal > 0
-              ? (sample.memUsed / sample.memTotal) * 100
-              : 0,
+          cores: sample.cpuCores,
+          memUsed: sample.memUsed,
+          memTotal: sample.memTotal,
+          mount: disk?.mount ?? "",
+          diskUsed: disk?.used ?? 0,
+          diskTotal: disk?.total ?? 0,
+          load1: sample.load1,
+          load5: sample.load5,
+          load15: sample.load15,
+          // Local sampling has no network hop, so there is no latency to show.
+          latency: target === LOCAL_TARGET ? 0 : (sample as RemoteSnapshot).latencyMs,
+          at: Date.now(),
         });
         setFailed(false);
       } catch (err) {
@@ -117,10 +174,11 @@ export function StatusMonitor() {
 
   const where = session ? session.title : t("status.monitorLocal");
   const cpu = readout ? Math.round(readout.cpu) : null;
-  const memory = readout ? Math.round(readout.memory) : null;
-  const detail = readout
-    ? `${where} · ${t("monitor.cpu")} ${cpu}% · ${t("monitor.memory")} ${memory}%`
-    : where;
+  const memory = readout ? percent(readout.memUsed, readout.memTotal) : 0;
+  const disk = readout ? percent(readout.diskUsed, readout.diskTotal) : 0;
+  const updated = readout
+    ? new Date(readout.at).toLocaleTimeString(i18n.language, { hour12: false })
+    : "";
 
   const openPanel = () => {
     // Point the card at whatever the bar is showing, then make sure it is open.
@@ -133,8 +191,12 @@ export function StatusMonitor() {
       type="button"
       className="statusbar-item statusbar-monitor"
       onClick={openPanel}
-      title={`${detail} — ${t("status.monitorOpen")}`}
-      aria-label={`${t("status.monitor")}: ${detail}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
+      title={t("status.monitorOpen")}
+      aria-label={`${t("status.monitor")}: ${where}`}
     >
       <PulseIcon size={13} />
       <span className="statusbar-monitor-host">{where}</span>
@@ -144,9 +206,75 @@ export function StatusMonitor() {
         </span>
       ) : (
         <>
-          <Gauge label="CPU" value={cpu} />
-          <Gauge label="MEM" value={memory} />
+          <Ring
+            label="CPU"
+            value={cpu ?? 0}
+            display={cpu === null ? "—" : `${cpu}%`}
+          />
+          <Ring
+            label={t("monitor.memory")}
+            value={memory}
+            display={readout ? `${Math.round(memory)}%` : "—"}
+          />
+          <Ring
+            label={t("monitor.disk")}
+            value={disk}
+            display={readout ? `${Math.round(disk)}%` : "—"}
+          />
+          <span className="statusbar-gauge">
+            <span className="statusbar-gauge-label">{t("monitor.load")}</span>
+            <span className="statusbar-mono statusbar-load">
+              {readout ? readout.load1.toFixed(2) : "—"}
+            </span>
+          </span>
+          {readout && readout.latency > 0 && (
+            <span
+              className={[
+                "statusbar-mono",
+                "statusbar-latency",
+                readout.latency >= 800
+                  ? "danger"
+                  : readout.latency >= 400
+                    ? "warn"
+                    : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              {t("monitor.latencyShort", { ms: readout.latency })}
+            </span>
+          )}
         </>
+      )}
+
+      {hovered && readout && !failed && (
+        <span className="statusbar-pop" role="tooltip">
+          <span className="statusbar-pop-title">{where}</span>
+          <span>
+            CPU {cpu}% · {t("monitor.cores", { count: readout.cores })}
+          </span>
+          <span>
+            {t("monitor.memory")} {formatBytes(readout.memUsed)} /{" "}
+            {formatBytes(readout.memTotal)} ({Math.round(memory)}%)
+          </span>
+          <span>
+            {t("monitor.disk")} {readout.mount} {formatBytes(readout.diskUsed)}{" "}
+            / {formatBytes(readout.diskTotal)} ({Math.round(disk)}%)
+          </span>
+          <span>
+            {t("monitor.load")} {readout.load1.toFixed(2)} /{" "}
+            {readout.load5.toFixed(2)} / {readout.load15.toFixed(2)}
+          </span>
+          {readout.latency > 0 && (
+            <span>
+              {t("monitor.latency")} {t("monitor.latencyShort", { ms: readout.latency })}
+            </span>
+          )}
+          <span>
+            {t("monitor.updatedAt", { time: updated })}
+          </span>
+          <span className="statusbar-pop-hint">{t("monitor.openTools")}</span>
+        </span>
       )}
     </button>
   );
