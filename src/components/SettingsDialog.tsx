@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, isTauri, SYNC_SCOPES, type BuiltinPlugin, type MarketEntry, type MarketIndex, type RemoteConfig, type SyncScope } from "../api";
-import { runAutoSync, SYNC_PASSPHRASE_REF } from "../autoSync";
+import { api, isTauri, SYNC_SCOPES, type BackupSummary, type BuiltinPlugin, type MarketEntry, type MarketIndex, type RemoteConfig, type SyncScope, type VersionEntry, type VersionSource } from "../api";
+import { remoteConfig, runAutoSync, SYNC_PASSPHRASE_REF } from "../autoSync";
+import { formatBytes } from "../format";
 import {
   useAppStore,
   DEFAULT_TERMINAL_FONT_FAMILY,
@@ -226,6 +227,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const [autoPassSaved, setAutoPassSaved] = useState(false);
   const [autoBusy, setAutoBusy] = useState(false);
   const [autoMessage, setAutoMessage] = useState("");
+  const [versions, setVersions] = useState<VersionEntry[]>([]);
+  const [versionsBusy, setVersionsBusy] = useState(false);
+  const [versionsMessage, setVersionsMessage] = useState("");
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const askConfirm = useAppStore((s) => s.askConfirm);
   const [pluginMessage, setPluginMessage] = useState("");
   const [pluginTab, setPluginTab] = useState<"installed" | "market">(
     "installed",
@@ -462,6 +468,89 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     );
     setAutoBusy(false);
   };
+
+  /** An unconfigured remote still has a local history (manual exports, Gist
+   * fallbacks), so use a harmless config that makes the backend read locally. */
+  const localConfig = (): RemoteConfig => ({
+    kind: "gist",
+    token: "",
+    gistId: "",
+    filename: "ferriterm-backup.ftbak",
+  });
+
+  const loadVersions = async () => {
+    if (!isTauri) return;
+    setVersionsBusy(true);
+    try {
+      const config = (await remoteConfig()) ?? localConfig();
+      setVersions(await api.syncVersionsList(config));
+    } catch (err) {
+      setVersionsMessage(String(err));
+    } finally {
+      setVersionsBusy(false);
+    }
+  };
+
+  const sourceLabel = (source: VersionSource) => {
+    switch (source) {
+      case "webdav":
+        return t("sync.sourceWebdav");
+      case "gist":
+        return t("sync.sourceGist");
+      case "restorePoint":
+        return t("sync.sourceRestorePoint");
+      default:
+        return t("sync.sourceLocal");
+    }
+  };
+
+  const summaryText = (summary: BackupSummary) => {
+    const parts: string[] = [];
+    if (summary.hosts) parts.push(t("sync.countHosts", { count: summary.hosts }));
+    if (summary.tags) parts.push(t("sync.countTags", { count: summary.tags }));
+    if (summary.secrets)
+      parts.push(t("sync.countSecrets", { count: summary.secrets }));
+    if (summary.sshKeys)
+      parts.push(t("sync.countKeys", { count: summary.sshKeys }));
+    if (summary.macros)
+      parts.push(t("sync.countMacros", { count: summary.macros }));
+    if (summary.highlights)
+      parts.push(t("sync.countHighlights", { count: summary.highlights }));
+    if (summary.shortcuts)
+      parts.push(t("sync.countShortcuts", { count: summary.shortcuts }));
+    return parts.length ? parts.join(" · ") : t("sync.emptyVersion");
+  };
+
+  const restoreVersion = async (entry: VersionEntry) => {
+    const when = new Date(entry.createdAt * 1000).toLocaleString();
+    const confirmed = await askConfirm({
+      title: t("sync.restoreTitle"),
+      body: t("sync.restoreBody", { time: when }),
+      confirmLabel: t("sync.restoreConfirm"),
+      danger: true,
+    });
+    if (!confirmed) return;
+    setRestoringId(entry.id);
+    setVersionsMessage("");
+    try {
+      const config = (await remoteConfig()) ?? localConfig();
+      const result = await api.syncVersionRestore(config, passphrase, entry.id);
+      await Promise.all([loadHosts(), loadTags()]);
+      setVersionsMessage(
+        t("sync.restored", { time: new Date(result.restorePointAt * 1000).toLocaleString() }),
+      );
+      await loadVersions();
+    } catch (err) {
+      setVersionsMessage(t("sync.restoreFailed", { error: String(err) }));
+    } finally {
+      setRestoringId(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!isTauri) return;
+    void loadVersions();
+  }, [remoteKind]);
 
   const refreshPlugins = async () => {
     try {
@@ -1544,6 +1633,56 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           </p>
           {autoMessage && (
             <p className="hint sync-message">{autoMessage}</p>
+          )}
+        </SettingGroup>
+
+        <SettingGroup
+          title={t("sync.versionsTitle")}
+          hint={t("sync.versionsHint")}
+        >
+          <div className="sync-actions">
+            <button
+              type="button"
+              onClick={() => void loadVersions()}
+              disabled={versionsBusy}
+            >
+              {t("sync.refresh")}
+            </button>
+          </div>
+          {versions.length === 0 ? (
+            <p className="hint">{t("sync.versionsEmpty")}</p>
+          ) : (
+            <div className="sync-version-list">
+              {versions.map((entry) => (
+                <div className="plugin-row sync-version-row" key={entry.id}>
+                  <div className="sync-version-main">
+                    <div className="sync-version-head">
+                      <span className="sync-version-time">
+                        {new Date(entry.createdAt * 1000).toLocaleString()}
+                      </span>
+                      <span className="badge">{sourceLabel(entry.source)}</span>
+                      <span className="hint">{formatBytes(entry.bytes)}</span>
+                    </div>
+                    <span className="hint sync-version-summary">
+                      {summaryText(entry.summary)}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="link-btn"
+                    disabled={restoringId !== null}
+                    onClick={() => void restoreVersion(entry)}
+                  >
+                    {restoringId === entry.id
+                      ? t("sync.restoring")
+                      : t("sync.restore")}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {versionsMessage && (
+            <p className="hint sync-message">{versionsMessage}</p>
           )}
         </SettingGroup>
             </>

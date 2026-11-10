@@ -12,7 +12,7 @@ export const SYNC_PASSPHRASE_REF = "sync:passphrase";
 /** Rebuilds the remote config from persisted settings. Tokens and passwords
  * stay empty: the Rust side fills them from the encrypted local vault, so no
  * secret ever reaches the webview during an unattended run. */
-async function remoteConfig(): Promise<RemoteConfig | null> {
+export async function remoteConfig(): Promise<RemoteConfig | null> {
   const settings = await api.getSettings();
   if (settings["sync:provider"] === "webdav") {
     const url = settings["sync:webdav-url"] ?? "";

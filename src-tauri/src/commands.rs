@@ -1547,8 +1547,15 @@ pub async fn sync_versions_list(
     let config = config.resolve_secrets(&credentials)?;
     let local = backups.versions().list();
     if let Some(webdav) = config.webdav() {
-        match ft_sync::remote::webdav_read_index(&webdav).await {
-            Ok(index) if !index.entries.is_empty() => Ok(index.entries),
+        // The settings pane opens this on mount; an offline server must not
+        // hold it for the transport's full 30s timeout.
+        match tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            ft_sync::remote::webdav_read_index(&webdav),
+        )
+        .await
+        {
+            Ok(Ok(index)) if !index.entries.is_empty() => Ok(index.entries),
             _ => Ok(local),
         }
     } else {
@@ -1578,6 +1585,19 @@ pub async fn sync_version_restore(
 ) -> Result<VersionRestoreResult, String> {
     let config = config.resolve_secrets(&credentials)?;
     let versions = backups.versions();
+    // A one-click rollback should not require retyping the passphrase when it
+    // is already stored for automatic sync.
+    let passphrase = if passphrase.is_empty() {
+        credentials
+            .get("sync:passphrase")
+            .map_err(|e| e.to_string())?
+            .unwrap_or_default()
+    } else {
+        passphrase
+    };
+    if passphrase.is_empty() {
+        return Err("backup passphrase is required".to_string());
+    }
 
     let mut entry = versions
         .list()

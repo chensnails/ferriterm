@@ -7353,3 +7353,37 @@ body.dock-resizing-y * {
 .saved-secret-name {
   font-weight: 600;
 }
+
+/* Version history: one hairline row per sealed bundle. */
+.sync-version-list {
+  margin-top: var(--space-1);
+}
+.sync-version-list .plugin-row {
+  align-items: flex-start;
+}
+.sync-version-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+.sync-version-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.sync-version-time {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sync-version-summary {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sync-version-row .link-btn {
+  flex: 0 0 auto;
+}
