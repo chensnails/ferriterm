@@ -44,12 +44,13 @@ pub fn run() {
                 sftp,
                 transfers.clone(),
             ));
-            let mut updates = transfers.subscribe();
+            let updates = transfers.subscribe();
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                while let Ok(job) = updates.recv().await {
-                    let _ = handle.emit("transfer://update", &job);
-                }
+                forward_updates(updates, move |job| {
+                    let _ = handle.emit("transfer://update", job);
+                })
+                .await;
             });
             std::fs::create_dir_all(dir.join("plugins"))?;
             Ok(())
@@ -183,4 +184,39 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running ferriterm");
+}
+
+/// Forward broadcast events to a sink until the sender is dropped. A slow
+/// consumer only loses intermediate snapshots (Lagged), never the stream:
+/// treating lag as termination froze the transfer UI forever after one burst.
+async fn forward_updates<T, F>(mut updates: tokio::sync::broadcast::Receiver<T>, mut emit: F)
+where
+    T: Clone,
+    F: FnMut(&T) + Send,
+{
+    loop {
+        match updates.recv().await {
+            Ok(job) => emit(&job),
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::forward_updates;
+
+    #[tokio::test]
+    async fn lagged_forwarder_resumes_with_the_latest_event() {
+        let (tx, rx) = tokio::sync::broadcast::channel::<u32>(1);
+        for i in 1..=3 {
+            // Nothing drains rx yet, so the forwarder will report lag first.
+            let _ = tx.send(i);
+        }
+        drop(tx); // close the stream after the backlog so the call returns
+        let mut seen = vec![];
+        forward_updates(rx, |job| seen.push(*job)).await;
+        assert_eq!(seen, vec![3]);
+    }
 }
