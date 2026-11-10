@@ -3,6 +3,9 @@ import { useTranslation } from "react-i18next";
 import { api, isTauri, type BuiltinPlugin, type MarketEntry, type MarketIndex, type RemoteConfig } from "../api";
 import {
   useAppStore,
+  DEFAULT_TERMINAL_FONT_FAMILY,
+  DEFAULT_TERMINAL_FONT_SIZE,
+  DEFAULT_TERMINAL_SCROLLBACK,
   type TabNumbering,
   type TerminalBell,
   type TerminalCursorStyle,
@@ -16,11 +19,13 @@ import {
   type SshAlgorithmGroupKey,
 } from "../ssh-algorithms";
 import { DEV_VERSION } from "../version";
+import { detectLanguage } from "../i18n";
 import { Modal } from "./Modal";
 import { CredentialVault } from "./CredentialVault";
 import { ShortcutEditor } from "./ShortcutEditor";
 import { VersionHistory } from "./VersionHistory";
-import { Chip } from "./ui";
+import { Chip, PillGroup, SettingGroup, SettingRow, type PillOption } from "./ui";
+import { ActionSetting, PillSetting } from "./SettingsControls";
 import {
   CheckIcon,
   CloudIcon,
@@ -151,6 +156,16 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const setKeepalive = useAppStore((s) => s.setKeepalive);
   const tabNumbering = useAppStore((s) => s.tabNumbering);
   const setTabNumbering = useAppStore((s) => s.setTabNumbering);
+  const restoreLayoutOnStartup = useAppStore((s) => s.restoreLayoutOnStartup);
+  const setRestoreLayoutOnStartup = useAppStore(
+    (s) => s.setRestoreLayoutOnStartup,
+  );
+  const resetLayoutSizes = useAppStore((s) => s.resetLayoutSizes);
+  const clearCommandHistory = useAppStore((s) => s.clearCommandHistory);
+  const clearExecLog = useAppStore((s) => s.clearExecLog);
+  const resetShortcuts = useAppStore((s) => s.resetShortcuts);
+  const historyCount = useAppStore((s) => s.commandHistory.length);
+  const execLogCount = useAppStore((s) => s.execLog.length);
   const confirmClose = useAppStore((s) => s.confirmClose);
   const setConfirmClose = useAppStore((s) => s.setConfirmClose);
   const sftpShowHidden = useAppStore((s) => s.sftpShowHidden);
@@ -465,6 +480,62 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
 
   const CategoryIcon = CATEGORY_ICONS[category];
 
+  // Reusable option sets. Labels are resolved lazily so changing language
+  // re-renders the pills without rebuilding any persisted state.
+  const yesNo = (): PillOption[] => [
+    { value: "1", label: t("common.yes") },
+    { value: "0", label: t("common.no") },
+  ];
+  const boolValue = (value: boolean) => (value ? "1" : "0");
+
+  // Each group reset touches only the settings shown inside that group, so
+  // "reset this group" never silently changes an unrelated preference.
+  const resetAppearance = () => {
+    setTheme("dark");
+    setLanguage(detectLanguage());
+  };
+  const resetStartup = () => {
+    setRestoreLayoutOnStartup(true);
+    setTabNumbering("asNeed");
+    setConfirmClose(true);
+  };
+  const resetTerminalAppearance = () => {
+    setTerminalFontFamily(DEFAULT_TERMINAL_FONT_FAMILY);
+    setCustomFont(false);
+    setTerminalFontSize(DEFAULT_TERMINAL_FONT_SIZE);
+    setTerminalScrollback(DEFAULT_TERMINAL_SCROLLBACK);
+    setTerminalCursorBlink(true);
+    setTerminalCursorStyle("block");
+  };
+  const resetTerminalInteraction = () => {
+    setTerminalBell("off");
+    setTerminalRightClickPaste(false);
+    setTerminalScrollOnOutput(true);
+    setTerminalAutoCopy(false);
+  };
+  const resetConnection = () => {
+    setKeepalive(30);
+    setOsc52(true);
+  };
+  const resetTransfer = () => {
+    setSftpShowHidden(false);
+    setTransferConcurrency(6);
+    setEditorAutoSave(false);
+  };
+
+  const clearCache = async (kind: "history" | "log") => {
+    const confirmed = await useAppStore.getState().askConfirm({
+      title: t(`settings.cache.${kind}Title`),
+      body: t(`settings.cache.${kind}Confirm`),
+      confirmLabel: t("settings.cache.clear"),
+      danger: true,
+    });
+    if (!confirmed) return;
+    if (kind === "history") clearCommandHistory();
+    else clearExecLog();
+    setMessage(t("settings.cache.cleared"));
+  };
+
   return (
     <Modal
       title={t("settings.title")}
@@ -494,46 +565,74 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             <h2>
               <CategoryIcon size={15} />
               {t(`settings.cat.${category}`)}
+              <Chip tone="info" className="settings-saved-chip">
+                <CheckIcon size={11} />
+                {t("settings.autoSaved")}
+              </Chip>
             </h2>
             <p className="hint">{t(`settings.desc.${category}`)}</p>
           </div>
           {category === "general" && (
             <>
-        <fieldset className="settings-group">
-          <legend>{t("settings.theme")}</legend>
-          <label className="field">
-            <span>{t("settings.themeTitle")}</span>
-            <select
-              value={theme}
-              onChange={(e) => setTheme(e.target.value)}
-            >
-              <optgroup label={t("settings.themeBuiltin")}>
-                {BUILTIN_THEMES.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {t(`settings.theme_${item.id}`)}
-                  </option>
-                ))}
-              </optgroup>
-              {themes.length > 0 && (
-                <optgroup label={t("settings.themePacks")}>
-                  {themes.map((pack) => (
-                    <option key={pack.id} value={pack.id}>
-                      {pack.name}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              {importedThemes.length > 0 && (
-                <optgroup label={t("settings.themeCustom")}>
-                  {importedThemes.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-          </label>
+        <SettingGroup
+          title={t("settings.group.appearance")}
+          hint={t("settings.group.appearanceHint")}
+          onReset={resetAppearance}
+          resetLabel={t("settings.resetGroup")}
+        >
+          <PillSetting
+            title={t("settings.themeTitle")}
+            hint={t("settings.themeHint")}
+            wrap
+            value={theme}
+            onChange={setTheme}
+            options={[
+              ...BUILTIN_THEMES.map(
+                (item): PillOption => ({
+                  value: item.id,
+                  label: t(`settings.theme_${item.id}`),
+                  group: t("settings.themeBuiltin"),
+                }),
+              ),
+              ...themes.map(
+                (pack): PillOption => ({
+                  value: pack.id,
+                  label: pack.name,
+                  group: t("settings.themePacks"),
+                }),
+              ),
+              ...importedThemes.map(
+                (item): PillOption => ({
+                  value: item.id,
+                  label: item.name,
+                  group: t("settings.themeCustom"),
+                }),
+              ),
+            ]}
+          />
+          <PillSetting
+            title={t("settings.language")}
+            hint={t("settings.languagePackHint")}
+            wrap
+            value={language}
+            onChange={setLanguage}
+            options={[
+              { value: "en", label: "English" },
+              { value: "zh-CN", label: "简体中文" },
+              ...languagePacks
+                .filter(
+                  (pack) =>
+                    pack.locale !== "en" && pack.locale !== "zh-CN",
+                )
+                .map(
+                  (pack): PillOption => ({
+                    value: pack.locale,
+                    label: pack.name,
+                    group: t("settings.themePacks"),
+                  }),
+                ),
+            ]}
+          />
           <div className="plugin-actions">
             <button
               type="button"
@@ -612,28 +711,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               ))}
             </ul>
           )}
-        </fieldset>
-
-        <fieldset className="settings-group">
-          <legend>{t("settings.languageTitle")}</legend>
-          <label className="field">
-            <span>{t("settings.language")}</span>
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-            >
-              <option value="en">English</option>
-              <option value="zh-CN">简体中文</option>
-              {languagePacks
-                .filter((pack) => pack.locale !== "en" && pack.locale !== "zh-CN")
-                .map((pack) => (
-                  <option key={pack.id} value={pack.locale}>
-                    {pack.name}
-                  </option>
-                ))}
-            </select>
-            <span className="hint">{t("settings.languagePackHint")}</span>
-          </label>
           <div className="plugin-actions">
             <button type="button" onClick={() => void refreshPlugins()}>
               {t("settings.languageReload")}
@@ -665,84 +742,107 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               ))}
             </ul>
           )}
-        </fieldset>
+        </SettingGroup>
 
-        <fieldset className="settings-group">
-          <legend>{t("settings.tabsTitle")}</legend>
-          <label className="field">
-            <span>{t("settings.tabNumbering")}</span>
-            <select
-              value={tabNumbering}
-              onChange={(e) => setTabNumbering(e.target.value as TabNumbering)}
-            >
-              <option value="asNeed">{t("settings.tabNumberingAsNeed")}</option>
-              <option value="always">{t("settings.tabNumberingAlways")}</option>
-              <option value="none">{t("settings.tabNumberingNone")}</option>
-            </select>
-            <span className="hint">{t("settings.tabNumberingHint")}</span>
-          </label>
-          <label className="field">
-            <span>{t("settings.confirmClose")}</span>
-            <select
-              value={confirmClose ? "1" : "0"}
-              onChange={(e) => setConfirmClose(e.target.value === "1")}
-            >
-              <option value="1">{t("common.yes")}</option>
-              <option value="0">{t("common.no")}</option>
-            </select>
-          </label>
-          <span className="hint">{t("settings.confirmCloseHint")}</span>
-        </fieldset>
+        <SettingGroup
+          title={t("settings.group.startup")}
+          hint={t("settings.group.startupHint")}
+          onReset={resetStartup}
+          resetLabel={t("settings.resetGroup")}
+        >
+          <PillSetting
+            title={t("settings.restoreLayout")}
+            hint={t("settings.restoreLayoutHint")}
+            value={boolValue(restoreLayoutOnStartup)}
+            onChange={(value) => setRestoreLayoutOnStartup(value === "1")}
+            options={yesNo()}
+          />
+          <PillSetting
+            title={t("settings.tabNumbering")}
+            hint={t("settings.tabNumberingHint")}
+            value={tabNumbering}
+            onChange={(value) => setTabNumbering(value as TabNumbering)}
+            options={[
+              { value: "asNeed", label: t("settings.tabNumberingAsNeed") },
+              { value: "always", label: t("settings.tabNumberingAlways") },
+              { value: "none", label: t("settings.tabNumberingNone") },
+            ]}
+          />
+          <PillSetting
+            title={t("settings.confirmClose")}
+            hint={t("settings.confirmCloseHint")}
+            value={boolValue(confirmClose)}
+            onChange={(value) => setConfirmClose(value === "1")}
+            options={yesNo()}
+          />
+        </SettingGroup>
+
+        <SettingGroup
+          title={t("settings.group.data")}
+          hint={t("settings.group.dataHint")}
+        >
+          <ActionSetting
+            title={t("settings.cache.historyTitle")}
+            hint={t("settings.cache.historyHint")}
+            current={t("settings.cache.entries", { count: historyCount })}
+            actionLabel={t("settings.cache.clear")}
+            danger
+            onAction={() => void clearCache("history")}
+          />
+          <ActionSetting
+            title={t("settings.cache.logTitle")}
+            hint={t("settings.cache.logHint")}
+            current={t("settings.cache.entries", { count: execLogCount })}
+            actionLabel={t("settings.cache.clear")}
+            danger
+            onAction={() => void clearCache("log")}
+          />
+          <ActionSetting
+            title={t("settings.cache.layoutTitle")}
+            hint={t("settings.cache.layoutHint")}
+            actionLabel={t("settings.cache.resetLayout")}
+            onAction={resetLayoutSizes}
+          />
+          <ActionSetting
+            title={t("settings.cache.shortcutsTitle")}
+            hint={t("settings.cache.shortcutsHint")}
+            actionLabel={t("settings.cache.resetShortcuts")}
+            onAction={resetShortcuts}
+          />
+        </SettingGroup>
             </>
           )}
           {category === "credentials" && <CredentialVault />}
           {category === "terminal" && (
             <>
-        <fieldset className="settings-group">
-          <legend>{t("settings.terminalAppearance")}</legend>
-          <p className="hint">{t("settings.appearanceHint")}</p>
-          <div className="settings-inline">
-            <label className="field">
-              <span>{t("settings.fontFamily")}</span>
-              <select
-                value={customFont ? CUSTOM_FONT_ID : storedFontChoice}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  if (id === CUSTOM_FONT_ID) {
-                    setCustomFont(true);
-                    return;
-                  }
-                  const font = TERMINAL_FONTS.find((item) => item.id === id);
-                  if (!font) return;
-                  setCustomFont(false);
-                  setTerminalFontFamily(font.stack);
-                }}
-              >
-                {TERMINAL_FONTS.map((font) => (
-                  <option key={font.id} value={font.id}>
-                    {font.label}
-                  </option>
-                ))}
-                <option value={CUSTOM_FONT_ID}>
-                  {t("settings.fontCustom")}
-                </option>
-              </select>
-            </label>
-            <label className="field">
-              <span>{t("settings.fontSize")}</span>
-              <input
-                type="number"
-                min={8}
-                max={32}
-                value={terminalFontSize}
-                onChange={(e) =>
-                  setTerminalFontSize(
-                    Number.parseInt(e.target.value, 10) || terminalFontSize,
-                  )
-                }
-              />
-            </label>
-          </div>
+        <SettingGroup
+          title={t("settings.terminalAppearance")}
+          hint={t("settings.appearanceHint")}
+          onReset={resetTerminalAppearance}
+          resetLabel={t("settings.resetGroup")}
+        >
+          <PillSetting
+            title={t("settings.fontFamily")}
+            hint={t("settings.fontFamilyHint")}
+            wrap
+            value={customFont ? CUSTOM_FONT_ID : storedFontChoice}
+            onChange={(id) => {
+              if (id === CUSTOM_FONT_ID) {
+                setCustomFont(true);
+                return;
+              }
+              const font = TERMINAL_FONTS.find((item) => item.id === id);
+              if (!font) return;
+              setCustomFont(false);
+              setTerminalFontFamily(font.stack);
+            }}
+            options={[
+              ...TERMINAL_FONTS.map(
+                (font): PillOption => ({ value: font.id, label: font.label }),
+              ),
+              { value: CUSTOM_FONT_ID, label: t("settings.fontCustom") },
+            ]}
+          />
           {customFont && (
             <label className="field">
               <span>{t("settings.fontStack")}</span>
@@ -754,6 +854,63 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               />
             </label>
           )}
+          <SettingRow
+            title={t("settings.fontSize")}
+            hint={t("settings.fontSizeHint")}
+            current={t("settings.currentValue", { value: terminalFontSize })}
+          >
+            <input
+              type="number"
+              min={8}
+              max={32}
+              value={terminalFontSize}
+              onChange={(e) =>
+                setTerminalFontSize(
+                  Number.parseInt(e.target.value, 10) || terminalFontSize,
+                )
+              }
+            />
+          </SettingRow>
+          <SettingRow
+            title={t("settings.scrollback")}
+            hint={t("settings.scrollbackHint")}
+            current={t("settings.currentValue", { value: terminalScrollback })}
+          >
+            <input
+              type="number"
+              min={200}
+              step={100}
+              value={terminalScrollback}
+              onChange={(e) =>
+                setTerminalScrollback(
+                  Number.parseInt(e.target.value, 10) || terminalScrollback,
+                )
+              }
+            />
+          </SettingRow>
+          <PillSetting
+            title={t("settings.cursorBlink")}
+            hint={t("settings.cursorBlinkHint")}
+            value={boolValue(terminalCursorBlink)}
+            onChange={(value) => setTerminalCursorBlink(value === "1")}
+            options={yesNo()}
+          />
+          <PillSetting
+            title={t("settings.cursorStyle")}
+            hint={t("settings.cursorStyleHint")}
+            value={terminalCursorStyle}
+            onChange={(value) =>
+              setTerminalCursorStyle(value as TerminalCursorStyle)
+            }
+            options={[
+              { value: "block", label: t("settings.cursorStyleBlock") },
+              {
+                value: "underline",
+                label: t("settings.cursorStyleUnderline"),
+              },
+              { value: "bar", label: t("settings.cursorStyleBar") },
+            ]}
+          />
           <div
             className="font-preview"
             style={{
@@ -768,123 +925,70 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             <span>drwxr-xr-x  5 user staff  160 Nov  9 20:00 .</span>
             <span>-rw-r--r--  1 user staff 1024 Nov  9 20:00 README.md</span>
           </div>
-          <span className="hint">{t("settings.fontFamilyHint")}</span>
-          <label className="field">
-            <span>{t("settings.scrollback")}</span>
-            <input
-              type="number"
-              min={200}
-              step={100}
-              value={terminalScrollback}
-              onChange={(e) =>
-                setTerminalScrollback(
-                  Number.parseInt(e.target.value, 10) || terminalScrollback,
-                )
-              }
-            />
-            <span className="hint">{t("settings.scrollbackHint")}</span>
-          </label>
-          <label className="field">
-            <span>{t("settings.cursorBlink")}</span>
-            <select
-              value={terminalCursorBlink ? "1" : "0"}
-              onChange={(e) => setTerminalCursorBlink(e.target.value === "1")}
-            >
-              <option value="1">{t("common.yes")}</option>
-              <option value="0">{t("common.no")}</option>
-            </select>
-          </label>
-          <label className="field">
-            <span>{t("settings.cursorStyle")}</span>
-            <select
-              value={terminalCursorStyle}
-              onChange={(e) =>
-                setTerminalCursorStyle(e.target.value as TerminalCursorStyle)
-              }
-            >
-              <option value="block">{t("settings.cursorStyleBlock")}</option>
-              <option value="underline">
-                {t("settings.cursorStyleUnderline")}
-              </option>
-              <option value="bar">{t("settings.cursorStyleBar")}</option>
-            </select>
-          </label>
-        </fieldset>
+        </SettingGroup>
 
-        <fieldset className="settings-group">
-          <legend>{t("settings.terminalInteraction")}</legend>
-          <p className="hint">{t("settings.terminalInteractionHint")}</p>
-          <label className="field">
-            <span>{t("settings.bell")}</span>
-            <select
-              value={terminalBell}
-              onChange={(e) => setTerminalBell(e.target.value as TerminalBell)}
-            >
-              <option value="off">{t("settings.bellOff")}</option>
-              <option value="visual">{t("settings.bellVisual")}</option>
-              <option value="sound">{t("settings.bellSound")}</option>
-            </select>
-          </label>
-          <span className="hint">{t("settings.bellHint")}</span>
-          <label className="field">
-            <span>{t("settings.rightClickPaste")}</span>
-            <select
-              value={terminalRightClickPaste ? "1" : "0"}
-              onChange={(e) =>
-                setTerminalRightClickPaste(e.target.value === "1")
-              }
-            >
-              <option value="1">{t("common.yes")}</option>
-              <option value="0">{t("common.no")}</option>
-            </select>
-          </label>
-          <span className="hint">{t("settings.rightClickPasteHint")}</span>
-          <label className="field">
-            <span>{t("settings.scrollOnOutput")}</span>
-            <select
-              value={terminalScrollOnOutput ? "1" : "0"}
-              onChange={(e) =>
-                setTerminalScrollOnOutput(e.target.value === "1")
-              }
-            >
-              <option value="1">{t("common.yes")}</option>
-              <option value="0">{t("common.no")}</option>
-            </select>
-          </label>
-          <span className="hint">{t("settings.scrollOnOutputHint")}</span>
-          <label className="field">
-            <span>{t("settings.autoCopy")}</span>
-            <select
-              value={terminalAutoCopy ? "1" : "0"}
-              onChange={(e) => setTerminalAutoCopy(e.target.value === "1")}
-            >
-              <option value="1">{t("common.yes")}</option>
-              <option value="0">{t("common.no")}</option>
-            </select>
-          </label>
-          <span className="hint">{t("settings.autoCopyHint")}</span>
-        </fieldset>
+        <SettingGroup
+          title={t("settings.terminalInteraction")}
+          hint={t("settings.terminalInteractionHint")}
+          onReset={resetTerminalInteraction}
+          resetLabel={t("settings.resetGroup")}
+        >
+          <PillSetting
+            title={t("settings.bell")}
+            hint={t("settings.bellHint")}
+            value={terminalBell}
+            onChange={(value) => setTerminalBell(value as TerminalBell)}
+            options={[
+              { value: "off", label: t("settings.bellOff") },
+              { value: "visual", label: t("settings.bellVisual") },
+              { value: "sound", label: t("settings.bellSound") },
+            ]}
+          />
+          <PillSetting
+            title={t("settings.rightClickPaste")}
+            hint={t("settings.rightClickPasteHint")}
+            value={boolValue(terminalRightClickPaste)}
+            onChange={(value) => setTerminalRightClickPaste(value === "1")}
+            options={yesNo()}
+          />
+          <PillSetting
+            title={t("settings.scrollOnOutput")}
+            hint={t("settings.scrollOnOutputHint")}
+            value={boolValue(terminalScrollOnOutput)}
+            onChange={(value) => setTerminalScrollOnOutput(value === "1")}
+            options={yesNo()}
+          />
+          <PillSetting
+            title={t("settings.autoCopy")}
+            hint={t("settings.autoCopyHint")}
+            value={boolValue(terminalAutoCopy)}
+            onChange={(value) => setTerminalAutoCopy(value === "1")}
+            options={yesNo()}
+          />
+        </SettingGroup>
 
-        <fieldset className="settings-group">
-          <legend>{t("settings.sshSecurityTitle")}</legend>
-          <p className="hint">{t("settings.sshSecurityHint")}</p>
-          <label className="field">
-            <span>{t("settings.sshPreset")}</span>
-            <select
-              value={sshSecurity.preset}
-              onChange={(e) => setSshPreset(e.target.value as SshPreset)}
-            >
-              <option value="recommended">
-                {t("settings.sshPresetRecommended")}
-              </option>
-              <option value="compatible">
-                {t("settings.sshPresetCompatible")}
-              </option>
-              <option value="strict">{t("settings.sshPresetStrict")}</option>
-              <option value="custom">{t("settings.sshPresetCustom")}</option>
-            </select>
-          </label>
-          <span className="hint">{t("settings.sshPresetHint")}</span>
+        <SettingGroup
+          title={t("settings.sshSecurityTitle")}
+          hint={t("settings.sshSecurityHint")}
+        >
+          <PillSetting
+            title={t("settings.sshPreset")}
+            hint={t("settings.sshPresetHint")}
+            value={sshSecurity.preset}
+            onChange={(value) => setSshPreset(value as SshPreset)}
+            options={[
+              {
+                value: "recommended",
+                label: t("settings.sshPresetRecommended"),
+              },
+              {
+                value: "compatible",
+                label: t("settings.sshPresetCompatible"),
+              },
+              { value: "strict", label: t("settings.sshPresetStrict") },
+              { value: "custom", label: t("settings.sshPresetCustom") },
+            ]}
+          />
           <details className="ssh-algo-advanced">
             <summary>{t("settings.sshAdvanced")}</summary>
             <p className="hint">{t("settings.sshAdvancedHint")}</p>
@@ -896,63 +1000,74 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   <span className="ssh-algo-group-title">
                     {t(group.labelKey)}
                   </span>
-                  <div className="ssh-algo-grid">
-                    {group.items.map((name) => (
-                      <label key={name} className="checkbox ssh-algo-item">
-                        <input
-                          type="checkbox"
-                          checked={selected.includes(name)}
-                          onChange={(e) =>
-                            setSshAlgorithmGroup(
-                              key,
-                              e.target.checked
-                                ? [...selected, name]
-                                : selected.filter((item) => item !== name),
-                            )
-                          }
-                        />
-                        <span>{name}</span>
-                      </label>
-                    ))}
-                  </div>
+                  <PillGroup
+                    multiple
+                    wrap
+                    label={t(group.labelKey)}
+                    value={[...selected]}
+                    onChange={(next) => setSshAlgorithmGroup(key, next)}
+                    options={group.items.map((name) => ({
+                      value: name,
+                      label: name,
+                      hint: name,
+                    }))}
+                  />
                 </div>
               );
             })}
           </details>
-        </fieldset>
+        </SettingGroup>
 
-        <label className="field">
-          <span>{t("settings.keepalive")}</span>
-          <input
-            type="number"
-            min={0}
-            max={600}
-            value={keepaliveSecs}
-            onChange={(e) =>
-              setKeepalive(Number.parseInt(e.target.value, 10) || 0)
-            }
+        <SettingGroup
+          title={t("settings.group.connection")}
+          hint={t("settings.group.connectionHint")}
+          onReset={resetConnection}
+          resetLabel={t("settings.resetGroup")}
+        >
+          <SettingRow
+            title={t("settings.keepalive")}
+            hint={t("settings.keepaliveHint")}
+            current={t("settings.currentValue", { value: keepaliveSecs })}
+          >
+            <input
+              type="number"
+              min={0}
+              max={600}
+              value={keepaliveSecs}
+              onChange={(e) =>
+                setKeepalive(Number.parseInt(e.target.value, 10) || 0)
+              }
+            />
+          </SettingRow>
+          <PillSetting
+            title={t("settings.osc52")}
+            hint={t("settings.osc52Hint")}
+            value={boolValue(osc52)}
+            onChange={(value) => setOsc52(value === "1")}
+            options={yesNo()}
           />
-          <span className="hint">{t("settings.keepaliveHint")}</span>
-        </label>
+        </SettingGroup>
 
-        <fieldset className="settings-group">
-          <legend>{t("settings.osc52Title")}</legend>
-          <label className="field">
-            <span>{t("settings.osc52")}</span>
-            <select
-              value={osc52 ? "1" : "0"}
-              onChange={(e) => setOsc52(e.target.value === "1")}
-            >
-              <option value="1">{t("common.yes")}</option>
-              <option value="0">{t("common.no")}</option>
-            </select>
-          </label>
-          <span className="hint">{t("settings.osc52Hint")}</span>
-        </fieldset>
-
-        <fieldset className="settings-group">
-          <legend>{t("settings.highlightsTitle")}</legend>
-          <p className="hint">{t("settings.highlightsHint")}</p>
+        <SettingGroup
+          title={t("settings.highlightsTitle")}
+          hint={t("settings.highlightsHint")}
+        >
+          <SettingRow
+            title={t("settings.highlightNew")}
+            hint={t("settings.highlightColorHint")}
+          >
+            <PillGroup
+              label={t("settings.highlightColor")}
+              value={colorDraft}
+              onChange={setColorDraft}
+              options={HIGHLIGHT_COLORS.map((color) => ({
+                value: color,
+                label: t(
+                  `settings.highlightColor_${color.replace("--tag-", "")}`,
+                ),
+              }))}
+            />
+          </SettingRow>
           <div className="highlight-form">
             <label className="field grow">
               <input
@@ -967,18 +1082,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   }
                 }}
               />
-            </label>
-            <label className="field">
-              <select
-                value={colorDraft}
-                onChange={(e) => setColorDraft(e.target.value)}
-              >
-                {HIGHLIGHT_COLORS.map((color) => (
-                  <option key={color} value={color}>
-                    {t(`settings.highlightColor_${color.replace("--tag-", "")}`)}
-                  </option>
-                ))}
-              </select>
             </label>
             <button
               type="button"
@@ -1018,55 +1121,42 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               ))}
             </ul>
           )}
-        </fieldset>
+        </SettingGroup>
             </>
           )}
           {category === "keyboard" && <ShortcutEditor />}
           {category === "transfer" && (
             <>
-        <fieldset className="settings-group">
-          <legend>{t("settings.cat.transfer")}</legend>
-          <label className="field">
-            <span>{t("settings.sftpShowHidden")}</span>
-            <select
-              value={sftpShowHidden ? "1" : "0"}
-              onChange={(e) => setSftpShowHidden(e.target.value === "1")}
-            >
-              <option value="1">{t("common.yes")}</option>
-              <option value="0">{t("common.no")}</option>
-            </select>
-          </label>
-          <span className="hint">{t("settings.sftpShowHiddenHint")}</span>
-          <label className="field">
-            <span>{t("settings.transferConcurrency")}</span>
-            <select
-              value={String(transferConcurrency)}
-              onChange={(e) =>
-                setTransferConcurrency(Number(e.target.value))
-              }
-            >
-              {Array.from({ length: 8 }, (_, index) => index + 1).map(
-                (value) => (
-                  <option key={value} value={String(value)}>
-                    {value}
-                  </option>
-                ),
-              )}
-            </select>
-          </label>
-          <span className="hint">{t("settings.transferConcurrencyHint")}</span>
-          <label className="field">
-            <span>{t("settings.editorAutoSave")}</span>
-            <select
-              value={editorAutoSave ? "1" : "0"}
-              onChange={(e) => setEditorAutoSave(e.target.value === "1")}
-            >
-              <option value="1">{t("common.yes")}</option>
-              <option value="0">{t("common.no")}</option>
-            </select>
-          </label>
-          <span className="hint">{t("settings.editorAutoSaveHint")}</span>
-        </fieldset>
+        <SettingGroup
+          title={t("settings.group.transfer")}
+          hint={t("settings.group.transferHint")}
+          onReset={resetTransfer}
+          resetLabel={t("settings.resetGroup")}
+        >
+          <PillSetting
+            title={t("settings.sftpShowHidden")}
+            hint={t("settings.sftpShowHiddenHint")}
+            value={boolValue(sftpShowHidden)}
+            onChange={(value) => setSftpShowHidden(value === "1")}
+            options={yesNo()}
+          />
+          <PillSetting
+            title={t("settings.transferConcurrency")}
+            hint={t("settings.transferConcurrencyHint")}
+            value={String(transferConcurrency)}
+            onChange={(value) => setTransferConcurrency(Number(value))}
+            options={Array.from({ length: 8 }, (_, index) => index + 1).map(
+              (value) => ({ value: String(value), label: String(value) }),
+            )}
+          />
+          <PillSetting
+            title={t("settings.editorAutoSave")}
+            hint={t("settings.editorAutoSaveHint")}
+            value={boolValue(editorAutoSave)}
+            onChange={(value) => setEditorAutoSave(value === "1")}
+            options={yesNo()}
+          />
+        </SettingGroup>
             </>
           )}
           {category === "sync" && (
@@ -1084,15 +1174,13 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               onToggle={() => setShowPassword(!showPassword)}
             />
           </label>
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={includeSecrets}
-              onChange={(e) => setIncludeSecrets(e.target.checked)}
-            />
-            <span>{t("sync.includeSecrets")}</span>
-          </label>
-          <span className="hint">{t("sync.includeSecretsHint")}</span>
+          <PillSetting
+            title={t("sync.includeSecrets")}
+            hint={t("sync.includeSecretsHint")}
+            value={boolValue(includeSecrets)}
+            onChange={(value) => setIncludeSecrets(value === "1")}
+            options={yesNo()}
+          />
           <div className="sync-actions">
             <button
               type="button"
@@ -1127,25 +1215,25 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         <fieldset className="settings-group">
           <legend>{t("sync.remoteTitle")}</legend>
           <p className="hint">{t("sync.remoteHint")}</p>
-          <label className="field">
-            <span>{t("sync.provider")}</span>
-            <div className="field-inline">
-              <select
-                value={remoteKind}
-                onChange={(e) => setRemoteKind(e.target.value as "gist" | "webdav")}
-              >
-                <option value="gist">{t("sync.providerGist")}</option>
-                <option value="webdav">{t("sync.providerWebdav")}</option>
-              </select>
-              {remoteKind === "webdav" && (
-                <input
-                  value={davUrl}
-                  onChange={(e) => setDavUrl(e.target.value)}
-                  placeholder="https://dav.example.com/backups"
-                />
-              )}
-            </div>
-          </label>
+          <PillSetting
+            title={t("sync.provider")}
+            value={remoteKind}
+            onChange={(value) => setRemoteKind(value as "gist" | "webdav")}
+            options={[
+              { value: "gist", label: t("sync.providerGist") },
+              { value: "webdav", label: t("sync.providerWebdav") },
+            ]}
+          />
+          {remoteKind === "webdav" && (
+            <label className="field">
+              <span>{t("sync.webdavUrl")}</span>
+              <input
+                value={davUrl}
+                onChange={(e) => setDavUrl(e.target.value)}
+                placeholder="https://dav.example.com/backups"
+              />
+            </label>
+          )}
           {remoteKind === "gist" ? (
             <>
               <label className="field">

@@ -10,6 +10,7 @@ import {
 import { useAppStore } from "../store";
 import { KeyManagerDialog } from "./KeyManagerDialog";
 import { KnownHostsDialog } from "./KnownHostsDialog";
+import { PillSetting } from "./SettingsControls";
 import { UnlockDialog, type VaultAction } from "./UnlockDialog";
 
 const AUTO_LOCK_CHOICES = [0, 5, 15, 30, 60];
@@ -144,23 +145,20 @@ export function CredentialVault() {
           )}
         </div>
         {!masterMode && <p className="hint">{t("vault.masterHint")}</p>}
-        <label className="field">
-          <span>{t("vault.autoLock")}</span>
-          <select
-            value={autoLockMinutes}
-            onChange={(e) => setAutoLockMinutes(Number(e.target.value))}
-            disabled={!masterMode}
-          >
-            {AUTO_LOCK_CHOICES.map((value) => (
-              <option key={value} value={value}>
-                {value === 0
-                  ? t("vault.autoLockOff")
-                  : t("vault.autoLockMinutes", { count: value })}
-              </option>
-            ))}
-          </select>
-          <span className="hint">{t("vault.autoLockHint")}</span>
-        </label>
+        <PillSetting
+          title={t("vault.autoLock")}
+          hint={t("vault.autoLockHint")}
+          disabled={!masterMode}
+          value={String(autoLockMinutes)}
+          onChange={(value) => setAutoLockMinutes(Number(value))}
+          options={AUTO_LOCK_CHOICES.map((value) => ({
+            value: String(value),
+            label:
+              value === 0
+                ? t("vault.autoLockOff")
+                : t("vault.autoLockMinutes", { count: value }),
+          }))}
+        />
       </fieldset>
 
       <fieldset className="settings-group">

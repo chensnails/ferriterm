@@ -423,6 +423,11 @@ interface AppState {
   setKeywordHighlights: (rules: KeywordRule[]) => void;
   tabNumbering: TabNumbering;
   setTabNumbering: (mode: TabNumbering) => void;
+  /** Whether the saved tab/split layout is restored at startup. */
+  restoreLayoutOnStartup: boolean;
+  setRestoreLayoutOnStartup: (value: boolean) => void;
+  /** Restores sidebar/dock/split dimensions to their shipped defaults. */
+  resetLayoutSizes: () => void;
   confirmClose: boolean;
   setConfirmClose: (value: boolean) => void;
   sftpShowHidden: boolean;
@@ -668,6 +673,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   osc52: true,
   keywordHighlights: DEFAULT_KEYWORD_RULES,
   tabNumbering: "asNeed",
+  restoreLayoutOnStartup: true,
   confirmClose: true,
   sftpShowHidden: false,
   editorAutoSave: false,
@@ -879,6 +885,31 @@ export const useAppStore = create<AppState>((set, get) => ({
   setTabNumbering: (mode) => {
     set({ tabNumbering: mode });
     if (isTauri) api.setSetting("tabNumbering", mode).catch(() => {});
+  },
+  setRestoreLayoutOnStartup: (value) => {
+    set({ restoreLayoutOnStartup: value });
+    if (isTauri) {
+      api
+        .setSetting("restoreLayoutOnStartup", value ? "1" : "0")
+        .catch(() => {});
+    }
+  },
+  resetLayoutSizes: () => {
+    set({
+      sidebarWidth: SIDEBAR_W_DEFAULT,
+      dockWidth: 320,
+      dockHeights: { ...DOCK_CARD_DEFAULT_H },
+      splitRatio: 0.5,
+    });
+    if (isTauri) {
+      void api
+        .setSetting("sidebarWidth", String(SIDEBAR_W_DEFAULT))
+        .catch(() => {});
+      void api.setSetting("dockWidth", "320").catch(() => {});
+      void api
+        .setSetting("dockHeights", JSON.stringify(DOCK_CARD_DEFAULT_H))
+        .catch(() => {});
+    }
   },
   setConfirmClose: (value) => {
     set({ confirmClose: value });
@@ -1488,6 +1519,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       osc52: (settings.osc52 ?? "1") !== "0",
       keywordHighlights: parseKeywordRules(settings.keywordHighlights),
       tabNumbering,
+      restoreLayoutOnStartup: (settings.restoreLayoutOnStartup ?? "1") !== "0",
       confirmClose: (settings.confirmClose ?? "1") !== "0",
       sftpShowHidden: settings.sftpShowHidden === "1",
       editorAutoSave: settings.editorAutoSave === "1",

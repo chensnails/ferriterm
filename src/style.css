@@ -1882,6 +1882,45 @@ mark {
   max-width: 64ch;
 }
 
+.settings-saved-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+  font-weight: 400;
+}
+
+/* Narrow windows: keep the category list reachable without eating the pane,
+   and let the segmented rows stack instead of overflowing horizontally. */
+@media (max-width: 720px) {
+  .settings-center {
+    gap: var(--space-2);
+  }
+
+  .settings-nav {
+    width: var(--settings-nav-w);
+    padding-right: var(--space-1);
+  }
+
+  .settings-pane {
+    padding-left: var(--space-1);
+  }
+
+  .settings-inline {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-page-head h2 {
+    flex-wrap: wrap;
+  }
+
+  .settings-saved-chip {
+    margin-left: 0;
+  }
+}
+
 .about-name {
   margin: 0;
   font-size: var(--font-title);
@@ -2807,25 +2846,16 @@ mark {
   color: var(--fg-primary);
 }
 
-.ssh-algo-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
-  gap: var(--space-1) var(--space-3);
-  min-width: 0;
-}
-
-.ssh-algo-item {
-  min-width: 0;
-  align-items: flex-start;
-}
-
-.ssh-algo-item > span {
-  min-width: 0;
-  overflow-wrap: anywhere;
+/* Algorithm names are long; let the capsule text wrap so the group never
+   widens the settings pane, and keep the full name available as a tooltip. */
+.ssh-algo-advanced .ui-pill {
+  max-width: 100%;
   font-family: var(--font-mono);
-  font-size: calc(var(--font-ui) - 1px);
-  line-height: 1.4;
-  color: var(--fg-muted);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  height: auto;
+  min-height: calc(var(--control-h) - 4px);
+  padding: var(--space-1) var(--space-2);
 }
 
 .settings-pane .settings-inline {
@@ -4270,6 +4300,160 @@ label.sync-action {
 
 .ui-chip.tone-danger {
   color: var(--danger);
+}
+
+/* Settings pill controls: capsule buttons replacing dropdowns. */
+.ui-pill-group {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 100%;
+  padding: 2px;
+  border-radius: var(--radius-md);
+  background: var(--sub-bg);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.ui-pill-group.wrap {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+
+.ui-pill-heading {
+  flex: 0 0 100%;
+  padding: var(--space-1) var(--space-1) 0;
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+}
+
+.ui-pill {
+  flex: 0 0 auto;
+  height: calc(var(--control-h) - 4px);
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ui-pill:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+.ui-pill.active {
+  border-color: var(--accent);
+  background: var(--selected-bg);
+  color: var(--fg-primary);
+}
+
+.ui-pill:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ui-pill:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.ui-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.ui-setting-row:last-child {
+  border-bottom: 0;
+}
+
+.ui-setting-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ui-setting-title {
+  font-size: var(--font-ui);
+  color: var(--fg-primary);
+}
+
+.ui-setting-hint {
+  max-width: 100%;
+  font-size: var(--fs-sm);
+  line-height: var(--line-ui);
+  color: var(--fg-muted);
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.ui-setting-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 62%;
+}
+
+.ui-setting-control > input,
+.ui-setting-control > .password-field {
+  min-width: 0;
+  max-width: var(--settings-control-w);
+}
+
+.ui-setting-control > input[type="number"] {
+  max-width: var(--settings-label-w);
+}
+
+.ui-setting-current {
+  flex: 0 0 auto;
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+}
+
+.ui-setting-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+}
+
+.ui-setting-group > .ui-setting-row {
+  padding-left: var(--space-1);
+  padding-right: var(--space-1);
+}
+
+/* Narrow windows: stack the label above the control and let pills wrap. */
+@media (max-width: 620px) {
+  .ui-setting-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ui-setting-control {
+    max-width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .ui-pill-group {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
 }
 
 .ui-segmented {

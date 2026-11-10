@@ -178,7 +178,9 @@ export default function App() {
       try {
         await loadLanguagePacks();
         await Promise.all([loadSettings(), loadHosts(), loadTags()]);
-        if (!initialConnect) await restoreLayout();
+        if (!initialConnect && useAppStore.getState().restoreLayoutOnStartup) {
+          await restoreLayout();
+        }
       } catch (err) {
         setStatus(String(err), true);
       }

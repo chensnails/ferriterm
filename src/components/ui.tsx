@@ -1,8 +1,9 @@
-import type {
-  ButtonHTMLAttributes,
-  HTMLAttributes,
-  KeyboardEvent,
-  ReactNode,
+import {
+  Fragment,
+  type ButtonHTMLAttributes,
+  type HTMLAttributes,
+  type KeyboardEvent,
+  type ReactNode,
 } from "react";
 import { beginWindowDrag, zoomWindowOnDoubleClick } from "../window-chrome";
 import { CloseIcon } from "./icons";
@@ -313,6 +314,151 @@ export function Segmented({
         </button>
       ))}
     </div>
+  );
+}
+
+export interface PillOption {
+  value: string;
+  label: ReactNode;
+  disabled?: boolean;
+  /** Shown as a title tooltip so long algorithm names stay readable. */
+  hint?: string;
+  /** Optional optgroup-style heading, rendered before the first of a run. */
+  group?: string;
+}
+
+type PillGroupProps =
+  | {
+      options: PillOption[];
+      value: string;
+      onChange: (value: string) => void;
+      multiple?: false;
+      disabled?: boolean;
+      wrap?: boolean;
+      label: string;
+    }
+  | {
+      options: PillOption[];
+      value: string[];
+      onChange: (value: string[]) => void;
+      multiple: true;
+      disabled?: boolean;
+      wrap?: boolean;
+      label: string;
+    };
+
+/**
+ * Clickable capsule buttons replacing settings dropdowns. Single-select uses
+ * radio semantics, multi-select uses checkbox semantics; both honour per-option
+ * and whole-group disabled states and expose the current value to AT.
+ */
+export function PillGroup(props: PillGroupProps) {
+  const { options, disabled, wrap, label } = props;
+  const multiple = props.multiple === true;
+  const selected: readonly string[] = multiple ? props.value : [props.value];
+  let lastGroup: string | undefined;
+
+  return (
+    <div
+      className={["ui-pill-group", wrap ? "wrap" : ""].filter(Boolean).join(" ")}
+      role={multiple ? "group" : "radiogroup"}
+      aria-label={label}
+      aria-disabled={disabled || undefined}
+    >
+      {options.map((option) => {
+        const heading = option.group !== lastGroup ? option.group : undefined;
+        lastGroup = option.group;
+        const active = selected.includes(option.value);
+        const isDisabled = disabled || option.disabled;
+        return (
+          <Fragment key={option.value}>
+            {heading && <span className="ui-pill-heading">{heading}</span>}
+            <button
+              type="button"
+              className={["ui-pill", active ? "active" : ""]
+                .filter(Boolean)
+                .join(" ")}
+              role={multiple ? "checkbox" : "radio"}
+              aria-checked={active}
+              disabled={isDisabled}
+              title={option.hint}
+              onClick={() => {
+                if (multiple) {
+                  const next = active
+                    ? props.value.filter((item) => item !== option.value)
+                    : [...props.value, option.value];
+                  props.onChange(next);
+                } else if (!active) {
+                  props.onChange(option.value);
+                }
+              }}
+            >
+              {option.label}
+            </button>
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Consistent title / description / current-state / control row. */
+export function SettingRow({
+  title,
+  hint,
+  current,
+  children,
+  className,
+}: {
+  title: ReactNode;
+  hint?: ReactNode;
+  current?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={["ui-setting-row", className ?? ""].filter(Boolean).join(" ")}>
+      <div className="ui-setting-copy">
+        <span className="ui-setting-title">{title}</span>
+        {hint && <span className="ui-setting-hint">{hint}</span>}
+      </div>
+      <div className="ui-setting-control">
+        {current !== undefined && (
+          <span className="ui-setting-current">{current}</span>
+        )}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** A titled block of related settings with an optional group reset action. */
+export function SettingGroup({
+  title,
+  hint,
+  onReset,
+  resetLabel,
+  children,
+}: {
+  title: ReactNode;
+  hint?: ReactNode;
+  onReset?: () => void;
+  resetLabel?: string;
+  children: ReactNode;
+}) {
+  return (
+    <fieldset className="settings-group ui-setting-group">
+      <legend>{title}</legend>
+      {hint && <p className="hint">{hint}</p>}
+      {children}
+      {onReset && (
+        <div className="ui-setting-actions">
+          <button type="button" className="link-btn" onClick={onReset}>
+            {resetLabel}
+          </button>
+        </div>
+      )}
+    </fieldset>
   );
 }
 
