@@ -86,10 +86,10 @@ export function CredentialVault() {
 
   return (
     <>
-      <fieldset className="settings-group">
-        <legend>{t("vault.statusTitle")}</legend>
+      <fieldset className="settings-group vault-overview">
+        <legend>{t("vault.overviewTitle")}</legend>
         {!isTauri && <p className="hint">{t("vault.desktopOnly")}</p>}
-        <p className="vault-status-line">
+        <div className="vault-status-line">
           <span
             className={
               masterMode
@@ -108,7 +108,7 @@ export function CredentialVault() {
           <span className="hint">
             {t(masterMode ? "vault.modeMaster" : "vault.modeLocal")}
           </span>
-        </p>
+        </div>
         <p className="hint">{t("vault.entriesCount", { count: status?.entries ?? 0 })}</p>
         <div className="plugin-actions">
           {masterMode && status?.locked && (
@@ -121,8 +121,15 @@ export function CredentialVault() {
               {t("vault.lock")}
             </button>
           )}
+        </div>
+      </fieldset>
+
+      <fieldset className="settings-group">
+        <legend>{t("vault.securityTitle")}</legend>
+        <div className="plugin-actions">
           <button
             type="button"
+            className="primary"
             onClick={() => setAction(masterMode ? "change" : "enable")}
             disabled={!isTauri}
           >
@@ -137,10 +144,6 @@ export function CredentialVault() {
           )}
         </div>
         {!masterMode && <p className="hint">{t("vault.masterHint")}</p>}
-      </fieldset>
-
-      <fieldset className="settings-group">
-        <legend>{t("vault.autoLockTitle")}</legend>
         <label className="field">
           <span>{t("vault.autoLock")}</span>
           <select
@@ -161,7 +164,7 @@ export function CredentialVault() {
       </fieldset>
 
       <fieldset className="settings-group">
-        <legend>{t("vault.libraryTitle")}</legend>
+        <legend>{t("vault.keysSectionTitle")}</legend>
         <div className="plugin-actions">
           <button type="button" onClick={() => setKeyManagerOpen(true)}>
             {t("keys.manage")}
@@ -170,6 +173,10 @@ export function CredentialVault() {
             {t("knownHosts.manage")}
           </button>
         </div>
+      </fieldset>
+
+      <fieldset className="settings-group">
+        <legend>{t("vault.libraryTitle")}</legend>
         {entries.length === 0 ? (
           <p className="hint">{t("vault.entriesEmpty")}</p>
         ) : (
