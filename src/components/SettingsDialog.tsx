@@ -227,6 +227,18 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const [davPassSaved, setDavPassSaved] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const themeFileRef = useRef<HTMLInputElement>(null);
+  const paneRef = useRef<HTMLDivElement>(null);
+  /** The top veil exists only while rows are actually scrolled under the
+      pinned intro; at rest it would clip the first group title. */
+  const [paneScrolled, setPaneScrolled] = useState(false);
+
+  // Switching category or filtering rewrites the pane: start it at the top so
+  // the first group title is the first thing on screen.
+  useEffect(() => {
+    const pane = paneRef.current;
+    if (pane) pane.scrollTop = 0;
+    setPaneScrolled(false);
+  }, [category, query]);
 
   useEffect(() => {
     if (!isTauri) return;
@@ -591,8 +603,22 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           <p className="settings-pane-intro">{t(`settings.desc.${category}`)}</p>
           {/* The category line stays put while the rows scroll underneath, so a
               long pane never loses "where am I". */}
-          <div className="settings-pane-scroll">
-          <div className="settings-scroll-fade" aria-hidden />
+          <div
+            className="settings-pane-scroll"
+            ref={paneRef}
+            onScroll={(event) =>
+              setPaneScrolled(event.currentTarget.scrollTop > 2)
+            }
+          >
+          <div
+            className={[
+              "settings-scroll-fade",
+              paneScrolled ? "visible" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            aria-hidden
+          />
           <SettingsSearchContext.Provider value={query}>
           {category === "general" && (
             <>
