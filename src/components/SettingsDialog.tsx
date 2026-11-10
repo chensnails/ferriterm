@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, isTauri, type BuiltinPlugin, type MarketEntry, type MarketIndex, type RemoteConfig } from "../api";
+import { api, isTauri, SYNC_SCOPES, type BuiltinPlugin, type MarketEntry, type MarketIndex, type RemoteConfig, type SyncScope } from "../api";
 import {
   useAppStore,
   DEFAULT_TERMINAL_FONT_FAMILY,
@@ -208,6 +208,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const loadTags = useAppStore((s) => s.loadTags);
   const [passphrase, setPassphrase] = useState("");
   const [includeSecrets, setIncludeSecrets] = useState(false);
+  // v2 bundles carry every managed data type; the credentials switch still
+  // decides whether secret material is allowed to leave this machine.
+  const backupScope: SyncScope[] = SYNC_SCOPES.filter(
+    (scope) => scope !== "secrets" || includeSecrets,
+  );
   const [pluginMessage, setPluginMessage] = useState("");
   const [pluginTab, setPluginTab] = useState<"installed" | "market">(
     "installed",
@@ -335,7 +340,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         const detail = await api.syncRemoteTest(remoteConfig());
         setRemoteMessage(t("sync.testOk", { detail }));
       } else if (action === "upload") {
-        const result = await api.syncRemoteUpload(remoteConfig(), passphrase, includeSecrets);
+        const result = await api.syncRemoteUpload(remoteConfig(), passphrase, backupScope);
         if (remoteKind === "gist" && result.id && result.id !== gistId) {
           setGistId(result.id);
           await api.setSetting("sync:gist-id", result.id);
@@ -364,7 +369,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     if (!passphrase) return;
     setBusy(true);
     try {
-      const path = await api.exportBackup(passphrase, includeSecrets);
+      const path = await api.exportBackup(passphrase, backupScope);
       setMessage(t("sync.exported", { path }));
     } catch (err) {
       setMessage(t("sync.failed", { error: String(err) }));

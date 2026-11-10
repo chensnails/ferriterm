@@ -331,7 +331,30 @@ export interface ImportStats {
   hostsAdded: number;
   hostsSkipped: number;
   tagsAdded: number;
+  hostsUpdated: number;
+  hostsRemoved: number;
+  secretsImported: number;
+  sshKeysImported: number;
+  macrosImported: number;
+  forwardRulesImported: number;
+  settingsApplied: number;
 }
+
+/** The five data types a backup bundle can carry. */
+export type SyncScope =
+  | "hosts"
+  | "secrets"
+  | "highlights"
+  | "macros"
+  | "shortcuts";
+
+export const SYNC_SCOPES: SyncScope[] = [
+  "hosts",
+  "secrets",
+  "highlights",
+  "macros",
+  "shortcuts",
+];
 
 export type RemoteConfig =
   | { kind: "gist"; token: string; gistId: string; filename: string }
@@ -858,8 +881,8 @@ export const api = {
     invoke<void>("update_command", { id, name, template }),
   deleteCommand: (id: string) => invoke<void>("delete_command", { id }),
 
-  exportBackup: (passphrase: string, includeSecrets: boolean) =>
-    invoke<string>("export_backup", { passphrase, includeSecrets }),
+  exportBackup: (passphrase: string, scope: SyncScope[]) =>
+    invoke<string>("export_backup", { passphrase, scope }),
   importBackup: (payload: string, passphrase: string) =>
     invoke<ImportStats>("import_backup", { payload, passphrase }),
   syncRemoteTest: (config: RemoteConfig) =>
@@ -867,12 +890,12 @@ export const api = {
   syncRemoteUpload: (
     config: RemoteConfig,
     passphrase: string,
-    includeSecrets: boolean,
+    scope: SyncScope[],
   ) =>
     invoke<RemoteUpload>("sync_remote_upload", {
       config,
       passphrase,
-      includeSecrets,
+      scope,
     }),
   syncRemoteDownload: (config: RemoteConfig, passphrase: string) =>
     invoke<ImportStats>("sync_remote_download", { config, passphrase }),

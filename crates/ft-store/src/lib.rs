@@ -187,12 +187,26 @@ pub struct ForwardRule {
     pub dest_port: u16,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportStats {
     pub hosts_added: usize,
     pub hosts_skipped: usize,
     pub tags_added: usize,
+    #[serde(default)]
+    pub hosts_updated: usize,
+    #[serde(default)]
+    pub hosts_removed: usize,
+    #[serde(default)]
+    pub secrets_imported: usize,
+    #[serde(default)]
+    pub ssh_keys_imported: usize,
+    #[serde(default)]
+    pub macros_imported: usize,
+    #[serde(default)]
+    pub forward_rules_imported: usize,
+    #[serde(default)]
+    pub settings_applied: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -782,9 +796,9 @@ impl Store {
             }
             tx.execute(
                 "INSERT INTO hosts(id, name, host, port, username, auth_method, key_path, key_id,
-                                   parent_id, is_folder, production, sort_order, notes, protocol,
-                                   protocol_options, icon)
-                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+                                   jump_host_id, x11, parent_id, is_folder, production, sort_order,
+                                   notes, protocol, protocol_options, icon)
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
                 params![
                     host.id,
                     host.name,
@@ -794,6 +808,8 @@ impl Store {
                     host.auth_method,
                     host.key_path,
                     host.key_id,
+                    host.jump_host_id,
+                    host.x11,
                     host.parent_id,
                     host.is_folder,
                     host.production,
@@ -820,7 +836,261 @@ impl Store {
             hosts_added,
             hosts_skipped,
             tags_added,
+            ..Default::default()
         })
+    }
+
+    /// Rewinds the host tree and the tag catalogue to exactly the snapshot's
+    /// state. Rows absent from the snapshot are removed and matching ids are
+    /// updated in place, so unrelated columns (e.g. legacy credential_ref)
+    /// survive a rollback. Used by version restore, never by a plain import.
+    pub fn replace_hosts(&self, hosts: &[Host], tags: &[Tag]) -> Result<ImportStats, StoreError> {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction()?;
+        tx.pragma_update(None, "defer_foreign_keys", true)?;
+
+        // Detach self-references first: ON DELETE CASCADE would otherwise take
+        // children that the snapshot still wants to keep. Links are restored
+        // below and foreign keys are checked when the transaction commits.
+        tx.execute("UPDATE hosts SET parent_id = NULL", [])?;
+        tx.execute("DELETE FROM host_tags", [])?;
+
+        let wanted: std::collections::HashSet<&str> =
+            hosts.iter().map(|host| host.id.as_str()).collect();
+        let existing_hosts: Vec<String> = {
+            let mut stmt = tx.prepare("SELECT id FROM hosts")?;
+            let rows = stmt
+                .query_map([], |row| row.get(0))?
+                .collect::<rusqlite::Result<_>>()?;
+            rows
+        };
+        let mut hosts_removed = 0;
+        for id in &existing_hosts {
+            if !wanted.contains(id.as_str()) {
+                tx.execute("DELETE FROM hosts WHERE id = ?1", [id])?;
+                hosts_removed += 1;
+            }
+        }
+
+        let wanted_tags: std::collections::HashSet<&str> =
+            tags.iter().map(|tag| tag.id.as_str()).collect();
+        let existing_tags: Vec<String> = {
+            let mut stmt = tx.prepare("SELECT id FROM tags")?;
+            let rows = stmt
+                .query_map([], |row| row.get(0))?
+                .collect::<rusqlite::Result<_>>()?;
+            rows
+        };
+        for id in &existing_tags {
+            if !wanted_tags.contains(id.as_str()) {
+                tx.execute("DELETE FROM tags WHERE id = ?1", [id])?;
+            }
+        }
+        let mut tags_added = 0;
+        for tag in tags {
+            let changed = tx.execute(
+                "UPDATE tags SET name = ?2, color = ?3 WHERE id = ?1",
+                params![tag.id, tag.name, tag.color],
+            )?;
+            if changed == 0 {
+                tx.execute(
+                    "INSERT INTO tags(id, name, color) VALUES(?1, ?2, ?3)",
+                    params![tag.id, tag.name, tag.color],
+                )?;
+                tags_added += 1;
+            }
+        }
+
+        let mut hosts_added = 0;
+        let mut hosts_updated = 0;
+        for host in hosts {
+            let parent_id = host
+                .parent_id
+                .as_ref()
+                .filter(|id| wanted.contains(id.as_str()))
+                .cloned();
+            let exists: Option<i64> = tx
+                .query_row("SELECT 1 FROM hosts WHERE id = ?1", [&host.id], |row| {
+                    row.get(0)
+                })
+                .optional()?;
+            tx.execute(
+                "INSERT INTO hosts(id, name, host, port, username, auth_method, key_path, key_id,
+                                   jump_host_id, x11, parent_id, is_folder, production, sort_order,
+                                   notes, protocol, protocol_options, icon)
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)
+                 ON CONFLICT(id) DO UPDATE SET
+                   name = excluded.name,
+                   host = excluded.host,
+                   port = excluded.port,
+                   username = excluded.username,
+                   auth_method = excluded.auth_method,
+                   key_path = excluded.key_path,
+                   key_id = excluded.key_id,
+                   jump_host_id = excluded.jump_host_id,
+                   x11 = excluded.x11,
+                   parent_id = excluded.parent_id,
+                   is_folder = excluded.is_folder,
+                   production = excluded.production,
+                   sort_order = excluded.sort_order,
+                   notes = excluded.notes,
+                   protocol = excluded.protocol,
+                   protocol_options = excluded.protocol_options,
+                   icon = excluded.icon,
+                   updated_at = datetime('now')",
+                params![
+                    host.id,
+                    host.name,
+                    host.host,
+                    host.port,
+                    host.username,
+                    host.auth_method,
+                    host.key_path,
+                    host.key_id,
+                    host.jump_host_id,
+                    host.x11,
+                    parent_id,
+                    host.is_folder,
+                    host.production,
+                    host.sort_order,
+                    host.notes,
+                    normalize_protocol(&host.protocol),
+                    encode_options(&host.protocol_options),
+                    normalize_icon(&host.icon),
+                ],
+            )?;
+            if exists.is_some() {
+                hosts_updated += 1;
+            } else {
+                hosts_added += 1;
+            }
+            for tag in &host.tags {
+                let local_id: Option<String> = tx
+                    .query_row(
+                        "SELECT id FROM tags WHERE id = ?1 OR name = ?2 LIMIT 1",
+                        params![tag.id, tag.name],
+                        |row| row.get(0),
+                    )
+                    .optional()?;
+                if let Some(local_id) = local_id {
+                    tx.execute(
+                        "INSERT OR IGNORE INTO host_tags(host_id, tag_id) VALUES(?1, ?2)",
+                        params![host.id, local_id],
+                    )?;
+                }
+            }
+        }
+
+        tx.commit()?;
+        Ok(ImportStats {
+            hosts_added,
+            hosts_updated,
+            hosts_removed,
+            tags_added,
+            ..Default::default()
+        })
+    }
+
+    /// Merge import for forward rules: keeps existing rows, adds missing ids.
+    /// Rules whose owning host no longer exists are ignored rather than
+    /// failing the whole import.
+    pub fn import_forward_rules(&self, rules: &[ForwardRule]) -> Result<usize, StoreError> {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction()?;
+        let mut imported = 0;
+        for rule in rules {
+            let host_exists: Option<i64> = tx
+                .query_row(
+                    "SELECT 1 FROM hosts WHERE id = ?1",
+                    [&rule.host_id],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            if host_exists.is_none() {
+                continue;
+            }
+            imported += tx.execute(
+                "INSERT OR IGNORE INTO forward_rules(id, host_id, kind, bind_host, bind_port, dest_host, dest_port)
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    rule.id,
+                    rule.host_id,
+                    rule.kind,
+                    rule.bind_host,
+                    rule.bind_port,
+                    rule.dest_host,
+                    rule.dest_port,
+                ],
+            )?;
+        }
+        tx.commit()?;
+        Ok(imported)
+    }
+
+    /// Rewinds every forward rule to the snapshot. Must run after
+    /// `replace_hosts`, since deleting hosts cascades into this table.
+    pub fn replace_forward_rules(&self, rules: &[ForwardRule]) -> Result<(), StoreError> {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction()?;
+        tx.execute("DELETE FROM forward_rules", [])?;
+        for rule in rules {
+            let host_exists: Option<i64> = tx
+                .query_row(
+                    "SELECT 1 FROM hosts WHERE id = ?1",
+                    [&rule.host_id],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            if host_exists.is_none() {
+                continue;
+            }
+            tx.execute(
+                "INSERT OR IGNORE INTO forward_rules(id, host_id, kind, bind_host, bind_port, dest_host, dest_port)
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    rule.id,
+                    rule.host_id,
+                    rule.kind,
+                    rule.bind_host,
+                    rule.bind_port,
+                    rule.dest_host,
+                    rule.dest_port,
+                ],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Rewinds the whole quick-command library (groups and commands) to the
+    /// snapshot, preserving the snapshot's ordering.
+    pub fn replace_command_groups(&self, groups: &[CommandGroup]) -> Result<(), StoreError> {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction()?;
+        tx.execute("DELETE FROM commands", [])?;
+        tx.execute("DELETE FROM command_groups", [])?;
+        for (group_index, group) in groups.iter().enumerate() {
+            tx.execute(
+                "INSERT OR IGNORE INTO command_groups(id, name, sort_order)
+                 VALUES(?1, ?2, ?3)",
+                params![group.id, group.name, group_index as i64],
+            )?;
+            for (command_index, command) in group.commands.iter().enumerate() {
+                tx.execute(
+                    "INSERT OR IGNORE INTO commands(id, group_id, name, template, sort_order)
+                     VALUES(?1, ?2, ?3, ?4, ?5)",
+                    params![
+                        command.id,
+                        group.id,
+                        command.name,
+                        command.template,
+                        command_index as i64,
+                    ],
+                )?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
     }
 
     pub fn list_ssh_keys(&self) -> rusqlite::Result<Vec<SshKey>> {
@@ -1482,5 +1752,132 @@ mod tests {
         // Deleting the host removes its metadata through the trigger.
         store.delete_host("h1").unwrap();
         assert!(store.list_vault_entries().unwrap().is_empty());
+    }
+
+    fn rule(id: &str, host_id: &str, port: u16) -> ForwardRule {
+        ForwardRule {
+            id: id.into(),
+            host_id: host_id.into(),
+            kind: "local".into(),
+            bind_host: "127.0.0.1".into(),
+            bind_port: port,
+            dest_host: "10.0.0.1".into(),
+            dest_port: 80,
+        }
+    }
+
+    #[test]
+    fn replace_hosts_rewinds_the_whole_tree() {
+        let store = Store::open_in_memory().unwrap();
+        store.create_host(&folder_input("f1", "prod", None)).unwrap();
+        let tag = Tag {
+            id: "t1".into(),
+            name: "web".into(),
+            color: "blue".into(),
+        };
+        store.create_tag(&tag).unwrap();
+        let mut host = host_input("h1", "web-1", Some("f1"));
+        host.tag_ids = vec!["t1".into()];
+        host.jump_host_id = "f1".into();
+        host.x11 = true;
+        store.create_host(&host).unwrap();
+        store.save_forward_rule(&rule("r1", "h1", 8080)).unwrap();
+
+        let snapshot_hosts = store.list_hosts().unwrap();
+        let snapshot_tags = store.list_tags().unwrap();
+        let snapshot_rules = store.list_forward_rules(None).unwrap();
+        assert_eq!(snapshot_hosts.len(), 2);
+        assert!(snapshot_hosts.iter().find(|h| h.id == "h1").unwrap().x11);
+
+        // Drift away from the snapshot: rename, extra host/tag/rule, removed
+        // tag and rule, and a cleared parent link.
+        let mut renamed = host_input("h1", "renamed", Some("f1"));
+        renamed.tag_ids.clear();
+        store.update_host(&renamed).unwrap();
+        store.create_host(&host_input("h2", "extra", None)).unwrap();
+        store
+            .create_tag(&Tag {
+                id: "t2".into(),
+                name: "ops".into(),
+                color: "red".into(),
+            })
+            .unwrap();
+        store.save_forward_rule(&rule("r2", "h2", 8081)).unwrap();
+        store.delete_forward_rule("r1").unwrap();
+
+        let stats = store
+            .replace_hosts(&snapshot_hosts, &snapshot_tags)
+            .unwrap();
+        assert_eq!(stats.hosts_added, 0);
+        assert_eq!(stats.hosts_updated, 2);
+        assert_eq!(stats.hosts_removed, 1);
+        // Rules are restored after the host tree, since deleting a host
+        // cascades into forward_rules.
+        store.replace_forward_rules(&snapshot_rules).unwrap();
+
+        let listed = store.list_hosts().unwrap();
+        assert_eq!(listed.len(), 2);
+        let restored = listed.iter().find(|h| h.id == "h1").unwrap();
+        assert_eq!(restored.name, "web-1");
+        assert_eq!(restored.parent_id.as_deref(), Some("f1"));
+        assert_eq!(restored.jump_host_id, "f1");
+        assert!(restored.x11);
+        assert_eq!(restored.tags, vec![tag]);
+        assert_eq!(store.list_tags().unwrap().len(), 1);
+        let rules = store.list_forward_rules(None).unwrap();
+        assert_eq!(rules.len(), 1);
+        assert_eq!(rules[0].id, "r1");
+    }
+
+    #[test]
+    fn replace_hosts_empty_snapshot_clears_the_tree() {
+        let store = Store::open_in_memory().unwrap();
+        store.create_host(&folder_input("f1", "prod", None)).unwrap();
+        store.create_host(&host_input("h1", "child", Some("f1"))).unwrap();
+        store.save_forward_rule(&rule("r1", "h1", 8080)).unwrap();
+
+        let stats = store.replace_hosts(&[], &[]).unwrap();
+        assert_eq!(stats.hosts_removed, 2);
+        assert!(store.list_hosts().unwrap().is_empty());
+        assert!(store.list_forward_rules(None).unwrap().is_empty());
+    }
+
+    #[test]
+    fn import_forward_rules_merges_without_touching_existing() {
+        let store = Store::open_in_memory().unwrap();
+        store.create_host(&host_input("h1", "a", None)).unwrap();
+        store.save_forward_rule(&rule("r1", "h1", 8080)).unwrap();
+
+        let added = store
+            .import_forward_rules(&[
+                rule("r1", "h1", 9999),     // same id, keep the local row
+                rule("r2", "h1", 8081),     // new
+                rule("r3", "missing", 8082), // orphan, skipped
+            ])
+            .unwrap();
+        assert_eq!(added, 1);
+        let rules = store.list_forward_rules(None).unwrap();
+        assert_eq!(rules.len(), 2);
+        assert_eq!(rules.iter().find(|r| r.id == "r1").unwrap().bind_port, 8080);
+    }
+
+    #[test]
+    fn replace_command_groups_rewinds_library() {
+        let store = Store::open_in_memory().unwrap();
+        store.create_command_group("g1", "System").unwrap();
+        store.create_command("c1", "g1", "df", "df -h").unwrap();
+        let snapshot = store.list_command_groups().unwrap();
+
+        store.create_command_group("g2", "Extra").unwrap();
+        store.update_command("c1", "changed", "echo changed").unwrap();
+        store.create_command("c2", "g1", "added", "extra").unwrap();
+
+        store.replace_command_groups(&snapshot).unwrap();
+        let groups = store.list_command_groups().unwrap();
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].name, "System");
+        assert_eq!(groups[0].commands.len(), 1);
+        assert_eq!(groups[0].commands[0].name, "df");
+        assert_eq!(groups[0].commands[0].template, "df -h");
     }
 }
