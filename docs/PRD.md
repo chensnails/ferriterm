@@ -141,6 +141,7 @@ Database / Redis / Docker / Homebrew modules and utility-tool collections; full 
 
 ## 7. Open decisions
 
-- Product license (MIT/Apache-2.0 vs closed source); clean-room obligations hold either way.
+- Product license: decided 2026-11-10, GPL-3.0-only (see `LICENSE`); clean-room
+  obligations hold either way.
 - X11 support depth after M2 experiments.
 - Additional theme-import formats beyond own TOML.
