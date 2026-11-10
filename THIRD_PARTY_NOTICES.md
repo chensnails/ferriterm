@@ -25,6 +25,8 @@ attribution. Versions reflect the current lockfiles.
 | serde | 1.0.229 | MIT OR Apache-2.0 | https://github.com/serde-rs/serde |
 | serde_json | 1.0.154 | MIT OR Apache-2.0 | https://github.com/serde-rs/json |
 | reqwest | 0.13.5 | MIT OR Apache-2.0 | https://github.com/seanmonstar/reqwest |
+| tracing | 0.1.44 | MIT | https://github.com/tokio-rs/tracing |
+| tracing-subscriber | 0.3.23 | MIT | https://github.com/tokio-rs/tracing |
 
 Notable transitive components:
 

@@ -1,4 +1,5 @@
 mod commands;
+mod logging;
 mod net_tools;
 mod updater;
 
@@ -23,6 +24,16 @@ pub fn run() {
         .setup(move |app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
+            // Diagnostics are best effort: a missing log file must not stop
+            // the app, so a failure here only costs the on-disk trail.
+            if let Err(err) = logging::init(&dir.join("logs")) {
+                eprintln!("ferriterm: log file unavailable: {err}");
+            }
+            tracing::info!(
+                version = env!("CARGO_PKG_VERSION"),
+                dir = %dir.display(),
+                "ferriterm starting"
+            );
             let store = Arc::new(ft_store::Store::open(&dir.join("ferriterm.db"))?);
             app.manage(store.clone());
             app.manage(Arc::new(ft_security::CredentialStore::new(dir.clone())));

@@ -24,6 +24,9 @@ package version in `src-tauri/tauri.conf.json`.
   Reconnect button instead of retrying forever.
 - Automatic sync reports its outcome in Settings (success time, failure
   reason, conflict) and retries a transient failure after 1 and 3 minutes.
+- Diagnostics are written to `<app data>/logs/ferriterm.log` at INFO and above
+  (`RUST_LOG` overrides the filter). The file rotates at 4 MiB with one
+  previous generation, and panics are recorded with a backtrace.
 
 ### Fixed
 

@@ -107,6 +107,7 @@ impl SshRuntimeState {
     /// Reclaims everything a session was holding when it went away, whether it
     /// died on its own or was closed by the user. Safe to call twice.
     pub async fn reap(&self, session_id: &str) {
+        tracing::debug!(session = %session_id, "reaping a closed session");
         self.forwards.stop_session(session_id).await;
         self.sftp.invalidate(session_id).await;
         self.remote.forget(session_id);
@@ -262,6 +263,11 @@ pub async fn ssh_connect(
         &audit_target,
         &detail,
     );
+    if result.is_ok() {
+        tracing::info!(session = %id, target = %audit_target, "ssh session opened");
+    } else {
+        tracing::warn!(session = %id, target = %audit_target, %detail, "ssh connect failed");
+    }
     result?;
     if let Some(host_id) = host_id {
         auto_start_forwards(&app, &state, &runtime, &host_id, &id).await;
@@ -1493,7 +1499,7 @@ async fn do_remote_upload(
     // recorded above still makes this version restorable.
     if let Some(webdav) = config.webdav() {
         if let Err(err) = push_webdav_version(backups, &webdav, &entry, &sealed).await {
-            eprintln!("ferriterm: remote version index update failed: {err}");
+            tracing::warn!(%err, "remote version index update failed");
         }
     }
     Ok(ft_sync::UploadOutcome::Uploaded(upload))
@@ -1533,7 +1539,13 @@ async fn webdav_upload_guarded(
                 .map_err(|e| e.to_string())?;
             Ok(Some(upload))
         }
-        Err(ft_sync::RemoteError::Conflict) => Ok(None),
+        Err(ft_sync::RemoteError::Conflict) => {
+            tracing::warn!(
+                filename = %config.filename,
+                "sync refused: the remote bundle changed on another device"
+            );
+            Ok(None)
+        }
         Err(err) => Err(err.to_string()),
     }
 }
