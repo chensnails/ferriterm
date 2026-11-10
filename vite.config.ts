@@ -3,10 +3,15 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 
 const now = new Date();
+// YYYYMMDDHHmmss — a full timestamp so two builds on the same day are still
+// distinguishable in the About page and the version history.
 const buildStamp = [
   now.getFullYear(),
   String(now.getMonth() + 1).padStart(2, "0"),
   String(now.getDate()).padStart(2, "0"),
+  String(now.getHours()).padStart(2, "0"),
+  String(now.getMinutes()).padStart(2, "0"),
+  String(now.getSeconds()).padStart(2, "0"),
 ].join("");
 
 // A commit cannot contain its own hash, so the HEAD and the recent history are
