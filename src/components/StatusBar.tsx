@@ -109,7 +109,9 @@ export function StatusBar() {
           <FilesIcon size={13} />
           {running.length > 0 ? (
             <>
-              <span>{t("transfer.statActive", { n: running.length })}</span>
+              <span className="statusbar-item-label">
+                {t("transfer.statActive", { n: running.length })}
+              </span>
               {speed > 0 && (
                 <span className="statusbar-mono">
                   {formatBytes(speed)}
@@ -118,7 +120,7 @@ export function StatusBar() {
               )}
             </>
           ) : (
-            <span>
+            <span className="statusbar-item-label">
               {queued.length > 0
                 ? t("transfer.statWaiting", { n: queued.length })
                 : t("status.transferIdle")}
@@ -132,7 +134,7 @@ export function StatusBar() {
           title={t("log.toggle")}
         >
           <LogIcon size={13} />
-          <span>{t("log.title")}</span>
+          <span className="statusbar-item-label">{t("log.title")}</span>
         </button>
       </div>
 

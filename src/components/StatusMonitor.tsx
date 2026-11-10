@@ -221,7 +221,7 @@ export function StatusMonitor() {
             value={disk}
             display={readout ? `${Math.round(disk)}%` : "—"}
           />
-          <span className="statusbar-gauge">
+          <span className="statusbar-gauge statusbar-load-gauge">
             <span className="statusbar-gauge-label">{t("monitor.load")}</span>
             <span className="statusbar-mono statusbar-load">
               {readout ? readout.load1.toFixed(2) : "—"}

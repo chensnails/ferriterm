@@ -5491,6 +5491,10 @@ label.sync-action {
   gap: var(--space-1);
   height: calc(var(--status-bar-h) - var(--space-2));
   padding: 0 var(--space-2);
+  /* Every child is nowrap, so each cell has to be allowed to shrink before the
+     bar can give space back: without this the readout painted over the session
+     label instead of the label ellipsing. */
+  min-width: 0;
   background: transparent;
   border: 0;
   border-radius: var(--radius-sm);
@@ -5532,6 +5536,7 @@ label.sync-action {
 }
 
 .statusbar-title {
+  min-width: 0;
   color: var(--fg-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5686,9 +5691,77 @@ label.sync-action {
   color: var(--fg-muted);
 }
 
-/* Narrow windows: drop the host name first; the numbers are the point. */
+/* ---- Status bar: narrow tiers ----
+   The bar carries three cells that all want their natural width, so it has to
+   shed detail in a fixed order as the window narrows: host name, then the
+   gauge captions and load, then the button captions. The readout itself never
+   goes away — it is the reason the bar exists. */
+
+/* < 1080: drop the host name first; the numbers are the point. */
 @media (max-width: 1080px) {
   .statusbar-monitor-host {
+    display: none;
+  }
+}
+
+/* < 860: three tracks of max-content no longer fit. Switch to a flex row where
+   the left cell shrinks (ellipsis) and the message takes the remainder, so the
+   right cell can never paint over its neighbours. Captions and load move into
+   the hover popover. */
+@media (max-width: 860px) {
+  #statusbar {
+    display: flex;
+    gap: var(--space-2);
+  }
+
+  .statusbar-group {
+    flex: 0 1 auto;
+    overflow: hidden;
+  }
+
+  .statusbar-group.end {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .statusbar-message {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .statusbar-monitor {
+    gap: var(--space-1);
+  }
+}
+
+/* < 700: load and session count go first — they are the readouts the popover
+   can repeat. The gauge captions stay: three unlabelled rings say nothing. */
+@media (max-width: 700px) {
+  .statusbar-load-gauge {
+    display: none;
+  }
+
+  .statusbar-meta {
+    display: none;
+  }
+}
+
+/* < 560: the two dock buttons keep their icons and lose their captions; the
+   tooltips and the dock headers already name them. */
+@media (max-width: 560px) {
+  .statusbar-item-label {
+    display: none;
+  }
+
+  .statusbar-item {
+    padding: 0 var(--space-1);
+  }
+}
+
+/* < 440: captions finally go, and the ring order (CPU, memory, disk) plus the
+   popover have to carry the meaning on their own. */
+@media (max-width: 440px) {
+  .statusbar-gauge-label {
     display: none;
   }
 }
