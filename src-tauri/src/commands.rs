@@ -1392,9 +1392,57 @@ pub async fn sync_remote_upload(
     passphrase: String,
     scope: Vec<String>,
 ) -> Result<ft_sync::RemoteUpload, String> {
-    let config = config.resolve_secrets(&credentials)?;
+    do_remote_upload(
+        backups.inner(),
+        store.inner(),
+        credentials.inner(),
+        config,
+        passphrase,
+        scope,
+    )
+    .await
+}
+
+/// Automatic runs read the passphrase from the local encrypted vault, so
+/// on-change and scheduled syncs need no interaction. The `sync:` prefix is
+/// excluded from backup payloads, so the passphrase never leaves this device.
+#[tauri::command]
+pub async fn sync_auto_upload(
+    backups: State<'_, ft_sync::BackupStore>,
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+    config: RemoteConfig,
+    scope: Vec<String>,
+) -> Result<ft_sync::RemoteUpload, String> {
+    let passphrase = credentials
+        .get("sync:passphrase")
+        .map_err(|e| e.to_string())?
+        .unwrap_or_default();
+    if passphrase.is_empty() {
+        return Err("automatic sync passphrase is not saved".to_string());
+    }
+    do_remote_upload(
+        backups.inner(),
+        store.inner(),
+        credentials.inner(),
+        config,
+        passphrase,
+        scope,
+    )
+    .await
+}
+
+async fn do_remote_upload(
+    backups: &ft_sync::BackupStore,
+    store: &Arc<ft_store::Store>,
+    credentials: &Credentials,
+    config: RemoteConfig,
+    passphrase: String,
+    scope: Vec<String>,
+) -> Result<ft_sync::RemoteUpload, String> {
+    let config = config.resolve_secrets(credentials)?;
     let scope = normalize_scope(&scope);
-    let (payload, summary) = backup_payload(&store, Some(&credentials), &scope)?;
+    let (payload, summary) = backup_payload(store.as_ref(), Some(credentials.as_ref()), &scope)?;
     let sealed = ft_sync::seal(&passphrase, &payload).map_err(|e| e.to_string())?;
     let summary_json = serde_json::to_value(&summary).map_err(|e| e.to_string())?;
     let is_gist = config.gist().is_some();
@@ -1426,9 +1474,7 @@ pub async fn sync_remote_upload(
     // index. A failure here only costs the *remote* history: the local copy
     // recorded above still makes this version restorable.
     if let Some(webdav) = config.webdav() {
-        if let Err(err) =
-            push_webdav_version(backups.inner(), &webdav, &entry, &sealed).await
-        {
+        if let Err(err) = push_webdav_version(backups, &webdav, &entry, &sealed).await {
             eprintln!("ferriterm: remote version index update failed: {err}");
         }
     }

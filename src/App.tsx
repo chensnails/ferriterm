@@ -23,6 +23,7 @@ import { SerialDialog } from "./components/SerialDialog";
 import { ShortcutsDialog } from "./components/ShortcutsDialog";
 import { ResizeHandles } from "./components/WindowControls";
 import { api, isTauri, onForwardError, onTransferUpdate } from "./api";
+import { useAutoSync } from "./autoSync";
 import i18n from "./i18n";
 import { installShortcuts } from "./shortcuts";
 import { HOME_TAB, TRANSFER_TAB, useAppStore } from "./store";
@@ -69,6 +70,8 @@ export default function App() {
   const setSidebarWidth = useAppStore((s) => s.setSidebarWidth);
 
   const isTerminalView = activeId !== HOME_TAB && activeId !== TRANSFER_TAB;
+
+  useAutoSync();
 
   useEffect(() => {
     const uninstall = installShortcuts();

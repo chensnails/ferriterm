@@ -930,6 +930,8 @@ export const api = {
       passphrase,
       scope,
     }),
+  syncAutoUpload: (config: RemoteConfig, scope: SyncScope[]) =>
+    invoke<RemoteUpload>("sync_auto_upload", { config, scope }),
   syncRemoteDownload: (config: RemoteConfig, passphrase: string) =>
     invoke<ImportStats>("sync_remote_download", { config, passphrase }),
   syncVersionsList: (config: RemoteConfig) =>

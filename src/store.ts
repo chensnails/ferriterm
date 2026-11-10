@@ -2,6 +2,8 @@ import { create } from "zustand";
 import {
   api,
   isTauri,
+  SYNC_SCOPES,
+  type SyncScope,
   type HostEntry,
   type HostInput,
   type SessionKind,
@@ -45,6 +47,35 @@ import i18n, {
   registerLanguagePack,
   type Language,
 } from "./i18n";
+
+export type SyncPolicy = "manual" | "onChange" | "interval";
+export type SyncInterval = 15 | 30 | 60;
+
+/** Credentials are opt-in: an automatic bundle never leaves the local vault
+ * unless the user explicitly adds the "secrets" scope. */
+export const DEFAULT_SYNC_SCOPE: SyncScope[] = SYNC_SCOPES.filter(
+  (scope) => scope !== "secrets",
+);
+
+function parseSyncPolicy(raw: string | undefined): SyncPolicy {
+  return raw === "onChange" || raw === "interval" ? raw : "manual";
+}
+
+function parseSyncInterval(raw: string | undefined): SyncInterval {
+  const value = Number(raw);
+  return value === 15 || value === 30 || value === 60 ? value : 30;
+}
+
+function parseSyncScope(raw: string | undefined): SyncScope[] {
+  if (raw === undefined) return [...DEFAULT_SYNC_SCOPE];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [...DEFAULT_SYNC_SCOPE];
+    return SYNC_SCOPES.filter((scope) => parsed.includes(scope));
+  } catch {
+    return [...DEFAULT_SYNC_SCOPE];
+  }
+}
 
 // Terminal appearance defaults live here (instead of terminal.ts) so the store
 // can own persisted settings without a circular import back into terminal.ts.
@@ -461,6 +492,16 @@ interface AppState {
   /** How many transfers may run at once (1–8). */
   transferConcurrency: number;
   setTransferConcurrency: (value: number) => void;
+  /** Cloud sync: trigger mode, scheduled interval and included data types. */
+  syncPolicy: SyncPolicy;
+  setSyncPolicy: (policy: SyncPolicy) => void;
+  syncInterval: SyncInterval;
+  setSyncInterval: (minutes: SyncInterval) => void;
+  syncScope: SyncScope[];
+  setSyncScope: (scope: SyncScope[]) => void;
+  /** Unix ms of the last successful sync; 0 when never. */
+  syncLastAt: number;
+  setSyncLastAt: (at: number) => void;
   shortcuts: ShortcutBindings;
   setShortcut: (action: ShortcutAction, combo: string) => void;
   resetShortcuts: () => void;
@@ -706,6 +747,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   sftpShowHidden: false,
   editorAutoSave: false,
   transferConcurrency: 6,
+  syncPolicy: "manual",
+  syncInterval: 30,
+  syncScope: [...DEFAULT_SYNC_SCOPE],
+  syncLastAt: 0,
   pendingCloseId: null,
   shortcuts: { ...SHORTCUT_DEFAULTS },
   commandsOpen: true,
@@ -992,6 +1037,25 @@ export const useAppStore = create<AppState>((set, get) => ({
       api.setSetting("transferConcurrency", String(next)).catch(() => {});
       api.setTransferConcurrency(next).catch(() => {});
     }
+  },
+  setSyncPolicy: (policy) => {
+    set({ syncPolicy: policy });
+    if (isTauri) api.setSetting("sync:policy", policy).catch(() => {});
+  },
+  setSyncInterval: (minutes) => {
+    const next = parseSyncInterval(String(minutes));
+    set({ syncInterval: next });
+    if (isTauri) api.setSetting("sync:interval", String(next)).catch(() => {});
+  },
+  setSyncScope: (scope) => {
+    const next = SYNC_SCOPES.filter((item) => scope.includes(item));
+    set({ syncScope: next });
+    if (isTauri)
+      api.setSetting("sync:scope", JSON.stringify(next)).catch(() => {});
+  },
+  setSyncLastAt: (at) => {
+    set({ syncLastAt: at });
+    if (isTauri) api.setSetting("sync:lastAt", String(at)).catch(() => {});
   },
   setShortcut: (action, combo) => {
     const value = combo ? normalizeCombo(combo) : "";
@@ -1627,6 +1691,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         Number(settings.transferConcurrency),
       ),
       transferTabs: parseIdList(settings.transferTabs),
+      syncPolicy: parseSyncPolicy(settings["sync:policy"]),
+      syncInterval: parseSyncInterval(settings["sync:interval"]),
+      syncScope: parseSyncScope(settings["sync:scope"]),
+      syncLastAt: Number(settings["sync:lastAt"]) || 0,
     });
     if (isTauri) {
       // The queue starts at its built-in default, so push the saved value.

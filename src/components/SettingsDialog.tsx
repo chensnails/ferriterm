@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri, SYNC_SCOPES, type BuiltinPlugin, type MarketEntry, type MarketIndex, type RemoteConfig, type SyncScope } from "../api";
+import { runAutoSync, SYNC_PASSPHRASE_REF } from "../autoSync";
 import {
   useAppStore,
   DEFAULT_TERMINAL_FONT_FAMILY,
   DEFAULT_TERMINAL_FONT_SIZE,
   DEFAULT_TERMINAL_SCROLLBACK,
+  type SyncInterval,
+  type SyncPolicy,
   type TabNumbering,
   type TerminalBell,
   type TerminalCursorStyle,
@@ -213,6 +216,16 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const backupScope: SyncScope[] = SYNC_SCOPES.filter(
     (scope) => scope !== "secrets" || includeSecrets,
   );
+  const syncPolicy = useAppStore((s) => s.syncPolicy);
+  const setSyncPolicy = useAppStore((s) => s.setSyncPolicy);
+  const syncInterval = useAppStore((s) => s.syncInterval);
+  const setSyncInterval = useAppStore((s) => s.setSyncInterval);
+  const syncScope = useAppStore((s) => s.syncScope);
+  const setSyncScope = useAppStore((s) => s.setSyncScope);
+  const syncLastAt = useAppStore((s) => s.syncLastAt);
+  const [autoPassSaved, setAutoPassSaved] = useState(false);
+  const [autoBusy, setAutoBusy] = useState(false);
+  const [autoMessage, setAutoMessage] = useState("");
   const [pluginMessage, setPluginMessage] = useState("");
   const [pluginTab, setPluginTab] = useState<"installed" | "market">(
     "installed",
@@ -265,12 +278,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         setDavUrl(settings["sync:webdav-url"] ?? "");
         setDavUser(settings["sync:webdav-user"] ?? "");
         setDavFile(settings["sync:webdav-file"] || "ferriterm-backup.ftbak");
-        const [token, password] = await Promise.all([
+        const [token, password, autoPass] = await Promise.all([
           api.secretSaved("sync:gist-token"),
           api.secretSaved("sync:webdav-password"),
+          api.secretSaved(SYNC_PASSPHRASE_REF),
         ]);
         setGistTokenSaved(token);
         setDavPassSaved(password);
+        setAutoPassSaved(autoPass);
       } catch (err) {
         setRemoteMessage(String(err));
       }
@@ -396,6 +411,56 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = "";
     }
+  };
+
+  const saveAutoPassphrase = async () => {
+    if (!passphrase) {
+      setAutoMessage(t("sync.passphraseNeeded"));
+      return;
+    }
+    setAutoBusy(true);
+    try {
+      await persistRemote();
+      await api.saveSecret(SYNC_PASSPHRASE_REF, passphrase);
+      setAutoPassSaved(true);
+      setAutoMessage(t("sync.passphraseSaved"));
+    } catch (err) {
+      setAutoMessage(String(err));
+    } finally {
+      setAutoBusy(false);
+    }
+  };
+
+  const forgetAutoPassphrase = async () => {
+    setAutoBusy(true);
+    try {
+      await api.deleteSecret(SYNC_PASSPHRASE_REF);
+      setAutoPassSaved(false);
+      setAutoMessage(t("sync.passphraseCleared"));
+    } catch (err) {
+      setAutoMessage(String(err));
+    } finally {
+      setAutoBusy(false);
+    }
+  };
+
+  const syncNow = async () => {
+    setAutoBusy(true);
+    setAutoMessage("");
+    try {
+      await persistRemote();
+    } catch (err) {
+      setAutoMessage(String(err));
+      setAutoBusy(false);
+      return;
+    }
+    const ok = await runAutoSync(syncScope);
+    setAutoMessage(
+      ok
+        ? t("sync.syncNowOk", { time: new Date().toLocaleTimeString() })
+        : t("sync.syncNowFailed"),
+    );
+    setAutoBusy(false);
   };
 
   const refreshPlugins = async () => {
@@ -1398,6 +1463,87 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           </div>
           {remoteMessage && (
             <p className="hint sync-message">{remoteMessage}</p>
+          )}
+        </SettingGroup>
+
+        <SettingGroup title={t("sync.autoTitle")} hint={t("sync.autoHint")}>
+          <SelectSetting
+            title={t("sync.policy")}
+            value={syncPolicy}
+            onChange={(value) => setSyncPolicy(value as SyncPolicy)}
+            options={[
+              { value: "manual", label: t("sync.policyManual") },
+              { value: "onChange", label: t("sync.policyOnChange") },
+              { value: "interval", label: t("sync.policyInterval") },
+            ]}
+          />
+          {syncPolicy === "interval" && (
+            <SelectSetting
+              title={t("sync.interval")}
+              value={String(syncInterval)}
+              onChange={(value) =>
+                setSyncInterval(Number(value) as SyncInterval)
+              }
+              options={[15, 30, 60].map((minutes) => ({
+                value: String(minutes),
+                label: t("sync.intervalMinutes", { count: minutes }),
+              }))}
+            />
+          )}
+          <div className="field">
+            <span>{t("sync.scope")}</span>
+            <CheckList
+              label={t("sync.scope")}
+              value={syncScope}
+              onChange={(value) => setSyncScope(value as SyncScope[])}
+              options={[
+                { value: "hosts", label: t("sync.scopeHosts") },
+                { value: "secrets", label: t("sync.scopeSecrets") },
+                { value: "highlights", label: t("sync.scopeHighlights") },
+                { value: "macros", label: t("sync.scopeMacros") },
+                { value: "shortcuts", label: t("sync.scopeShortcuts") },
+              ]}
+            />
+            <span className="hint">{t("sync.scopeHint")}</span>
+          </div>
+          <div className="sync-actions">
+            <button
+              type="button"
+              onClick={() => void saveAutoPassphrase()}
+              disabled={autoBusy || !passphrase}
+            >
+              {t("sync.passphraseSave")}
+            </button>
+            {autoPassSaved && (
+              <button
+                type="button"
+                className="link-btn danger"
+                onClick={() => void forgetAutoPassphrase()}
+                disabled={autoBusy}
+              >
+                {t("sync.passphraseForget")}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void syncNow()}
+              disabled={autoBusy}
+            >
+              {t("sync.syncNow")}
+            </button>
+          </div>
+          <p className="hint">
+            {autoPassSaved
+              ? t("sync.passphraseSaved")
+              : t("sync.passphraseNeeded")}
+            {" · "}
+            {t("sync.lastSync")}: {" "}
+            {syncLastAt
+              ? new Date(syncLastAt).toLocaleString()
+              : t("sync.lastSyncNever")}
+          </p>
+          {autoMessage && (
+            <p className="hint sync-message">{autoMessage}</p>
           )}
         </SettingGroup>
             </>
