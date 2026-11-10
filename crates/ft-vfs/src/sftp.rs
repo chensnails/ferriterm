@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -12,6 +12,8 @@ use tokio::sync::Mutex;
 use crate::{join_path, FileEntry, OpenMode, Vfs, VfsFile, VfsFuture};
 
 const SSH_FXP_INIT: u8 = 1;
+const REQUEST_TIMEOUT_SECS: u64 = 30;
+const EXEC_OUTPUT_CAP: usize = 1024 * 1024;
 const SSH_FXP_VERSION: u8 = 2;
 const SSH_FXP_OPEN: u8 = 3;
 const SSH_FXP_CLOSE: u8 = 4;
@@ -104,6 +106,9 @@ pub struct SftpConnection {
     /// `/etc/passwd` and `/etc/group` as read once per connection. `None` until
     /// the first listing asks, and an empty table when the host refused.
     names: Mutex<Option<Arc<Names>>>,
+    /// Set when a request times out: cancelling a read mid-packet would
+    /// desync the stream, so the connection is retired instead of reused.
+    broken: AtomicBool,
 }
 
 /// Numeric ids to names. SFTP only reports ids, so the file table would show
@@ -177,6 +182,7 @@ impl SftpConnection {
             next_id: AtomicU32::new(1),
             handle,
             names: Mutex::new(None),
+            broken: AtomicBool::new(false),
         });
         tokio::time::timeout(Duration::from_secs(15), connection.handshake())
             .await
@@ -231,17 +237,52 @@ impl SftpConnection {
             .await
             .map_err(|e| format!("failed to run {command}: {e}"))?;
         let mut output = Vec::new();
-        while let Some(message) = channel.wait().await {
-            match message {
-                ChannelMsg::Data { data } => output.extend_from_slice(&data),
-                ChannelMsg::Eof | ChannelMsg::Close => break,
-                _ => {}
+        let drained = tokio::time::timeout(Duration::from_secs(15), async {
+            while let Some(message) = channel.wait().await {
+                match message {
+                    ChannelMsg::Data { data } => {
+                        if output.len() + data.len() > EXEC_OUTPUT_CAP {
+                            return Err(format!("exec output exceeded 1 MiB cap: {command}"));
+                        }
+                        output.extend_from_slice(&data);
+                    }
+                    ChannelMsg::Eof | ChannelMsg::Close => break,
+                    _ => {}
+                }
             }
+            Ok(())
+        })
+        .await;
+        match drained {
+            Ok(Ok(())) => Ok(String::from_utf8_lossy(&output).into_owned()),
+            Ok(Err(err)) => Err(err),
+            Err(_) => Err(format!("exec timed out: {command}")),
         }
-        Ok(String::from_utf8_lossy(&output).into_owned())
     }
 
     async fn request(&self, packet_type: u8, payload: &[u8]) -> Result<(u8, Vec<u8>), String> {
+        if self.broken.load(Ordering::Relaxed) {
+            return Err("sftp connection retired after a timed-out request".to_string());
+        }
+        match tokio::time::timeout(
+            Duration::from_secs(REQUEST_TIMEOUT_SECS),
+            self.request_inner(packet_type, payload),
+        )
+        .await
+        {
+            Ok(result) => result,
+            Err(_) => {
+                self.broken.store(true, Ordering::Relaxed);
+                Err("sftp request timed out".to_string())
+            }
+        }
+    }
+
+    async fn request_inner(
+        &self,
+        packet_type: u8,
+        payload: &[u8],
+    ) -> Result<(u8, Vec<u8>), String> {
         let mut io = self.io.lock().await;
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let mut body = Vec::with_capacity(payload.len() + 4);
