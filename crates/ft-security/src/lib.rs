@@ -20,7 +20,7 @@ use std::io::Write;
 use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use ring::aead;
 use ring::digest;
@@ -34,6 +34,7 @@ const KEY_FILE: &str = "credentials.key";
 const VAULT_FILE: &str = "credentials.vault.json";
 const INDEX_FILE: &str = "credentials.index.json";
 const MASTER_FILE: &str = "vault.master.json";
+const THROTTLE_FILE: &str = "vault.throttle.json";
 const NONCE_LEN: usize = 12;
 const KDF_ITERATIONS: u32 = 600_000;
 const MAX_FAILURES_BEFORE_DELAY: u32 = 5;
@@ -94,8 +95,41 @@ struct MasterFile {
     verifier: String,
 }
 
+/// Persisted password-throttle state. Restarting the app must not hand an
+/// attacker back a clean budget after five rejected guesses.
+#[derive(Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ThrottleFile {
+    #[serde(default)]
+    failures: u32,
+    /// Absolute unix milliseconds; wall-clock so it survives reboots.
+    #[serde(default)]
+    blocked_until: Option<u64>,
+}
+
+/// A derived vault key that wipes its bytes when dropped, so plaintext key
+/// material does not linger in freed heap memory.
+#[derive(Clone)]
+struct SecureKey([u8; 32]);
+
+impl std::ops::Deref for SecureKey {
+    type Target = [u8; 32];
+    fn deref(&self) -> &[u8; 32] {
+        &self.0
+    }
+}
+
+impl Drop for SecureKey {
+    fn drop(&mut self) {
+        for byte in self.0.iter_mut() {
+            // SAFETY: unique borrow through &mut self; volatile prevents the optimizer eliding the wipe.
+            unsafe { std::ptr::write_volatile(byte, 0) };
+        }
+    }
+}
+
 struct Inner {
-    key: Option<[u8; 32]>,
+    key: Option<SecureKey>,
     mode: VaultMode,
     locked: bool,
     failures: u32,
@@ -133,6 +167,16 @@ impl CredentialStore {
                 blocked_until: None,
             }),
         };
+        let throttle = store.read_throttle();
+        let blocked_until = throttle.blocked_until.and_then(|until| {
+            let now = now_millis();
+            (until > now).then(|| Instant::now() + Duration::from_millis(until - now))
+        });
+        {
+            let mut inner = store.inner.lock().unwrap();
+            inner.failures = throttle.failures;
+            inner.blocked_until = blocked_until;
+        }
         store.recover();
         store
     }
@@ -240,24 +284,12 @@ impl CredentialStore {
             if !inner.locked {
                 return Ok(());
             }
-            if let Some(until) = inner.blocked_until {
-                let now = Instant::now();
-                if until > now {
-                    return Err(CredentialError::TooManyAttempts(
-                        until.duration_since(now).as_secs().max(1),
-                    ));
-                }
-            }
         }
+        self.check_throttle()?;
         let master = self.read_master()?.ok_or(CredentialError::NotEnabled)?;
         let key = derive_key(password, &master)?;
         if !verify_key(&key, &master.verifier) {
-            let mut inner = self.inner.lock().unwrap();
-            inner.failures = inner.failures.saturating_add(1);
-            if inner.failures >= MAX_FAILURES_BEFORE_DELAY {
-                let delay = failure_delay(inner.failures);
-                inner.blocked_until = Some(Instant::now() + Duration::from_secs(delay));
-            }
+            self.record_failure();
             return Err(CredentialError::WrongPassword);
         }
         if !self.vault_decrypts_with(&key) {
@@ -267,11 +299,12 @@ impl CredentialStore {
                 return Ok(());
             }
         }
-        let mut inner = self.inner.lock().unwrap();
-        inner.key = Some(key);
-        inner.locked = false;
-        inner.failures = 0;
-        inner.blocked_until = None;
+        {
+            let mut inner = self.inner.lock().unwrap();
+            inner.key = Some(key);
+            inner.locked = false;
+        }
+        self.clear_failures();
         Ok(())
     }
 
@@ -346,12 +379,13 @@ impl CredentialStore {
         self.write_index(&migrated)?;
         let _ = fs::remove_file(self.key_path());
 
-        let mut inner = self.inner.lock().unwrap();
-        inner.mode = VaultMode::Master;
-        inner.key = Some(key);
-        inner.locked = false;
-        inner.failures = 0;
-        inner.blocked_until = None;
+        {
+            let mut inner = self.inner.lock().unwrap();
+            inner.mode = VaultMode::Master;
+            inner.key = Some(key);
+            inner.locked = false;
+        }
+        self.clear_failures();
         Ok(plain.len())
     }
 
@@ -359,9 +393,11 @@ impl CredentialStore {
         if self.inner.lock().unwrap().mode != VaultMode::Master {
             return Err(CredentialError::NotEnabled);
         }
+        self.check_throttle()?;
         let master = self.read_master()?.ok_or(CredentialError::NotEnabled)?;
         let key = derive_key(password, &master)?;
         if !verify_key(&key, &master.verifier) {
+            self.record_failure();
             return Err(CredentialError::WrongPassword);
         }
         let vault = self.read_vault()?;
@@ -379,12 +415,13 @@ impl CredentialStore {
         let stored: Vec<String> = next.keys().cloned().collect();
         self.write_index(&stored)?;
         let _ = fs::remove_file(self.master_path());
-        let mut inner = self.inner.lock().unwrap();
-        inner.mode = VaultMode::Local;
-        inner.key = None;
-        inner.locked = false;
-        inner.failures = 0;
-        inner.blocked_until = None;
+        {
+            let mut inner = self.inner.lock().unwrap();
+            inner.mode = VaultMode::Local;
+            inner.key = None;
+            inner.locked = false;
+        }
+        self.clear_failures();
         Ok(())
     }
 
@@ -397,9 +434,11 @@ impl CredentialStore {
         if self.inner.lock().unwrap().mode != VaultMode::Master {
             return Err(CredentialError::NotEnabled);
         }
+        self.check_throttle()?;
         let master = self.read_master()?.ok_or(CredentialError::NotEnabled)?;
         let old_key = derive_key(current, &master)?;
         if !verify_key(&old_key, &master.verifier) {
+            self.record_failure();
             return Err(CredentialError::WrongPassword);
         }
         let vault = self.read_vault()?;
@@ -427,11 +466,12 @@ impl CredentialStore {
             .map_err(|e| CredentialError::Storage(format!("serialize master file: {e}")))?;
         write_private(&self.master_path(), &raw)?;
 
-        let mut inner = self.inner.lock().unwrap();
-        inner.key = Some(new_key);
-        inner.locked = false;
-        inner.failures = 0;
-        inner.blocked_until = None;
+        {
+            let mut inner = self.inner.lock().unwrap();
+            inner.key = Some(new_key);
+            inner.locked = false;
+        }
+        self.clear_failures();
         Ok(())
     }
 
@@ -454,6 +494,7 @@ impl CredentialStore {
                 let _ = fs::remove_file(self.dir.join(format!("{base}.{suffix}")));
             }
         }
+        let _ = fs::remove_file(self.throttle_path());
         let mut inner = self.inner.lock().unwrap();
         inner.mode = VaultMode::Local;
         inner.key = None;
@@ -463,7 +504,7 @@ impl CredentialStore {
         Ok(())
     }
 
-    fn active_key(&self) -> Result<[u8; 32], CredentialError> {
+    fn active_key(&self) -> Result<SecureKey, CredentialError> {
         let mode_key = {
             let inner = self.inner.lock().unwrap();
             match inner.mode {
@@ -471,7 +512,7 @@ impl CredentialStore {
                     if inner.locked {
                         return Err(CredentialError::Locked);
                     }
-                    Some(inner.key.ok_or(CredentialError::Locked)?)
+                    Some(inner.key.clone().ok_or(CredentialError::Locked)?)
                 }
                 VaultMode::Local => None,
             }
@@ -504,6 +545,75 @@ impl CredentialStore {
 
     fn index_path(&self) -> PathBuf {
         self.dir.join(INDEX_FILE)
+    }
+
+    fn throttle_path(&self) -> PathBuf {
+        self.dir.join(THROTTLE_FILE)
+    }
+
+    fn read_throttle(&self) -> ThrottleFile {
+        fs::read_to_string(self.throttle_path())
+            .ok()
+            .and_then(|raw| serde_json::from_str(&raw).ok())
+            .unwrap_or_default()
+    }
+
+    /// Persists the live throttle counters using wall-clock milliseconds so the
+    /// block survives both app restarts and reboots without truncating the
+    /// remaining window.
+    fn write_throttle(&self) {
+        let (failures, blocked_until) = {
+            let inner = self.inner.lock().unwrap();
+            let until = inner.blocked_until.map(|instant| {
+                now_millis()
+                    + instant
+                        .saturating_duration_since(Instant::now())
+                        .as_millis() as u64
+            });
+            (inner.failures, until)
+        };
+        let raw = match serde_json::to_vec(&ThrottleFile {
+            failures,
+            blocked_until,
+        }) {
+            Ok(raw) => raw,
+            Err(_) => return,
+        };
+        let _ = write_private(&self.throttle_path(), &raw);
+    }
+
+    fn check_throttle(&self) -> Result<(), CredentialError> {
+        let inner = self.inner.lock().unwrap();
+        if let Some(until) = inner.blocked_until {
+            let now = Instant::now();
+            if until > now {
+                return Err(CredentialError::TooManyAttempts(
+                    until.duration_since(now).as_secs().max(1),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn record_failure(&self) {
+        {
+            let mut inner = self.inner.lock().unwrap();
+            inner.failures = inner.failures.saturating_add(1);
+            if inner.failures >= MAX_FAILURES_BEFORE_DELAY {
+                let delay = failure_delay(inner.failures);
+                inner.blocked_until = Some(Instant::now() + Duration::from_secs(delay));
+            }
+        }
+        self.write_throttle();
+    }
+
+    fn clear_failures(&self) {
+        {
+            let mut inner = self.inner.lock().unwrap();
+            inner.failures = 0;
+            inner.blocked_until = None;
+        }
+        let _ = fs::remove_file(self.throttle_path());
     }
 
     fn read_master(&self) -> Result<Option<MasterFile>, CredentialError> {
@@ -547,10 +657,11 @@ impl CredentialStore {
         PathBuf::from(format!("{}.bak", self.vault_path().display()))
     }
 
-    fn read_device_key(&self) -> Result<[u8; 32], CredentialError> {
+    fn read_device_key(&self) -> Result<SecureKey, CredentialError> {
         let bytes = fs::read(self.key_path())?;
         bytes
             .try_into()
+            .map(SecureKey)
             .map_err(|_| CredentialError::Storage("vault key has unexpected length".to_string()))
     }
 
@@ -599,6 +710,7 @@ impl CredentialStore {
                     self.restore_vault_from_bak()?;
                 }
                 let _ = fs::remove_file(self.master_path());
+                let _ = fs::remove_file(self.throttle_path());
                 let mut inner = self.inner.lock().unwrap();
                 inner.mode = VaultMode::Local;
                 inner.key = None;
@@ -620,8 +732,8 @@ impl CredentialStore {
         write_private(&self.vault_path(), &raw)
     }
 
-    fn device_key(&self) -> Result<[u8; 32], CredentialError> {
-        load_or_create_key(&self.key_path())
+    fn device_key(&self) -> Result<SecureKey, CredentialError> {
+        load_or_create_key(&self.key_path()).map(SecureKey)
     }
 
     fn encrypt_with(&self, key: &[u8; 32], plain: &str) -> Result<String, CredentialError> {
@@ -663,7 +775,7 @@ impl CredentialStore {
     }
 }
 
-fn derive_key(password: &str, master: &MasterFile) -> Result<[u8; 32], CredentialError> {
+fn derive_key(password: &str, master: &MasterFile) -> Result<SecureKey, CredentialError> {
     let salt = hex_decode(&master.salt)?;
     let iterations = NonZeroU32::new(master.iterations)
         .ok_or_else(|| CredentialError::Storage("invalid KDF iterations".to_string()))?;
@@ -675,7 +787,13 @@ fn derive_key(password: &str, master: &MasterFile) -> Result<[u8; 32], Credentia
         password.as_bytes(),
         &mut key,
     );
-    Ok(key)
+    let derived = SecureKey(key);
+    for byte in key.iter_mut() {
+        // SAFETY: unique borrow of the local buffer; volatile write stops the
+        // optimizer eliding the wipe before the stack frame is popped.
+        unsafe { std::ptr::write_volatile(byte, 0) };
+    }
+    Ok(derived)
 }
 
 fn verifier(key: &[u8; 32]) -> String {
@@ -698,6 +816,13 @@ fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
         diff |= a ^ b;
     }
     diff == 0
+}
+
+fn now_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis() as u64)
+        .unwrap_or_default()
 }
 
 fn failure_delay(failures: u32) -> u64 {
@@ -1130,5 +1255,51 @@ mod tests {
         let value = store.get("k").unwrap().expect("entry survived the crash");
         assert!(value.starts_with("value-"));
         assert_eq!(store.status().entries, 1);
+    }
+
+    #[test]
+    fn throttle_survives_restart() {
+        let (guard, store) = temp_store("throttle-restart");
+        store.set("a", "one").unwrap();
+        store.enable_master_password("hunter2", &[]).unwrap();
+        store.lock();
+        for _ in 0..MAX_FAILURES_BEFORE_DELAY {
+            assert!(matches!(
+                store.unlock("wrong"),
+                Err(CredentialError::WrongPassword)
+            ));
+        }
+        drop(store);
+
+        let reopened = CredentialStore::new(guard.0.clone());
+        // Even the right password is refused while the persisted block is live.
+        assert!(matches!(
+            reopened.unlock("hunter2"),
+            Err(CredentialError::TooManyAttempts(_))
+        ));
+        std::thread::sleep(Duration::from_secs(2));
+        reopened.unlock("hunter2").unwrap();
+        assert_eq!(reopened.get("a").unwrap().as_deref(), Some("one"));
+        assert!(!reopened.throttle_path().exists());
+    }
+
+    #[test]
+    fn change_and_disable_share_the_throttle() {
+        let (_guard, store) = temp_store("throttle-change");
+        store.enable_master_password("hunter2", &[]).unwrap();
+        for _ in 0..MAX_FAILURES_BEFORE_DELAY {
+            assert!(matches!(
+                store.change_master_password("wrong", "x"),
+                Err(CredentialError::WrongPassword)
+            ));
+        }
+        assert!(matches!(
+            store.change_master_password("hunter2", "x"),
+            Err(CredentialError::TooManyAttempts(_))
+        ));
+        assert!(matches!(
+            store.disable_master_password("hunter2"),
+            Err(CredentialError::TooManyAttempts(_))
+        ));
     }
 }
