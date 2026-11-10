@@ -1371,6 +1371,11 @@ impl RemoteConfig {
     }
 }
 
+/// Settings key holding the ETag of the last WebDAV bundle transfer. Empty
+/// means the server publishes no ETags; a missing key means this device has
+/// never transferred one.
+const SYNC_ETAG_KEY: &str = "sync:webdav-etag";
+
 #[tauri::command]
 pub async fn sync_remote_test(
     credentials: State<'_, Credentials>,
@@ -1399,7 +1404,8 @@ pub async fn sync_remote_upload(
     config: RemoteConfig,
     passphrase: String,
     scope: Vec<String>,
-) -> Result<ft_sync::RemoteUpload, String> {
+    force: bool,
+) -> Result<ft_sync::UploadOutcome, String> {
     do_remote_upload(
         backups.inner(),
         store.inner(),
@@ -1407,6 +1413,7 @@ pub async fn sync_remote_upload(
         config,
         passphrase,
         scope,
+        force,
     )
     .await
 }
@@ -1421,7 +1428,7 @@ pub async fn sync_auto_upload(
     credentials: State<'_, Credentials>,
     config: RemoteConfig,
     scope: Vec<String>,
-) -> Result<ft_sync::RemoteUpload, String> {
+) -> Result<ft_sync::UploadOutcome, String> {
     let passphrase = credentials
         .get("sync:passphrase")
         .map_err(|e| e.to_string())?
@@ -1436,6 +1443,7 @@ pub async fn sync_auto_upload(
         config,
         passphrase,
         scope,
+        false,
     )
     .await
 }
@@ -1447,7 +1455,8 @@ async fn do_remote_upload(
     config: RemoteConfig,
     passphrase: String,
     scope: Vec<String>,
-) -> Result<ft_sync::RemoteUpload, String> {
+    force: bool,
+) -> Result<ft_sync::UploadOutcome, String> {
     let config = config.resolve_secrets(credentials)?;
     let scope = normalize_scope(&scope);
     let (payload, summary) = backup_payload(store.as_ref(), Some(credentials.as_ref()), &scope)?;
@@ -1462,9 +1471,10 @@ async fn do_remote_upload(
             .await
             .map_err(|e| e.to_string())?
     } else if let Some(webdav) = config.webdav() {
-        ft_sync::webdav_upload(&webdav, &sealed)
-            .await
-            .map_err(|e| e.to_string())?
+        let Some(upload) = webdav_upload_guarded(store, &webdav, &sealed, force).await? else {
+            return Ok(ft_sync::UploadOutcome::Conflict);
+        };
+        upload
     } else {
         return Err("unsupported sync provider".to_string());
     };
@@ -1486,7 +1496,46 @@ async fn do_remote_upload(
             eprintln!("ferriterm: remote version index update failed: {err}");
         }
     }
-    Ok(upload)
+    Ok(ft_sync::UploadOutcome::Uploaded(upload))
+}
+
+/// Uploads the main bundle, refusing to replace a remote copy another device
+/// wrote since this device's last transfer. The last ETag is kept in settings;
+/// an empty value means the server publishes none, so uploads stay
+/// unconditional. With no record at all we first check the remote: if a bundle
+/// is already there, another device owns it and an unattended upload must not
+/// silently overwrite that device's data.
+async fn webdav_upload_guarded(
+    store: &Arc<ft_store::Store>,
+    config: &ft_sync::WebdavConfig,
+    sealed: &str,
+    force: bool,
+) -> Result<Option<ft_sync::RemoteUpload>, String> {
+    let settings = store.list_settings().map_err(|e| e.to_string())?;
+    let baseline = settings.get(SYNC_ETAG_KEY).map(String::as_str);
+    let if_match = if force {
+        None
+    } else {
+        baseline.filter(|v| !v.is_empty())
+    };
+    if !force && baseline.is_none() {
+        let existing = ft_sync::webdav_etag(config, &config.filename)
+            .await
+            .map_err(|e| e.to_string())?;
+        if existing.is_some() {
+            return Ok(None);
+        }
+    }
+    match ft_sync::webdav_put_conditional(config, &config.filename, sealed, if_match).await {
+        Ok((upload, etag)) => {
+            store
+                .set_setting(SYNC_ETAG_KEY, etag.as_deref().unwrap_or_default())
+                .map_err(|e| e.to_string())?;
+            Ok(Some(upload))
+        }
+        Err(ft_sync::RemoteError::Conflict) => Ok(None),
+        Err(err) => Err(err.to_string()),
+    }
 }
 
 #[tauri::command]
@@ -1505,6 +1554,13 @@ pub async fn sync_remote_download(
         return Err("unsupported sync provider".to_string());
     }
     .map_err(|e| e.to_string())?;
+    // Pulling the remote makes its current revision the baseline, so the next
+    // upload compares against what we actually have here.
+    if let Some(webdav) = config.webdav() {
+        if let Ok(etag) = ft_sync::webdav_etag(&webdav, &webdav.filename).await {
+            let _ = store.set_setting(SYNC_ETAG_KEY, etag.as_deref().unwrap_or_default());
+        }
+    }
     let plain = ft_sync::open(&passphrase, &sealed).map_err(|e| e.to_string())?;
     let parsed: BackupPayload =
         serde_json::from_slice(&plain).map_err(|e| format!("invalid backup payload: {e}"))?;

@@ -1,11 +1,21 @@
 import { useEffect } from "react";
 import { api, isTauri, type RemoteConfig, type SyncScope } from "./api";
-import { useAppStore } from "./store";
+import i18n from "./i18n";
+import { useAppStore, type SyncStatus } from "./store";
 
 const DEBOUNCE_MS = 3_000;
 /** Two unattended uploads never run closer than this, even during a burst of
  * edits. Manual uploads in the settings dialog are not throttled. */
 const MIN_GAP_MS = 30_000;
+/** A transient failure (network down, server restarting) is retried after
+ * these delays. A conflict is not retried: it needs the user's decision. */
+const RETRY_DELAYS_MS = [60_000, 180_000];
+
+export type AutoSyncResult =
+  | { state: "ok" }
+  | { state: "conflict" }
+  | { state: "failed"; message: string }
+  | { state: "skipped" };
 
 export const SYNC_PASSPHRASE_REF = "sync:passphrase";
 
@@ -34,23 +44,58 @@ export async function remoteConfig(): Promise<RemoteConfig | null> {
   };
 }
 
-/** One unattended upload. Incomplete setup and network failures are swallowed
- * on purpose: a background sync must never interrupt a terminal session. */
-export async function runAutoSync(scopeOverride?: SyncScope[]): Promise<boolean> {
-  if (!isTauri) return false;
+let retryTimer: number | undefined;
+let retryCount = 0;
+
+function clearRetry() {
+  retryCount = 0;
+  window.clearTimeout(retryTimer);
+  retryTimer = undefined;
+}
+
+function scheduleRetry(scope: SyncScope[]) {
+  if (retryCount >= RETRY_DELAYS_MS.length) return;
+  const delay = RETRY_DELAYS_MS[retryCount];
+  retryCount += 1;
+  window.clearTimeout(retryTimer);
+  retryTimer = window.setTimeout(() => {
+    retryTimer = undefined;
+    void runAutoSync(scope);
+  }, delay);
+}
+
+/** One unattended upload. Incomplete setup stays silent, but a network failure
+ * or a conflict is recorded in `syncStatus` and retried, so the user can see
+ * why the remote is behind instead of the change vanishing quietly. */
+export async function runAutoSync(
+  scopeOverride?: SyncScope[],
+): Promise<AutoSyncResult> {
+  if (!isTauri) return { state: "skipped" };
   const state = useAppStore.getState();
   const scope = scopeOverride ?? state.syncScope;
-  if (scope.length === 0) return false;
+  if (scope.length === 0) return { state: "skipped" };
+  const record = (next: Omit<SyncStatus, "at">) =>
+    state.setSyncStatus({ ...next, at: Date.now() });
   try {
-    if (!(await api.secretSaved(SYNC_PASSPHRASE_REF))) return false;
+    if (!(await api.secretSaved(SYNC_PASSPHRASE_REF))) return { state: "skipped" };
     const config = await remoteConfig();
-    if (!config) return false;
-    await api.syncAutoUpload(config, scope);
+    if (!config) return { state: "skipped" };
+    const outcome = await api.syncAutoUpload(config, scope);
+    if (outcome.state === "conflict") {
+      clearRetry();
+      record({ state: "conflict", message: "" });
+      state.setStatus(i18n.t("sync.conflictShort"), true);
+      return { state: "conflict" };
+    }
+    clearRetry();
+    record({ state: "ok", message: "" });
     state.setSyncLastAt(Date.now());
-    return true;
+    return { state: "ok" };
   } catch (err) {
-    console.warn("ferriterm: automatic sync skipped", err);
-    return false;
+    const message = String(err);
+    record({ state: "error", message });
+    scheduleRetry(scope);
+    return { state: "failed", message };
   }
 }
 

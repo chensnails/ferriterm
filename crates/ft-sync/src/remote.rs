@@ -17,6 +17,9 @@ pub enum RemoteError {
     Http(String),
     Status(u16, String),
     Format(String),
+    /// The remote bundle changed since this device last wrote it, so the
+    /// upload was refused instead of overwriting another device's copy.
+    Conflict,
 }
 
 impl fmt::Display for RemoteError {
@@ -28,6 +31,10 @@ impl fmt::Display for RemoteError {
                 write!(f, "remote returned HTTP {status}: {body}")
             }
             RemoteError::Format(msg) => write!(f, "{msg}"),
+            RemoteError::Conflict => write!(
+                f,
+                "the remote bundle was changed elsewhere; pull it or overwrite deliberately"
+            ),
         }
     }
 }
@@ -83,6 +90,15 @@ pub struct RemoteUpload {
     pub bytes: usize,
     /// Provider-specific handle for future uploads (the gist id; empty for WebDAV).
     pub id: String,
+}
+
+/// An upload either replaced the remote bundle or was refused because another
+/// device wrote it since this device's last sync.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "state")]
+pub enum UploadOutcome {
+    Uploaded(RemoteUpload),
+    Conflict,
 }
 
 fn client() -> Result<reqwest::Client, RemoteError> {
@@ -316,6 +332,35 @@ pub async fn webdav_test(config: &WebdavConfig) -> Result<String, RemoteError> {
     Ok(format!("HTTP {}", response.status().as_u16()))
 }
 
+/// Reads the remote ETag without downloading the body. `None` means the file
+/// is absent or the server publishes no ETag; either way the caller has no
+/// baseline to compare a later upload against.
+pub async fn webdav_etag(
+    config: &WebdavConfig,
+    filename: &str,
+) -> Result<Option<String>, RemoteError> {
+    let url = webdav_file_url(config, filename)?;
+    let response = auth(client()?.head(url), config)
+        .send()
+        .await
+        .map_err(|err| RemoteError::Http(err.to_string()))?;
+    if response.status().as_u16() == 404 {
+        return Ok(None);
+    }
+    if !response.status().is_success() {
+        return Err(status_error(response).await);
+    }
+    Ok(etag_of(&response))
+}
+
+fn etag_of(response: &reqwest::Response) -> Option<String> {
+    response
+        .headers()
+        .get(reqwest::header::ETAG)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_string)
+}
+
 /// Uploads a plain file name relative to the WebDAV base URL. Used for the
 /// main bundle, the timestamped version bundles and the JSON index alike.
 pub async fn webdav_put(
@@ -323,21 +368,45 @@ pub async fn webdav_put(
     filename: &str,
     content: &str,
 ) -> Result<RemoteUpload, RemoteError> {
+    let (upload, _) = webdav_put_conditional(config, filename, content, None).await?;
+    Ok(upload)
+}
+
+/// Uploads a file and, when `if_match` is set, refuses to replace a remote copy
+/// that no longer carries that ETag (HTTP 412 becomes `Conflict`). Returns the
+/// ETag the server assigned to the new body, when it publishes one.
+pub async fn webdav_put_conditional(
+    config: &WebdavConfig,
+    filename: &str,
+    content: &str,
+    if_match: Option<&str>,
+) -> Result<(RemoteUpload, Option<String>), RemoteError> {
     let url = webdav_file_url(config, filename)?;
-    let response = auth(client()?.put(url.clone()), config)
+    let mut request = auth(client()?.put(url.clone()), config)
         .header("Content-Type", "application/octet-stream")
-        .body(content.to_string())
+        .body(content.to_string());
+    if let Some(etag) = if_match {
+        request = request.header("If-Match", etag);
+    }
+    let response = request
         .send()
         .await
         .map_err(|err| RemoteError::Http(err.to_string()))?;
+    if response.status().as_u16() == 412 {
+        return Err(RemoteError::Conflict);
+    }
     if !response.status().is_success() {
         return Err(status_error(response).await);
     }
-    Ok(RemoteUpload {
-        location: url,
-        bytes: content.len(),
-        id: String::new(),
-    })
+    let etag = etag_of(&response);
+    Ok((
+        RemoteUpload {
+            location: url,
+            bytes: content.len(),
+            id: String::new(),
+        },
+        etag,
+    ))
 }
 
 pub async fn webdav_get(config: &WebdavConfig, filename: &str) -> Result<String, RemoteError> {
@@ -445,7 +514,19 @@ mod tests {
     struct Request {
         method: String,
         path: String,
+        headers: String,
         body: String,
+    }
+
+    impl Request {
+        fn header(&self, name: &str) -> Option<String> {
+            let name = format!("{}:", name.to_ascii_lowercase());
+            self.headers.lines().find_map(|line| {
+                line.to_ascii_lowercase()
+                    .strip_prefix(&name)
+                    .map(|value| value.trim().to_string())
+            })
+        }
     }
 
     async fn read_request(socket: &mut tokio::net::TcpStream) -> Option<Request> {
@@ -478,13 +559,27 @@ mod tests {
                 let body =
                     String::from_utf8_lossy(&buffer[body_start..body_start + content_length])
                         .to_string();
-                return Some(Request { method, path, body });
+                return Some(Request {
+                    method,
+                    path,
+                    headers,
+                    body,
+                });
             }
         }
     }
 
     fn spawn_server(
         handler: impl Fn(&Request) -> (u16, String) + Send + Sync + 'static,
+    ) -> (String, Arc<Mutex<Vec<Request>>>) {
+        spawn_server_with_headers(move |request| {
+            let (status, body) = handler(request);
+            (status, Vec::new(), body)
+        })
+    }
+
+    fn spawn_server_with_headers(
+        handler: impl Fn(&Request) -> (u16, Vec<(String, String)>, String) + Send + Sync + 'static,
     ) -> (String, Arc<Mutex<Vec<Request>>>) {
         let requests = Arc::new(Mutex::new(Vec::new()));
         let recorded = Arc::clone(&requests);
@@ -507,9 +602,13 @@ mod tests {
                         continue;
                     };
                     recorded.lock().unwrap().push(request.clone());
-                    let (status, body) = handler(&request);
+                    let (status, headers, body) = handler(&request);
+                    let extra: String = headers
+                        .into_iter()
+                        .map(|(name, value)| format!("{name}: {value}\r\n"))
+                        .collect();
                     let response = format!(
-                        "HTTP/1.1 {status} X\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                        "HTTP/1.1 {status} X\r\nContent-Length: {}\r\nConnection: close\r\n{extra}\r\n{body}",
                         body.len()
                     );
                     let _ = socket.write_all(response.as_bytes()).await;
@@ -555,6 +654,65 @@ mod tests {
         let text = err.to_string();
         assert!(text.contains("500"), "{text}");
         assert!(text.contains("boom"), "{text}");
+    }
+
+    #[tokio::test]
+    async fn webdav_etag_guards_the_upload_against_another_device() {
+        let (base, requests) = spawn_server_with_headers(|request| match request.method.as_str() {
+            "HEAD" => (
+                200,
+                vec![("ETag".to_string(), "\"v1\"".to_string())],
+                String::new(),
+            ),
+            "PUT" => match request.header("if-match").as_deref() {
+                Some("\"v1\"") => (
+                    201,
+                    vec![("ETag".to_string(), "\"v2\"".to_string())],
+                    String::new(),
+                ),
+                Some(_) => (412, Vec::new(), String::new()),
+                None => (201, Vec::new(), String::new()),
+            },
+            _ => (405, Vec::new(), String::new()),
+        });
+        let config = WebdavConfig::new(base, "", "");
+
+        assert_eq!(
+            webdav_etag(&config, &config.filename)
+                .await
+                .unwrap()
+                .as_deref(),
+            Some("\"v1\"")
+        );
+
+        // Our baseline still matches, so the upload goes through and the server
+        // hands back the ETag of the new body.
+        let (_, etag) = webdav_put_conditional(&config, &config.filename, "new", Some("\"v1\""))
+            .await
+            .unwrap();
+        assert_eq!(etag.as_deref(), Some("\"v2\""));
+
+        // A baseline another device has already replaced is refused, and the
+        // body never reaches the store.
+        let err = webdav_put_conditional(&config, &config.filename, "clobber", Some("\"stale\""))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, RemoteError::Conflict));
+
+        let requests = requests.lock().unwrap();
+        let puts: Vec<&Request> = requests
+            .iter()
+            .filter(|request| request.method == "PUT")
+            .collect();
+        assert_eq!(puts[0].header("if-match").as_deref(), Some("\"v1\""));
+        assert_eq!(puts[1].header("if-match").as_deref(), Some("\"stale\""));
+    }
+
+    #[tokio::test]
+    async fn webdav_etag_is_absent_for_a_missing_file() {
+        let (base, _) = spawn_server(|_| (404, String::new()));
+        let config = WebdavConfig::new(base, "", "");
+        assert_eq!(webdav_etag(&config, &config.filename).await.unwrap(), None);
     }
 
     #[tokio::test]

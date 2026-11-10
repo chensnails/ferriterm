@@ -385,6 +385,12 @@ export interface RemoteUpload {
   id: string;
 }
 
+/** An unattended or manual upload either landed or was refused because the
+ * remote bundle changed on another device. */
+export type UploadOutcome =
+  | ({ state: "uploaded" } & RemoteUpload)
+  | { state: "conflict" };
+
 /** Per-type counts carried by a version record (no decryption needed). */
 export interface BackupSummary {
   hosts: number;
@@ -939,14 +945,16 @@ export const api = {
     config: RemoteConfig,
     passphrase: string,
     scope: SyncScope[],
+    force = false,
   ) =>
-    invoke<RemoteUpload>("sync_remote_upload", {
+    invoke<UploadOutcome>("sync_remote_upload", {
       config,
       passphrase,
       scope,
+      force,
     }),
   syncAutoUpload: (config: RemoteConfig, scope: SyncScope[]) =>
-    invoke<RemoteUpload>("sync_auto_upload", { config, scope }),
+    invoke<UploadOutcome>("sync_auto_upload", { config, scope }),
   syncRemoteDownload: (config: RemoteConfig, passphrase: string) =>
     invoke<ImportStats>("sync_remote_download", { config, passphrase }),
   syncVersionsList: (config: RemoteConfig) =>

@@ -225,6 +225,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const syncScope = useAppStore((s) => s.syncScope);
   const setSyncScope = useAppStore((s) => s.setSyncScope);
   const syncLastAt = useAppStore((s) => s.syncLastAt);
+  const syncStatus = useAppStore((s) => s.syncStatus);
+  const setSyncStatus = useAppStore((s) => s.setSyncStatus);
+  const [remoteConflict, setRemoteConflict] = useState(false);
   const [autoPassSaved, setAutoPassSaved] = useState(false);
   const [autoBusy, setAutoBusy] = useState(false);
   const [autoMessage, setAutoMessage] = useState("");
@@ -345,7 +348,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const runRemote = async (action: "test" | "upload" | "download") => {
+  const runRemote = async (
+    action: "test" | "upload" | "download",
+    force = false,
+  ) => {
     if (!isTauri) {
       setRemoteMessage(t("sync.desktopOnly"));
       return;
@@ -362,17 +368,33 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         const detail = await api.syncRemoteTest(remoteConfig());
         setRemoteMessage(t("sync.testOk", { detail }));
       } else if (action === "upload") {
-        const result = await api.syncRemoteUpload(remoteConfig(), passphrase, backupScope);
-        if (remoteKind === "gist" && result.id && result.id !== gistId) {
-          setGistId(result.id);
-          await api.setSetting("sync:gist-id", result.id);
+        const outcome = await api.syncRemoteUpload(
+          remoteConfig(),
+          passphrase,
+          backupScope,
+          force,
+        );
+        if (outcome.state === "conflict") {
+          setRemoteConflict(true);
+          setRemoteMessage(t("sync.conflict"));
+          return;
+        }
+        setRemoteConflict(false);
+        if (remoteKind === "gist" && outcome.id && outcome.id !== gistId) {
+          setGistId(outcome.id);
+          await api.setSetting("sync:gist-id", outcome.id);
         }
         setRemoteMessage(
-          t("sync.uploaded", { location: result.location, bytes: result.bytes }),
+          t("sync.uploaded", {
+            location: outcome.location,
+            bytes: outcome.bytes,
+          }),
         );
       } else {
         const stats = await api.syncRemoteDownload(remoteConfig(), passphrase);
         await Promise.all([loadHosts(), loadTags()]);
+        setRemoteConflict(false);
+        setSyncStatus({ state: "idle", message: "", at: Date.now() });
         setRemoteMessage(
           t("sync.downloaded", {
             added: stats.hostsAdded,
@@ -461,11 +483,13 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       setAutoBusy(false);
       return;
     }
-    const ok = await runAutoSync(syncScope);
+    const result = await runAutoSync(syncScope);
     setAutoMessage(
-      ok
+      result.state === "ok"
         ? t("sync.syncNowOk", { time: new Date().toLocaleTimeString() })
-        : t("sync.syncNowFailed"),
+        : result.state === "conflict"
+          ? t("sync.conflict")
+          : t("sync.syncNowFailed"),
     );
     setAutoBusy(false);
   };
@@ -1634,6 +1658,39 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           </p>
           {autoMessage && (
             <p className="hint sync-message">{autoMessage}</p>
+          )}
+          {syncStatus.state !== "idle" && (
+            <p className="hint sync-message">
+              {syncStatus.state === "conflict"
+                ? t("sync.statusConflict")
+                : syncStatus.state === "error"
+                  ? t("sync.statusError", {
+                      time: new Date(syncStatus.at).toLocaleTimeString(),
+                      error: syncStatus.message,
+                    })
+                  : t("sync.statusOk", {
+                      time: new Date(syncStatus.at).toLocaleTimeString(),
+                    })}
+            </p>
+          )}
+          {(syncStatus.state === "conflict" || remoteConflict) && (
+            <div className="sync-actions">
+              <button
+                type="button"
+                onClick={() => void runRemote("download")}
+                disabled={remoteBusy}
+              >
+                {t("sync.pullRemote")}
+              </button>
+              <button
+                type="button"
+                className="link-btn danger"
+                onClick={() => void runRemote("upload", true)}
+                disabled={remoteBusy}
+              >
+                {t("sync.overwriteRemote")}
+              </button>
+            </div>
           )}
         </SettingGroup>
 

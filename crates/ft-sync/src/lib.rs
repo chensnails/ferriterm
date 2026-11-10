@@ -5,8 +5,9 @@ pub mod remote;
 pub mod versions;
 
 pub use remote::{
-    gist_download, gist_test, gist_upload, webdav_download, webdav_test, webdav_upload, GistConfig,
-    RemoteError, RemoteUpload, WebdavConfig,
+    gist_download, gist_test, gist_upload, webdav_delete, webdav_download, webdav_etag, webdav_get,
+    webdav_put, webdav_put_conditional, webdav_test, webdav_upload, GistConfig, RemoteError,
+    RemoteUpload, UploadOutcome, WebdavConfig,
 };
 pub use versions::{
     VersionEntry, VersionIndex, VersionSource, VersionStore, INDEX_VERSION, MAX_VERSIONS,

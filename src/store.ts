@@ -51,6 +51,14 @@ import i18n, {
 export type SyncPolicy = "manual" | "onChange" | "interval";
 export type SyncInterval = 15 | 30 | 60;
 
+export interface SyncStatus {
+  state: "idle" | "ok" | "error" | "conflict";
+  /** Human-readable detail; empty for idle and ok. */
+  message: string;
+  /** Unix ms of the attempt this status describes. */
+  at: number;
+}
+
 /** Credentials are opt-in: an automatic bundle never leaves the local vault
  * unless the user explicitly adds the "secrets" scope. */
 export const DEFAULT_SYNC_SCOPE: SyncScope[] = SYNC_SCOPES.filter(
@@ -502,6 +510,10 @@ interface AppState {
   /** Unix ms of the last successful sync; 0 when never. */
   syncLastAt: number;
   setSyncLastAt: (at: number) => void;
+  /** Outcome of the most recent sync attempt, shown in Settings and the
+   * status bar. Session state: it describes this run, not persisted history. */
+  syncStatus: SyncStatus;
+  setSyncStatus: (status: SyncStatus) => void;
   shortcuts: ShortcutBindings;
   setShortcut: (action: ShortcutAction, combo: string) => void;
   resetShortcuts: () => void;
@@ -751,6 +763,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   syncInterval: 30,
   syncScope: [...DEFAULT_SYNC_SCOPE],
   syncLastAt: 0,
+  syncStatus: { state: "idle", message: "", at: 0 },
   pendingCloseId: null,
   shortcuts: { ...SHORTCUT_DEFAULTS },
   commandsOpen: true,
@@ -1057,6 +1070,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ syncLastAt: at });
     if (isTauri) api.setSetting("sync:lastAt", String(at)).catch(() => {});
   },
+  setSyncStatus: (status) => set({ syncStatus: status }),
   setShortcut: (action, combo) => {
     const value = combo ? normalizeCombo(combo) : "";
     if (value === null) return;

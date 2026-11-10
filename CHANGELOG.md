@@ -22,11 +22,17 @@ package version in `src-tauri/tauri.conf.json`.
 - SSH tabs reconnect on their own after a dropped connection (1s, 2s, 4s, 8s,
   15s backoff); after the last attempt the tab falls back to the manual
   Reconnect button instead of retrying forever.
+- Automatic sync reports its outcome in Settings (success time, failure
+  reason, conflict) and retries a transient failure after 1 and 3 minutes.
 
 ### Fixed
 
 - Transfer progress forwarding survives a lagged broadcast instead of stopping
   the UI feed for every running job.
+- WebDAV uploads are guarded by the remote ETag: when another device wrote the
+  bundle since this device's last transfer, the upload is refused and Settings
+  offers "Pull remote" or "Overwrite remote" instead of silently replacing that
+  device's data. Servers that publish no ETags keep the unconditional upload.
 - A session that dies on its own releases what it held: port forwards, the
   SFTP channel, the remote-monitor feed and its queued transfers pause instead
   of spinning on a channel that can never answer. The cleanup runs before the
