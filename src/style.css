@@ -1924,12 +1924,14 @@ mark {
   color: var(--fg-primary);
 }
 
-/* Selection uses the same neutral overlay as the pills, so "selected" means
-   one thing across the panel instead of two different tints. */
+/* Selection uses the same neutral overlay as the pills, plus a 2px accent
+   edge inside the row so "where am I" survives a glance at the pane. */
 .settings-nav button.active {
   background: var(--selected-bg);
   border-color: transparent;
+  box-shadow: inset var(--tab-accent-w) 0 0 var(--accent);
   color: var(--fg-primary);
+  font-weight: 500;
 }
 
 .settings-pane {
@@ -4888,6 +4890,9 @@ label.sync-action {
   gap: 3px;
   min-width: 0;
   flex: 1 1 auto;
+  /* The copy may fill the row, but never right up against the control: a
+     wrapped hint used to end flush with the select's edge. */
+  padding-right: var(--space-2);
 }
 
 .ui-setting-title {
@@ -4962,7 +4967,9 @@ label.sync-action {
 .ui-setting-control > input[type="number"] {
   flex: 0 0 auto;
   width: var(--settings-label-w);
-  text-align: left;
+  /* Numeric values line up on the right edge, the way counters are read. */
+  text-align: end;
+  font-variant-numeric: tabular-nums;
 }
 
 .ui-setting-control > select.ui-select {
@@ -5162,16 +5169,19 @@ label.sync-action {
   }
 }
 
+/* The strip shares the input material (outlined on the panel colour) so it
+   reads as a control rather than as a second, dimmer button row. */
 .ui-segmented {
   display: inline-flex;
-  gap: 2px;
+  gap: 1px;
   padding: 2px;
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--sub-bg);
+  background: var(--bg-base);
 }
 
 .ui-segmented-item {
-  height: calc(var(--control-h) - 4px);
+  height: calc(var(--control-h) - 6px);
   padding: 0 var(--space-2);
   border: 0;
   border-radius: var(--radius-sm);
@@ -5179,6 +5189,9 @@ label.sync-action {
   color: var(--fg-muted);
   font-size: var(--fs-sm);
   cursor: pointer;
+  transition:
+    background var(--motion-fast),
+    color var(--motion-fast);
 }
 
 .ui-segmented-item:hover {
@@ -5188,6 +5201,8 @@ label.sync-action {
 .ui-segmented-item.active {
   background: var(--selected-bg);
   color: var(--fg-primary);
+  font-weight: 500;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg-primary) 14%, transparent);
 }
 
 .ui-segmented-item:disabled {
