@@ -359,11 +359,15 @@
     "highlightColorHint": "下一条关键词规则使用的颜色。",
     "restoreLayout": "启动时恢复标签页",
     "restoreLayoutHint": "重新打开上次会话保存的标签页与分屏布局；串口会话不会被恢复。",
+    "statusBarMonitor": "监控读数",
+    "statusBarMonitorHint": "没有会话时显示本机，有会话时显示当前会话的主机；不支持采样的主机会隐藏该入口。也可在底栏右键切换。",
     "group": {
       "appearance": "外观与语言",
       "appearanceHint": "主题、语言包与终端外观。修改后即时生效并保存。",
       "startup": "启动与会话",
       "startupHint": "控制应用启动时恢复的内容与标签页行为。",
+      "statusBar": "状态栏",
+      "statusBarHint": "底栏右侧的常驻读数。",
       "data": "数据与缓存",
       "dataHint": "本地历史、日志与面板尺寸记录，均不参与同步。",
       "connection": "连接与剪贴板",
@@ -984,7 +988,12 @@
     "split": "分屏",
     "transferIdle": "无传输",
     "production": "生产",
-    "focusTerminal": "回到终端"
+    "focusTerminal": "回到终端",
+    "monitor": "监控",
+    "monitorLocal": "本机",
+    "monitorFailed": "采样失败",
+    "monitorOpen": "打开监视面板",
+    "monitorToggle": "在底栏显示监控"
   },
   "knownHosts": {
     "title": "已信任主机",

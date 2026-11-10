@@ -177,6 +177,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     (s) => s.setRestoreLayoutOnStartup,
   );
   const resetLayoutSizes = useAppStore((s) => s.resetLayoutSizes);
+  const statusMonitor = useAppStore((s) => s.statusMonitor);
+  const setStatusMonitor = useAppStore((s) => s.setStatusMonitor);
   const clearCommandHistory = useAppStore((s) => s.clearCommandHistory);
   const clearExecLog = useAppStore((s) => s.clearExecLog);
   const resetShortcuts = useAppStore((s) => s.resetShortcuts);
@@ -801,6 +803,18 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             hint={t("settings.confirmCloseHint")}
             checked={confirmClose}
             onChange={setConfirmClose}
+          />
+        </SettingGroup>
+
+        <SettingGroup
+          title={t("settings.group.statusBar")}
+          hint={t("settings.group.statusBarHint")}
+        >
+          <ToggleSetting
+            title={t("settings.statusBarMonitor")}
+            hint={t("settings.statusBarMonitorHint")}
+            checked={statusMonitor}
+            onChange={setStatusMonitor}
           />
         </SettingGroup>
 

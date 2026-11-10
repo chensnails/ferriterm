@@ -369,6 +369,16 @@ interface AppState {
   newWindowHostId: string | null;
   monitorOpen: boolean;
   toggleMonitor: () => void;
+  /**
+   * Host the monitor panel reads from: "local" or an open SSH session id.
+   * Lifted out of the panel so the status-bar readout and the card cannot
+   * disagree about which machine they are showing.
+   */
+  monitorTarget: string;
+  setMonitorTarget: (target: string) => void;
+  /** Persistent status-bar monitor readout (on by default). */
+  statusMonitor: boolean;
+  setStatusMonitor: (enabled: boolean) => void;
   forwardOpen: boolean;
   setForwardOpen: (open: boolean) => void;
   toggleForward: () => void;
@@ -651,6 +661,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedHostId: null,
   newWindowHostId: null,
   monitorOpen: false,
+  monitorTarget: "local",
+  statusMonitor: true,
   forwardOpen: false,
   transferOpen: false,
   transferSessionId: null,
@@ -707,6 +719,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       return { monitorOpen: open };
     }),
+  setMonitorTarget: (monitorTarget) => set({ monitorTarget }),
+  setStatusMonitor: (enabled) => {
+    set({ statusMonitor: enabled });
+    if (isTauri) {
+      api.setSetting("statusMonitor", enabled ? "1" : "0").catch(() => {});
+    }
+  },
   setForwardOpen: (open) => set({ forwardOpen: open }),
   toggleForward: () => set((s) => ({ forwardOpen: !s.forwardOpen })),
   openTransfer: (sessionId) =>
@@ -1532,6 +1551,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Older builds had no persisted panel state; keep their defaults.
       commandsOpen: (settings.commandsOpen ?? "1") !== "0",
       monitorOpen: (settings.monitorOpen ?? "0") === "1",
+      // Session ids do not survive a restart, so the readout starts on this
+      // machine again; only the on/off choice is persisted.
+      monitorTarget: "local",
+      statusMonitor: (settings.statusMonitor ?? "1") !== "0",
       execLogOpen: (settings.execLogOpen ?? "0") === "1",
       transferConcurrency: clampTransferConcurrency(
         Number(settings.transferConcurrency),

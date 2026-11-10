@@ -78,7 +78,10 @@ export function MonitorPanel() {
       ),
     [sessions],
   );
-  const [target, setTarget] = useState(LOCAL_TARGET);
+  // Target lives in the store: the status-bar readout can point the card at
+  // the active session, and both surfaces always agree on the host.
+  const target = useAppStore((s) => s.monitorTarget);
+  const setTarget = useAppStore((s) => s.setMonitorTarget);
   const [view, setView] = useState<MonitorView | null>(null);
   const busy = useRef(false);
 

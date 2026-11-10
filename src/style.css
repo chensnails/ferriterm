@@ -5171,6 +5171,65 @@ label.sync-action {
   font-family: var(--font-mono);
 }
 
+/* ---- Status bar: monitor readout ---- */
+
+/* Host + two tiny gauges. The readout follows the active tab, so it doubles as
+   "which machine am I looking at" without opening a panel. */
+.statusbar-monitor {
+  gap: var(--space-2);
+}
+
+.statusbar-monitor-host {
+  max-width: 10em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-primary);
+}
+
+.statusbar-gauge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.statusbar-gauge-label {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.02em;
+  opacity: 0.8;
+}
+
+.statusbar-gauge-track {
+  width: 2.25rem;
+  height: 3px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--fg-muted) 30%, transparent);
+}
+
+.statusbar-gauge-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width var(--motion-panel);
+}
+
+.statusbar-gauge-fill.high {
+  background: var(--warning);
+}
+
+.statusbar-monitor-error {
+  color: var(--warning);
+}
+
+/* Narrow windows: drop the host name first; the numbers are the point. */
+@media (max-width: 1080px) {
+  .statusbar-monitor-host {
+    display: none;
+  }
+}
+
 /* ---- About: version history timeline ---- */
 
 .version-history {

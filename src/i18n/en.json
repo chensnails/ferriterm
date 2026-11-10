@@ -359,11 +359,15 @@
     "highlightColorHint": "Colour used for the next keyword rule you add.",
     "restoreLayout": "Restore tabs on startup",
     "restoreLayoutHint": "Reopen the tabs and split layout saved from the previous session. Serial sessions are not restored.",
+    "statusBarMonitor": "Monitor readout",
+    "statusBarMonitorHint": "Shows this machine when no session is active and the active tab's host otherwise. Hosts that cannot be sampled do not show it. Right-click the status bar to toggle it as well.",
     "group": {
       "appearance": "Appearance & language",
       "appearanceHint": "Theme, language packs and terminal look. Changes are saved immediately.",
       "startup": "Startup & sessions",
       "startupHint": "Controls what the app restores and how tabs behave.",
+      "statusBar": "Status bar",
+      "statusBarHint": "The permanent readout on the right side of the bottom bar.",
       "data": "Data & cache",
       "dataHint": "Local history, logs and saved layout dimensions. Nothing here is synced.",
       "connection": "Connection & clipboard",
@@ -984,7 +988,12 @@
     "split": "Split",
     "transferIdle": "No transfers",
     "production": "Prod",
-    "focusTerminal": "Back to the terminal"
+    "focusTerminal": "Back to the terminal",
+    "monitor": "Monitor",
+    "monitorLocal": "This machine",
+    "monitorFailed": "Sampling failed",
+    "monitorOpen": "Open the monitor card",
+    "monitorToggle": "Show monitor in the status bar"
   },
   "knownHosts": {
     "title": "Known hosts",

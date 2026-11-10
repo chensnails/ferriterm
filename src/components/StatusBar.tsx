@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { formatBytes } from "../format";
 import { TRANSFER_TAB, useAppStore } from "../store";
+import { ContextMenu } from "./ContextMenu";
 import { FilesIcon, LogIcon, SplitIcon } from "./icons";
+import { StatusMonitor } from "./StatusMonitor";
 
 /**
  * Bottom status bar. Left cell mirrors where you are, the middle cell carries
@@ -22,6 +25,9 @@ export function StatusBar() {
   const execLogOpen = useAppStore((s) => s.execLogOpen);
   const toggleExecLog = useAppStore((s) => s.toggleExecLog);
   const clearStatus = useAppStore((s) => s.clearStatus);
+  const statusMonitor = useAppStore((s) => s.statusMonitor);
+  const setStatusMonitor = useAppStore((s) => s.setStatusMonitor);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 
   const open = sessions.filter((session) => !session.closed);
   const current = sessions.find((session) => session.id === activeId);
@@ -50,7 +56,15 @@ export function StatusBar() {
   };
 
   return (
-    <footer id="statusbar">
+    <footer
+      id="statusbar"
+      // The bar itself is the way back once the readout is switched off, so
+      // hiding it never traps the setting.
+      onContextMenu={(event) => {
+        event.preventDefault();
+        setMenu({ x: event.clientX, y: event.clientY });
+      }}
+    >
       <div className="statusbar-group">
         <button
           type="button"
@@ -85,6 +99,7 @@ export function StatusBar() {
       </button>
 
       <div className="statusbar-group end">
+        <StatusMonitor />
         <button
           type="button"
           className={`statusbar-item ${running.length > 0 ? "busy" : ""}`}
@@ -120,6 +135,21 @@ export function StatusBar() {
           <span>{t("log.title")}</span>
         </button>
       </div>
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            {
+              label: t("status.monitorToggle"),
+              checked: statusMonitor,
+              onSelect: () => setStatusMonitor(!statusMonitor),
+            },
+          ]}
+        />
+      )}
     </footer>
   );
 }
