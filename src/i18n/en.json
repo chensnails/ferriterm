@@ -882,6 +882,8 @@
   "terminal": {
     "disconnected": "[session disconnected]",
     "connectFailed": "Connect failed: {error}",
+    "reconnecting": "[reconnecting, attempt {attempt} of {total} in {seconds}s…]",
+    "reconnectGaveUp": "[auto-reconnect failed: {error}]",
     "copy": "Copy",
     "clipboardFailed": "Could not write the clipboard",
     "paste": "Paste",

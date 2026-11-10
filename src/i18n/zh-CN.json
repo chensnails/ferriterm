@@ -882,6 +882,8 @@
   "terminal": {
     "disconnected": "[会话已断开]",
     "connectFailed": "连接失败：{error}",
+    "reconnecting": "[正在重连，第 {attempt}/{total} 次，{seconds} 秒后重试…]",
+    "reconnectGaveUp": "[自动重连失败：{error}]",
     "copy": "复制",
     "clipboardFailed": "无法写入剪贴板",
     "paste": "粘贴",

@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { TerminalView } from "../terminal";
-import { api } from "../api";
 import i18n from "../i18n";
 import { useAppStore, type SessionMeta } from "../store";
-import { connectAlgorithms } from "../ssh-algorithms";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 
 export function TerminalPanel({
@@ -30,57 +28,14 @@ export function TerminalPanel({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const { consumePending, markClosed, setStatus } = useAppStore.getState();
+    const { consumePending, markClosed } = useAppStore.getState();
     const view = new TerminalView(session.id, session.kind, container, () =>
       markClosed(session.id),
     );
     viewRef.current = view;
 
     const pending = consumePending(session.id);
-    if (pending) {
-      void view.ready.then(() => {
-        const { cols, rows } = view.term;
-        const algorithms = connectAlgorithms(
-          useAppStore.getState().sshSecurity,
-        );
-        const connect =
-          pending.type === "ssh" || pending.type === "sftp"
-            ? api.sshConnect(session.id, {
-                ...pending.args,
-                ...(algorithms ? { algorithms } : {}),
-                cols,
-                rows,
-              })
-            : pending.type === "serial"
-              ? api.serialOpen(session.id, pending.config)
-              : pending.type === "telnet"
-                ? api.telnetOpen(
-                    session.id,
-                    pending.host,
-                    pending.port,
-                    cols,
-                    rows,
-                  )
-                : api.ptySpawn(session.id, cols, rows, pending.shell, pending.cwd);
-        connect
-          .then(() => setStatus(""))
-          .catch((err) => {
-            setStatus(String(err), true);
-            view.term.writeln(
-              `\r\n\x1b[31m${i18n.t("terminal.connectFailed", { error: String(err) })}\x1b[0m`,
-            );
-            markClosed(session.id);
-            if (
-              (pending.type === "ssh" || pending.type === "sftp") &&
-              pending.args.hostId
-            ) {
-              useAppStore
-                .getState()
-                .reportConnectError(pending.args.hostId, String(err));
-            }
-          });
-      });
-    }
+    if (pending) view.start(pending);
 
     return () => {
       view.dispose();

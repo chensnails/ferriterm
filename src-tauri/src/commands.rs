@@ -80,6 +80,7 @@ pub struct SshRuntimeState {
     store: Arc<ft_store::Store>,
     sftp: Arc<ft_vfs::SftpRegistry>,
     transfers: ft_transfer::TransferManager,
+    remote: Arc<ft_monitor::RemoteMonitor>,
 }
 
 impl SshRuntimeState {
@@ -89,6 +90,7 @@ impl SshRuntimeState {
         store: Arc<ft_store::Store>,
         sftp: Arc<ft_vfs::SftpRegistry>,
         transfers: ft_transfer::TransferManager,
+        remote: Arc<ft_monitor::RemoteMonitor>,
     ) -> Self {
         Self {
             host_keys: HostKeyState::default(),
@@ -98,7 +100,28 @@ impl SshRuntimeState {
             store,
             sftp,
             transfers,
+            remote,
         }
+    }
+
+    /// Reclaims everything a session was holding when it went away, whether it
+    /// died on its own or was closed by the user. Safe to call twice.
+    pub async fn reap(&self, session_id: &str) {
+        self.forwards.stop_session(session_id).await;
+        self.sftp.invalidate(session_id).await;
+        self.remote.forget(session_id);
+        self.transfers
+            .pause_session(session_id, "the session closed; resume after reconnecting")
+            .await;
+    }
+}
+
+impl ft_ssh::SessionCleanup for SshRuntimeState {
+    fn cleanup<'a>(
+        &'a self,
+        session_id: &'a str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'a>> {
+        Box::pin(self.reap(session_id))
     }
 }
 
@@ -221,7 +244,8 @@ pub async fn ssh_connect(
     let ctx = ConnectContext::new(verifier)
         .with_keyboard_interactive(keyboard_prompt)
         .with_remote_forwards(router)
-        .with_credentials(provider);
+        .with_credentials(provider)
+        .with_cleanup(Arc::new(runtime.inner().clone()));
     let host_id = args.host_id.clone();
     let audit_target = args
         .host_id
@@ -338,12 +362,9 @@ pub async fn ssh_resize(
 pub async fn ssh_disconnect(
     state: State<'_, SessionRegistry>,
     runtime: State<'_, SshRuntimeState>,
-    remote: State<'_, Arc<ft_monitor::RemoteMonitor>>,
     id: String,
 ) -> Result<(), String> {
-    runtime.forwards.stop_session(&id).await;
-    runtime.sftp.invalidate(&id).await;
-    remote.forget(&id);
+    runtime.reap(&id).await;
     ft_ssh::disconnect(&state, &id).await
 }
 

@@ -94,6 +94,15 @@ pub struct ConnectContext {
     pub keyboard_interactive: Option<Arc<dyn KeyboardInteractivePrompt>>,
     pub remote_forwards: Option<Arc<dyn RemoteForwardHandler>>,
     pub credentials: Option<Arc<dyn CredentialProvider>>,
+    pub cleanup: Option<Arc<dyn SessionCleanup>>,
+}
+
+/// Tears down what the shell attached to a session after that session's output
+/// loop ends. The shell implements this because it owns the port forwards, the
+/// SFTP channel, the remote monitor and the transfer queue; `ft-ssh` cannot
+/// reach any of them without depending on those crates.
+pub trait SessionCleanup: Send + Sync {
+    fn cleanup<'a>(&'a self, session_id: &'a str) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
 }
 
 impl ConnectContext {
@@ -103,6 +112,7 @@ impl ConnectContext {
             keyboard_interactive: None,
             remote_forwards: None,
             credentials: None,
+            cleanup: None,
         }
     }
 
@@ -118,6 +128,11 @@ impl ConnectContext {
 
     pub fn with_credentials(mut self, provider: Arc<dyn CredentialProvider>) -> Self {
         self.credentials = Some(provider);
+        self
+    }
+
+    pub fn with_cleanup(mut self, cleanup: Arc<dyn SessionCleanup>) -> Self {
+        self.cleanup = Some(cleanup);
         self
     }
 }
@@ -357,6 +372,16 @@ pub async fn connect(
 
     let (mut reader, writer) = channel.split();
     let event_id = id.clone();
+    registry.sessions.lock().await.insert(
+        id.clone(),
+        Session::Ssh(SshSession {
+            handle: handle.clone(),
+            writer,
+        }),
+    );
+
+    let cleanup = ctx.cleanup.clone();
+    let registry = registry.clone();
     tokio::spawn(async move {
         while let Some(msg) = reader.wait().await {
             match msg {
@@ -366,14 +391,31 @@ pub async fn connect(
                 _ => {}
             }
         }
-        sink.closed(&event_id);
+        // The connection stopped producing output, so this session is finished
+        // whether the server hung up, the shell exited, or a keepalive gave up.
+        // Reap it here and only then announce the closure: the UI reconnects on
+        // the closed event under the same id, and a reconnect must never find
+        // its fresh session torn down by the loop it replaced.
+        let reaped = {
+            let mut sessions = registry.sessions.lock().await;
+            match sessions.get(&event_id) {
+                Some(Session::Ssh(session)) if Arc::ptr_eq(&session.handle, &handle) => {
+                    sessions.remove(&event_id)
+                }
+                _ => None,
+            }
+        };
+        if let Some(Session::Ssh(dead)) = reaped {
+            let _ = dead
+                .handle
+                .disconnect(Disconnect::ByApplication, "session ended", "")
+                .await;
+            if let Some(cleanup) = &cleanup {
+                cleanup.cleanup(&event_id).await;
+            }
+            sink.closed(&event_id);
+        }
     });
-
-    registry
-        .sessions
-        .lock()
-        .await
-        .insert(id, Session::Ssh(SshSession { handle, writer }));
     Ok(())
 }
 

@@ -9,6 +9,8 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { api, onClosed, onOutput, type SessionKind } from "./api";
+import type { PendingConnect } from "./connect";
+import { connectAlgorithms } from "./ssh-algorithms";
 import {
   registerTerminal,
   unregisterTerminal,
@@ -37,6 +39,11 @@ interface SearchHit {
 // default font stack; live terminals read the user's appearance settings.
 export const TERMINAL_FONT_SIZE = DEFAULT_TERMINAL_FONT_SIZE;
 export const TERMINAL_FONT_FAMILY = DEFAULT_TERMINAL_FONT_FAMILY;
+
+/** Backoff between automatic reconnects. After the last rung the tab falls
+    back to the manual Reconnect button, so a dead host cannot burn attempts
+    forever. */
+const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 15000];
 
 interface TerminalAppearance {
   fontFamily: string;
@@ -82,6 +89,10 @@ export class TerminalView implements TerminalHandle {
   private keywordDecorations: { decoration: IDecoration; marker: IMarker }[] =
     [];
   private osc52: IDisposable;
+  private readonly onSessionClosed: () => void;
+  private pending: PendingConnect | null = null;
+  private reconnectTimer: number | undefined;
+  private reconnectAttempt = 0;
 
   constructor(
     readonly id: string,
@@ -89,6 +100,7 @@ export class TerminalView implements TerminalHandle {
     private readonly container: HTMLElement,
     onSessionClosed: () => void,
   ) {
+    this.onSessionClosed = onSessionClosed;
     const appearance = currentAppearance();
     this.term = new Terminal({
       allowProposedApi: true,
@@ -175,7 +187,7 @@ export class TerminalView implements TerminalHandle {
       onClosed(this.id, () => {
         if (this.disposed) return;
         this.term.writeln(`\r\n\x1b[90m${i18n.t("terminal.disconnected")}\x1b[0m`);
-        onSessionClosed();
+        if (!this.scheduleReconnect()) this.onSessionClosed();
       }),
     ]).then((fns) => {
       if (this.disposed) fns.forEach((fn) => fn());
@@ -186,6 +198,101 @@ export class TerminalView implements TerminalHandle {
       if (!this.disposed) this.fit.fit();
     });
     this.observer.observe(container);
+  }
+
+  /** Opens the tab's first connection. The panel calls this instead of
+      connecting itself, so the same code path serves the retry ladder. */
+  start(pending: PendingConnect) {
+    this.pending = pending;
+    void this.ready.then(() => this.open(pending, false));
+  }
+
+  private open(pending: PendingConnect, retry: boolean) {
+    const { cols, rows } = this.term;
+    const algorithms = connectAlgorithms(
+      useAppStore.getState().sshSecurity,
+    );
+    const connect =
+      pending.type === "ssh" || pending.type === "sftp"
+        ? api.sshConnect(this.id, {
+            ...pending.args,
+            ...(algorithms ? { algorithms } : {}),
+            cols,
+            rows,
+          })
+        : pending.type === "serial"
+          ? api.serialOpen(this.id, pending.config)
+          : pending.type === "telnet"
+            ? api.telnetOpen(this.id, pending.host, pending.port, cols, rows)
+            : api.ptySpawn(this.id, cols, rows, pending.shell, pending.cwd);
+    connect
+      .then(() => {
+        this.reconnectAttempt = 0;
+        useAppStore.getState().setStatus("");
+      })
+      .catch((err) => {
+        if (this.disposed) return;
+        const message = String(err);
+        if (retry) {
+          // The socket closed before the ladder could report anything, so the
+          // next rung (or the give-up line) owns this failure.
+          if (!this.scheduleReconnect()) this.reportGiveUp(message);
+          return;
+        }
+        useAppStore.getState().setStatus(message, true);
+        this.term.writeln(
+          `\r\n\x1b[31m${i18n.t("terminal.connectFailed", { error: message })}\x1b[0m`,
+        );
+        this.reportHostError(message);
+        this.onSessionClosed();
+      });
+  }
+
+  /** Reconnects SSH-family tabs after a dropped connection. Every other
+      protocol has nothing to resume, so those tabs go straight to the manual
+      button. Returns false when the ladder is exhausted. */
+  private scheduleReconnect(): boolean {
+    const pending = this.pending;
+    if (
+      !pending ||
+      (pending.type !== "ssh" && pending.type !== "sftp") ||
+      this.reconnectAttempt >= RECONNECT_DELAYS_MS.length
+    ) {
+      return false;
+    }
+    const delay = RECONNECT_DELAYS_MS[this.reconnectAttempt];
+    this.reconnectAttempt += 1;
+    this.term.writeln(
+      `\r\n\x1b[90m${i18n.t("terminal.reconnecting", {
+        attempt: this.reconnectAttempt,
+        total: RECONNECT_DELAYS_MS.length,
+        seconds: Math.round(delay / 1000),
+      })}\x1b[0m`,
+    );
+    this.reconnectTimer = window.setTimeout(() => {
+      this.reconnectTimer = undefined;
+      if (!this.disposed) this.open(pending, true);
+    }, delay);
+    return true;
+  }
+
+  private reportGiveUp(error: string) {
+    this.term.writeln(
+      `\r\n\x1b[31m${i18n.t("terminal.reconnectGaveUp", { error })}\x1b[0m`,
+    );
+    this.reportHostError(error);
+    this.onSessionClosed();
+  }
+
+  private reportHostError(error: string) {
+    const pending = this.pending;
+    if (
+      pending &&
+      (pending.type === "ssh" || pending.type === "sftp") &&
+      pending.args.hostId
+    ) {
+      useAppStore.getState().reportConnectError(pending.args.hostId, error);
+    }
   }
 
   refreshTheme() {
@@ -651,6 +758,9 @@ export class TerminalView implements TerminalHandle {
   dispose() {
     this.disposed = true;
     window.clearTimeout(this.keywordTimer);
+    window.clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = undefined;
+    this.pending = null;
     this.clearKeywordDecorations();
     void this.bellAudio?.close().catch(() => {});
     this.bellAudio = null;

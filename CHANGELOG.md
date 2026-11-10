@@ -19,11 +19,18 @@ package version in `src-tauri/tauri.conf.json`.
   `unhandledrejection` logging.
 - Vault password-throttle state persists across restarts and reboots, and
   derived key material is zeroized when dropped.
+- SSH tabs reconnect on their own after a dropped connection (1s, 2s, 4s, 8s,
+  15s backoff); after the last attempt the tab falls back to the manual
+  Reconnect button instead of retrying forever.
 
 ### Fixed
 
 - Transfer progress forwarding survives a lagged broadcast instead of stopping
   the UI feed for every running job.
+- A session that dies on its own releases what it held: port forwards, the
+  SFTP channel, the remote-monitor feed and its queued transfers pause instead
+  of spinning on a channel that can never answer. The cleanup runs before the
+  closed event, so an immediate reconnect is not torn down by the old loop.
 - Resume no longer trusts a target file's size alone: the bytes already there
   are compared against the source before the copy continues, and a mismatch
   restarts the copy instead of silently producing a corrupt file.

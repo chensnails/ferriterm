@@ -450,6 +450,33 @@ impl TransferManager {
         }
     }
 
+    /// Pauses every unfinished job that reads through or writes to a session
+    /// which just went away. Letting them run would mean spinning on a closed
+    /// channel; paused jobs can be resumed once the host is connected again.
+    pub async fn pause_session(&self, session_id: &str, reason: &str) {
+        let states: Vec<Arc<JobState>> = self.inner.jobs.lock().await.values().cloned().collect();
+        for state in states {
+            let bound = {
+                let job = state.job.lock().await;
+                !job.status.is_finished()
+                    && (job.source_session.as_deref() == Some(session_id)
+                        || job.target_session.as_deref() == Some(session_id))
+            };
+            if !bound {
+                continue;
+            }
+            state.paused.store(true, Ordering::SeqCst);
+            set_status(
+                &self.inner,
+                &state,
+                TransferStatus::Paused,
+                Some(reason.to_string()),
+            )
+            .await;
+            remember(&self.inner, &state).await;
+        }
+    }
+
     pub async fn resume(&self, id: &str) {
         if let Some(state) = self.find(id).await {
             if state.job.lock().await.status == TransferStatus::Paused {
@@ -1610,6 +1637,47 @@ mod tests {
         assert_eq!(std::fs::read(src.join("only-target.txt")).unwrap(), b"down");
         assert_eq!(std::fs::read(src.join("clash.txt")).unwrap(), b"left");
         assert_eq!(std::fs::read(dst.join("clash.txt")).unwrap(), b"right-side");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn closing_a_session_pauses_only_the_jobs_bound_to_it() {
+        let root = temp_dir("reap");
+        let src = root.join("a.txt");
+        std::fs::write(&src, b"payload").unwrap();
+
+        let before = TransferManager::new(1);
+        let id = before
+            .enqueue_file(
+                "job".to_string(),
+                Endpoint::new(Arc::new(LocalFs), src.to_string_lossy())
+                    .with_session(Some("session-1".to_string())),
+                Endpoint::new(Arc::new(LocalFs), root.join("first.txt").to_string_lossy()),
+                7,
+            )
+            .await;
+        assert_eq!(wait_done(&before, &id).await.status, TransferStatus::Done);
+        // Turn the finished run into the record a restart would find.
+        let mut mine = before.list().await.remove(0);
+        mine.status = TransferStatus::Pending;
+        mine.transferred = 0;
+        let mut theirs = mine.clone();
+        theirs.id = "other".to_string();
+        theirs.source_session = Some("session-2".to_string());
+
+        let after = TransferManager::with_hooks(1, Some(Arc::new(SessionLookup)), None);
+        after.restore(vec![mine, theirs]).await;
+        after.pause_session("session-1", "the session closed").await;
+
+        let jobs = after.list().await;
+        let mine = jobs.iter().find(|job| job.id == "job").unwrap();
+        let theirs = jobs.iter().find(|job| job.id == "other").unwrap();
+        assert_eq!(mine.status, TransferStatus::Paused);
+        assert_eq!(mine.error.as_deref(), Some("the session closed"));
+        assert_eq!(
+            theirs.error.as_deref(),
+            Some("interrupted when the app closed; resume to continue")
+        );
         std::fs::remove_dir_all(&root).unwrap();
     }
 

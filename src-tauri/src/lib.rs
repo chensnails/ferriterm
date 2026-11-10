@@ -12,12 +12,13 @@ pub fn run() {
     // One registry, cloned into both the managed state and the transfer
     // resolver: a second copy would leave resumed jobs looking at an empty map.
     let sessions = SessionRegistry::default();
+    let remote_monitor = Arc::new(ft_monitor::RemoteMonitor::default());
     tauri::Builder::default()
         .manage(sessions.clone())
         .manage(ft_serial::SerialRegistry::default())
         .manage(ft_telnet::TelnetRegistry::default())
         .manage(tokio::sync::Mutex::new(ft_monitor::Monitor::new()))
-        .manage(Arc::new(ft_monitor::RemoteMonitor::default()))
+        .manage(remote_monitor.clone())
         .manage(std::sync::Arc::new(net_tools::NetToolState::default()))
         .setup(move |app| {
             let dir = app.path().app_data_dir()?;
@@ -43,6 +44,7 @@ pub fn run() {
                 store,
                 sftp,
                 transfers.clone(),
+                remote_monitor,
             ));
             let updates = transfers.subscribe();
             let handle = app.handle().clone();
