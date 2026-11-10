@@ -4478,9 +4478,40 @@ label.sync-action {
   max-width: var(--settings-control-w);
 }
 
+/* Numeric controls keep one width so the box never resizes with the copy
+   next to it (the flex row would otherwise shrink it). */
 .ui-setting-control > input[type="number"] {
-  max-width: var(--settings-control-w);
+  flex: 0 0 auto;
+  width: var(--settings-label-w);
   text-align: left;
+}
+
+.ui-setting-control > select.ui-select {
+  flex: 0 0 auto;
+  width: var(--settings-label-w);
+  height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--font-ui);
+  cursor: pointer;
+}
+
+.ui-setting-control > select.ui-select.wide {
+  width: var(--settings-control-w);
+}
+
+.ui-setting-control > select.ui-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.ui-setting-control > select.ui-select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .ui-setting-current {

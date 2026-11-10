@@ -10,7 +10,7 @@ import {
 import { useAppStore } from "../store";
 import { KeyManagerDialog } from "./KeyManagerDialog";
 import { KnownHostsDialog } from "./KnownHostsDialog";
-import { PillSetting } from "./SettingsControls";
+import { SelectSetting } from "./SettingsControls";
 import { UnlockDialog, type VaultAction } from "./UnlockDialog";
 
 const AUTO_LOCK_CHOICES = [0, 5, 15, 30, 60];
@@ -145,7 +145,7 @@ export function CredentialVault() {
           )}
         </div>
         {!masterMode && <p className="hint">{t("vault.masterHint")}</p>}
-        <PillSetting
+        <SelectSetting
           title={t("vault.autoLock")}
           hint={t("vault.autoLockHint")}
           disabled={!masterMode}

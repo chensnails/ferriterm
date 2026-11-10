@@ -32,7 +32,13 @@ import {
   SettingsSearchContext,
   type PillOption,
 } from "./ui";
-import { ActionSetting, PillSetting, ToggleSetting } from "./SettingsControls";
+import {
+  ActionSetting,
+  PillSetting,
+  SelectSetting,
+  ToggleSetting,
+  type SelectOption,
+} from "./SettingsControls";
 import {
   CheckIcon,
   CloudIcon,
@@ -589,30 +595,29 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           onReset={resetAppearance}
           resetLabel={t("settings.resetGroup")}
         >
-          <PillSetting
+          <SelectSetting
             title={t("settings.themeTitle")}
             hint={t("settings.themeHint")}
-            wrap
-            stack
+            wide
             value={theme}
             onChange={setTheme}
             options={[
               ...BUILTIN_THEMES.map(
-                (item): PillOption => ({
+                (item): SelectOption => ({
                   value: item.id,
                   label: t(`settings.theme_${item.id}`),
                   group: t("settings.themeBuiltin"),
                 }),
               ),
               ...themes.map(
-                (pack): PillOption => ({
+                (pack): SelectOption => ({
                   value: pack.id,
                   label: pack.name,
                   group: t("settings.themePacks"),
                 }),
               ),
               ...importedThemes.map(
-                (item): PillOption => ({
+                (item): SelectOption => ({
                   value: item.id,
                   label: item.name,
                   group: t("settings.themeCustom"),
@@ -829,11 +834,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           onReset={resetTerminalAppearance}
           resetLabel={t("settings.resetGroup")}
         >
-          <PillSetting
+          <SelectSetting
             title={t("settings.fontFamily")}
             hint={t("settings.fontFamilyHint")}
-            wrap
-            stack
+            wide
             value={customFont ? CUSTOM_FONT_ID : storedFontChoice}
             onChange={(id) => {
               if (id === CUSTOM_FONT_ID) {
@@ -847,7 +851,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             }}
             options={[
               ...TERMINAL_FONTS.map(
-                (font): PillOption => ({ value: font.id, label: font.label }),
+                (font): SelectOption => ({ value: font.id, label: font.label }),
               ),
               { value: CUSTOM_FONT_ID, label: t("settings.fontCustom") },
             ]}
@@ -1053,22 +1057,19 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           title={t("settings.highlightsTitle")}
           hint={t("settings.highlightsHint")}
         >
-          <SettingRow
+          <SelectSetting
             title={t("settings.highlightNew")}
             hint={t("settings.highlightColorHint")}
-          >
-            <PillGroup
-              label={t("settings.highlightColor")}
-              value={colorDraft}
-              onChange={setColorDraft}
-              options={HIGHLIGHT_COLORS.map((color) => ({
-                value: color,
-                label: t(
-                  `settings.highlightColor_${color.replace("--tag-", "")}`,
-                ),
-              }))}
-            />
-          </SettingRow>
+            label={t("settings.highlightColor")}
+            value={colorDraft}
+            onChange={setColorDraft}
+            options={HIGHLIGHT_COLORS.map((color) => ({
+              value: color,
+              label: t(
+                `settings.highlightColor_${color.replace("--tag-", "")}`,
+              ),
+            }))}
+          />
           <div className="highlight-form">
             <label className="field grow">
               <input
@@ -1140,7 +1141,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             checked={sftpShowHidden}
             onChange={setSftpShowHidden}
           />
-          <PillSetting
+          <SelectSetting
             title={t("settings.transferConcurrency")}
             hint={t("settings.transferConcurrencyHint")}
             value={String(transferConcurrency)}
