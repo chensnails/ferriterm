@@ -2545,6 +2545,28 @@ mark {
   gap: var(--space-2);
 }
 
+/* Target row above the cards: label left, host picker right. Without this the
+   bare <label> jammed the caption against the select at any width. */
+.monitor-target {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-1) var(--space-1);
+}
+
+.monitor-target > span {
+  flex: 0 0 auto;
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+}
+
+.monitor-target select {
+  flex: 1;
+  min-width: 0;
+  max-width: 16em;
+  margin-left: auto;
+}
+
 .host-card {
   display: flex;
   flex-direction: column;
