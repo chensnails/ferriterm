@@ -571,7 +571,7 @@ impl CredentialStore {
             Ok(map) => map
                 .values()
                 .next()
-                .map_or(true, |blob| self.decrypt_with(key, blob).is_ok()),
+                .is_none_or(|blob| self.decrypt_with(key, blob).is_ok()),
             Err(_) => false,
         }
     }
