@@ -22,6 +22,8 @@ export function TerminalPanel({
   const terminalFontSize = useAppStore((s) => s.terminalFontSize);
   const terminalScrollback = useAppStore((s) => s.terminalScrollback);
   const terminalCursorBlink = useAppStore((s) => s.terminalCursorBlink);
+  const terminalCursorStyle = useAppStore((s) => s.terminalCursorStyle);
+  const terminalRightClickPaste = useAppStore((s) => s.terminalRightClickPaste);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -101,6 +103,7 @@ export function TerminalPanel({
     terminalFontSize,
     terminalScrollback,
     terminalCursorBlink,
+    terminalCursorStyle,
   ]);
 
   const menuItems = (): MenuItem[] => {
@@ -180,6 +183,18 @@ export function TerminalPanel({
         onContextMenu={(event) => {
           event.preventDefault();
           useAppStore.getState().setFocusedSession(session.id);
+          if (terminalRightClickPaste) {
+            setMenu(null);
+            void navigator.clipboard
+              .readText()
+              .then((text) => {
+                if (text) viewRef.current?.insert(text);
+              })
+              .catch((err) => {
+                useAppStore.getState().setStatus(String(err), true);
+              });
+            return;
+          }
           setMenu({ x: event.clientX, y: event.clientY });
         }}
       />

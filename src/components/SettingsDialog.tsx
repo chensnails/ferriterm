@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri, type BuiltinPlugin, type MarketEntry, type MarketIndex, type RemoteConfig } from "../api";
-import { useAppStore, type TabNumbering } from "../store";
+import {
+  useAppStore,
+  type TabNumbering,
+  type TerminalBell,
+  type TerminalCursorStyle,
+} from "../store";
 import { BUILTIN_THEMES, HIGHLIGHT_COLORS } from "../theme";
 import { parseSchemeFile } from "../scheme";
 import { CUSTOM_FONT_ID, TERMINAL_FONTS, fontChoiceFor } from "../fonts";
@@ -115,6 +120,20 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const setTerminalScrollback = useAppStore((s) => s.setTerminalScrollback);
   const terminalCursorBlink = useAppStore((s) => s.terminalCursorBlink);
   const setTerminalCursorBlink = useAppStore((s) => s.setTerminalCursorBlink);
+  const terminalCursorStyle = useAppStore((s) => s.terminalCursorStyle);
+  const setTerminalCursorStyle = useAppStore((s) => s.setTerminalCursorStyle);
+  const terminalBell = useAppStore((s) => s.terminalBell);
+  const setTerminalBell = useAppStore((s) => s.setTerminalBell);
+  const terminalRightClickPaste = useAppStore((s) => s.terminalRightClickPaste);
+  const setTerminalRightClickPaste = useAppStore(
+    (s) => s.setTerminalRightClickPaste,
+  );
+  const terminalScrollOnOutput = useAppStore((s) => s.terminalScrollOnOutput);
+  const setTerminalScrollOnOutput = useAppStore(
+    (s) => s.setTerminalScrollOnOutput,
+  );
+  const terminalAutoCopy = useAppStore((s) => s.terminalAutoCopy);
+  const setTerminalAutoCopy = useAppStore((s) => s.setTerminalAutoCopy);
   const osc52 = useAppStore((s) => s.osc52);
   const setOsc52 = useAppStore((s) => s.setOsc52);
   const keywordHighlights = useAppStore((s) => s.keywordHighlights);
@@ -767,6 +786,75 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               <option value="0">{t("common.no")}</option>
             </select>
           </label>
+          <label className="field">
+            <span>{t("settings.cursorStyle")}</span>
+            <select
+              value={terminalCursorStyle}
+              onChange={(e) =>
+                setTerminalCursorStyle(e.target.value as TerminalCursorStyle)
+              }
+            >
+              <option value="block">{t("settings.cursorStyleBlock")}</option>
+              <option value="underline">
+                {t("settings.cursorStyleUnderline")}
+              </option>
+              <option value="bar">{t("settings.cursorStyleBar")}</option>
+            </select>
+          </label>
+        </fieldset>
+
+        <fieldset className="settings-group">
+          <legend>{t("settings.terminalInteraction")}</legend>
+          <p className="hint">{t("settings.terminalInteractionHint")}</p>
+          <label className="field">
+            <span>{t("settings.bell")}</span>
+            <select
+              value={terminalBell}
+              onChange={(e) => setTerminalBell(e.target.value as TerminalBell)}
+            >
+              <option value="off">{t("settings.bellOff")}</option>
+              <option value="visual">{t("settings.bellVisual")}</option>
+              <option value="sound">{t("settings.bellSound")}</option>
+            </select>
+          </label>
+          <span className="hint">{t("settings.bellHint")}</span>
+          <label className="field">
+            <span>{t("settings.rightClickPaste")}</span>
+            <select
+              value={terminalRightClickPaste ? "1" : "0"}
+              onChange={(e) =>
+                setTerminalRightClickPaste(e.target.value === "1")
+              }
+            >
+              <option value="1">{t("common.yes")}</option>
+              <option value="0">{t("common.no")}</option>
+            </select>
+          </label>
+          <span className="hint">{t("settings.rightClickPasteHint")}</span>
+          <label className="field">
+            <span>{t("settings.scrollOnOutput")}</span>
+            <select
+              value={terminalScrollOnOutput ? "1" : "0"}
+              onChange={(e) =>
+                setTerminalScrollOnOutput(e.target.value === "1")
+              }
+            >
+              <option value="1">{t("common.yes")}</option>
+              <option value="0">{t("common.no")}</option>
+            </select>
+          </label>
+          <span className="hint">{t("settings.scrollOnOutputHint")}</span>
+          <label className="field">
+            <span>{t("settings.autoCopy")}</span>
+            <select
+              value={terminalAutoCopy ? "1" : "0"}
+              onChange={(e) => setTerminalAutoCopy(e.target.value === "1")}
+            >
+              <option value="1">{t("common.yes")}</option>
+              <option value="0">{t("common.no")}</option>
+            </select>
+          </label>
+          <span className="hint">{t("settings.autoCopyHint")}</span>
         </fieldset>
 
         <label className="field">

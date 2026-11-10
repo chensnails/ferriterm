@@ -894,6 +894,18 @@ body {
   padding: var(--space-4);
 }
 
+/* Visual bell: a brief accent-tinted wash over the whole terminal. Applied
+   from TerminalView.handleBell() and removed after a short timeout. */
+.terminal-panel.term-bell-flash::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: var(--accent);
+  opacity: 0.18;
+}
+
 .term-suggest {
   position: absolute;
   z-index: 2;

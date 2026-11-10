@@ -41,6 +41,11 @@ export const DEFAULT_TERMINAL_FONT_SIZE = 14;
 export const DEFAULT_TERMINAL_FONT_FAMILY = DEFAULT_TERMINAL_FONT_STACK;
 export const DEFAULT_TERMINAL_SCROLLBACK = 5000;
 
+// Terminal render / interaction preferences live here (rather than terminal.ts)
+// so the store owns persisted settings without a circular import.
+export type TerminalCursorStyle = "block" | "underline" | "bar";
+export type TerminalBell = "off" | "visual" | "sound";
+
 export interface LanguageOption {
   id: string;
   name: string;
@@ -387,6 +392,16 @@ interface AppState {
   setTerminalScrollback: (value: number) => void;
   terminalCursorBlink: boolean;
   setTerminalCursorBlink: (value: boolean) => void;
+  terminalCursorStyle: TerminalCursorStyle;
+  setTerminalCursorStyle: (value: TerminalCursorStyle) => void;
+  terminalBell: TerminalBell;
+  setTerminalBell: (value: TerminalBell) => void;
+  terminalRightClickPaste: boolean;
+  setTerminalRightClickPaste: (value: boolean) => void;
+  terminalScrollOnOutput: boolean;
+  setTerminalScrollOnOutput: (value: boolean) => void;
+  terminalAutoCopy: boolean;
+  setTerminalAutoCopy: (value: boolean) => void;
   osc52: boolean;
   setOsc52: (enabled: boolean) => void;
   keywordHighlights: KeywordRule[];
@@ -629,6 +644,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalScrollback: DEFAULT_TERMINAL_SCROLLBACK,
   terminalCursorBlink: true,
+  terminalCursorStyle: "block",
+  terminalBell: "off",
+  terminalRightClickPaste: false,
+  terminalScrollOnOutput: true,
+  terminalAutoCopy: false,
   osc52: true,
   keywordHighlights: DEFAULT_KEYWORD_RULES,
   tabNumbering: "asNeed",
@@ -772,6 +792,38 @@ export const useAppStore = create<AppState>((set, get) => ({
       api
         .setSetting("terminalCursorBlink", value ? "1" : "0")
         .catch(() => {});
+    }
+  },
+  setTerminalCursorStyle: (value) => {
+    set({ terminalCursorStyle: value });
+    if (isTauri) {
+      api.setSetting("terminalCursorStyle", value).catch(() => {});
+    }
+  },
+  setTerminalBell: (value) => {
+    set({ terminalBell: value });
+    if (isTauri) api.setSetting("terminalBell", value).catch(() => {});
+  },
+  setTerminalRightClickPaste: (value) => {
+    set({ terminalRightClickPaste: value });
+    if (isTauri) {
+      api
+        .setSetting("terminalRightClickPaste", value ? "1" : "0")
+        .catch(() => {});
+    }
+  },
+  setTerminalScrollOnOutput: (value) => {
+    set({ terminalScrollOnOutput: value });
+    if (isTauri) {
+      api
+        .setSetting("terminalScrollOnOutput", value ? "1" : "0")
+        .catch(() => {});
+    }
+  },
+  setTerminalAutoCopy: (value) => {
+    set({ terminalAutoCopy: value });
+    if (isTauri) {
+      api.setSetting("terminalAutoCopy", value ? "1" : "0").catch(() => {});
     }
   },
   setOsc52: (enabled) => {
@@ -1382,6 +1434,19 @@ export const useAppStore = create<AppState>((set, get) => ({
         ? Math.min(50000, Math.max(200, scrollback))
         : get().terminalScrollback,
       terminalCursorBlink: (settings.terminalCursorBlink ?? "1") !== "0",
+      terminalCursorStyle:
+        settings.terminalCursorStyle === "underline" ||
+        settings.terminalCursorStyle === "bar"
+          ? settings.terminalCursorStyle
+          : "block",
+      terminalBell:
+        settings.terminalBell === "visual" ||
+        settings.terminalBell === "sound"
+          ? settings.terminalBell
+          : "off",
+      terminalRightClickPaste: (settings.terminalRightClickPaste ?? "0") === "1",
+      terminalScrollOnOutput: (settings.terminalScrollOnOutput ?? "1") !== "0",
+      terminalAutoCopy: (settings.terminalAutoCopy ?? "0") === "1",
       osc52: (settings.osc52 ?? "1") !== "0",
       keywordHighlights: parseKeywordRules(settings.keywordHighlights),
       tabNumbering,

@@ -24,6 +24,7 @@ import {
   DEFAULT_TERMINAL_FONT_SIZE,
   useAppStore,
   type KeywordRule,
+  type TerminalCursorStyle,
 } from "./store";
 
 interface SearchHit {
@@ -42,6 +43,7 @@ interface TerminalAppearance {
   fontSize: number;
   scrollback: number;
   cursorBlink: boolean;
+  cursorStyle: TerminalCursorStyle;
 }
 
 function currentAppearance(): TerminalAppearance {
@@ -51,6 +53,7 @@ function currentAppearance(): TerminalAppearance {
     fontSize: state.terminalFontSize,
     scrollback: state.terminalScrollback,
     cursorBlink: state.terminalCursorBlink,
+    cursorStyle: state.terminalCursorStyle,
   };
 }
 
@@ -90,6 +93,7 @@ export class TerminalView implements TerminalHandle {
     this.term = new Terminal({
       allowProposedApi: true,
       cursorBlink: appearance.cursorBlink,
+      cursorStyle: appearance.cursorStyle,
       fontSize: appearance.fontSize,
       fontFamily: appearance.fontFamily,
       scrollback: appearance.scrollback,
@@ -136,12 +140,34 @@ export class TerminalView implements TerminalHandle {
     this.keywords = useAppStore.getState().keywordHighlights;
     this.scheduleKeywords(true);
 
+    // Bell behaviour (off / visual flash / sound) is read live from the store
+    // so the setting applies to already-open terminals without reconstruction.
+    const bellSub = this.term.onBell(() => this.handleBell());
+    this.unlisten.push(() => bellSub.dispose());
+
+    // Auto-copy the selection to the clipboard the moment it is made.
+    const selSub = this.term.onSelectionChange(() => {
+      if (!useAppStore.getState().terminalAutoCopy) return;
+      const text = this.term.getSelection();
+      if (text) {
+        void navigator.clipboard.writeText(text).catch(() => {});
+      }
+    });
+    this.unlisten.push(() => selSub.dispose());
+
     // 先注册事件监听，再发起连接，避免丢失服务端首批输出
     this.ready = Promise.all([
       onOutput(this.id, (bytes) => {
         if (this.disposed) return;
+        // "Scroll on output" off means freeze the viewport: remember where the
+        // user was reading and restore that line after the chunk is rendered,
+        // so a burst of output never yanks the view away. When on (default),
+        // xterm's natural follow behaviour applies.
+        const freeze = !useAppStore.getState().terminalScrollOnOutput;
+        const frozenY = freeze ? this.term.buffer.active.viewportY : -1;
         this.term.write(bytes, () => {
           if (this.disposed) return;
+          if (freeze && frozenY >= 0) this.term.scrollToLine(frozenY);
           this.refreshOverlays();
           this.scheduleKeywords();
         });
@@ -167,12 +193,57 @@ export class TerminalView implements TerminalHandle {
     this.scheduleKeywords(true);
   }
 
+  private bellAudio: AudioContext | null = null;
+
+  // Bell behaviour is a live setting: off does nothing, visual flashes the
+  // terminal background briefly, sound plays a short beep via WebAudio.
+  private handleBell() {
+    const mode = useAppStore.getState().terminalBell;
+    if (mode === "off") return;
+    if (mode === "visual") {
+      this.container.classList.add("term-bell-flash");
+      window.setTimeout(
+        () => this.container.classList.remove("term-bell-flash"),
+        120,
+      );
+      return;
+    }
+    try {
+      if (!this.bellAudio) {
+        const Ctx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext })
+            .webkitAudioContext;
+        if (!Ctx) return;
+        this.bellAudio = new Ctx();
+      }
+      const ctx = this.bellAudio;
+      void ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.value = 660;
+      gain.gain.value = 0.04;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      window.setTimeout(() => {
+        osc.stop();
+        gain.disconnect();
+        osc.disconnect();
+      }, 90);
+    } catch {
+      // audio unavailable: swallow rather than crash the terminal
+    }
+  }
+
   refreshAppearance() {
     const appearance = currentAppearance();
     this.term.options.fontFamily = appearance.fontFamily;
     this.term.options.fontSize = appearance.fontSize;
     this.term.options.scrollback = appearance.scrollback;
     this.term.options.cursorBlink = appearance.cursorBlink;
+    this.term.options.cursorStyle = appearance.cursorStyle;
     this.fit.fit();
   }
 
@@ -581,6 +652,8 @@ export class TerminalView implements TerminalHandle {
     this.disposed = true;
     window.clearTimeout(this.keywordTimer);
     this.clearKeywordDecorations();
+    void this.bellAudio?.close().catch(() => {});
+    this.bellAudio = null;
     this.osc52.dispose();
     if (useAppStore.getState().focusedSessionId === this.id) {
       useAppStore.getState().setFocusedSession(null);
