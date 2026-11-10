@@ -739,9 +739,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               user@ferriterm:~$ ls -la projects
             </span>
             <span>drwxr-xr-x  5 user staff  160 Nov  9 20:00 .</span>
-            <span>
-              -rw-r--r--  1 user staff 1024 Nov  9 20:00 README.md 0123 {} =&gt;
-            </span>
+            <span>-rw-r--r--  1 user staff 1024 Nov  9 20:00 README.md</span>
           </div>
           <span className="hint">{t("settings.fontFamilyHint")}</span>
           <label className="field">
