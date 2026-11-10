@@ -101,9 +101,9 @@
   --sidebar-w: 300px;
   --dialog-w: 440px;
   --suggest-w: 420px;
-  --settings-w: 760px;
-  --settings-h: 540px;
-  --settings-nav-w: 156px;
+  --settings-w: 860px;
+  --settings-h: 580px;
+  --settings-nav-w: 190px;
   --settings-label-w: 160px;
   --settings-control-w: 280px;
   --recordings-list-w: 240px;
@@ -1681,6 +1681,34 @@ mark {
   font-size: var(--font-title);
 }
 
+/* Icon + title + optional subtitle, matching the reference dialog header. */
+.ui-dialog-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.ui-dialog-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.ui-dialog-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--fg-muted);
+}
+
+.ui-dialog-subtitle {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.3;
+  color: var(--fg-muted);
+}
+
 .modal-body {
   padding: var(--space-4);
   overflow-y: auto;
@@ -1813,10 +1841,48 @@ mark {
   width: var(--settings-nav-w);
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
+  min-height: 0;
   overflow-y: auto;
   padding-right: var(--space-2);
-  border-right: 1px solid var(--border);
+}
+
+.settings-nav-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.settings-nav-search svg {
+  position: absolute;
+  left: var(--space-2);
+  color: var(--fg-muted);
+  pointer-events: none;
+}
+
+.settings-nav-search input {
+  width: 100%;
+  height: var(--control-h);
+  min-width: 0;
+  padding: 0 var(--space-2) 0 calc(var(--space-2) * 2 + 14px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-size: var(--font-ui-sm);
+}
+
+.settings-nav-search input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.settings-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
 }
 
 .settings-nav button {
@@ -1835,13 +1901,13 @@ mark {
 }
 
 .settings-nav button:hover {
-  background: var(--bg-elevated);
+  background: var(--hover-bg);
   color: var(--fg-primary);
 }
 
 .settings-nav button.active {
-  background: color-mix(in srgb, var(--accent) 26%, var(--bg-panel));
-  border-color: transparent;
+  background: color-mix(in srgb, var(--fg-primary) 12%, transparent);
+  border-color: color-mix(in srgb, var(--fg-primary) 15%, transparent);
   color: var(--fg-primary);
 }
 
@@ -1850,46 +1916,29 @@ mark {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 0 var(--space-1) 0 var(--space-2);
+  padding: 0 var(--space-1) 0 var(--space-3);
 }
 
-.settings-page-head {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border);
-}
-
-.settings-page-head h2 {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+.settings-pane-intro {
   margin: 0;
-  font-size: var(--font-title);
-  font-weight: 600;
-  color: var(--fg-primary);
-}
-
-.settings-page-head h2 svg {
-  color: var(--accent);
-}
-
-.settings-page-head .hint {
-  max-width: 64ch;
-}
-
-.settings-saved-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  margin-left: auto;
-  white-space: nowrap;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--divider);
   font-size: var(--fs-sm);
-  font-weight: 400;
+  line-height: var(--line-ui);
+  color: var(--fg-muted);
+}
+
+/* While a query is active, blocks whose rows were all filtered out disappear
+   so only matching settings remain. */
+.settings-pane.searching .ui-setting-group:not(:has(.ui-setting-row)) {
+  display: none;
+}
+
+.settings-pane.searching .font-preview {
+  display: none;
 }
 
 /* Narrow windows: keep the category list reachable without eating the pane,
@@ -1900,7 +1949,7 @@ mark {
   }
 
   .settings-nav {
-    width: var(--settings-nav-w);
+    width: 152px;
     padding-right: var(--space-1);
   }
 
@@ -1911,14 +1960,13 @@ mark {
   .settings-inline {
     grid-template-columns: minmax(0, 1fr);
   }
+}
 
-  .settings-page-head h2 {
-    flex-wrap: wrap;
-  }
-
-  .settings-saved-chip {
-    margin-left: 0;
-  }
+.settings-pane .settings-about {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-1);
 }
 
 .about-name {
@@ -2730,11 +2778,13 @@ mark {
   width: min(var(--settings-w), 100%);
 }
 
-/* Settings center — compact, label/control rows (Termora alignment) */
+/* Settings center — flat rows with hairline dividers (Termora alignment) */
 .modal.settings .modal-head {
   position: relative;
-  justify-content: center;
+  justify-content: flex-start;
+  align-items: center;
   padding: var(--space-2) var(--space-4);
+  min-height: 44px;
 }
 
 .modal.settings .modal-head h3 {
@@ -2757,26 +2807,40 @@ mark {
   flex-shrink: 0;
 }
 
+/* Remaining form rows (sync / credentials) mirror the capsule rows: label on
+   the left, control on the right, hairline divider between rows. */
 .settings-pane .field {
-  display: grid;
-  grid-template-columns: var(--settings-label-w) minmax(0, 1fr);
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1) var(--space-3);
+  padding: var(--space-3) var(--space-1);
+  border-bottom: 1px solid var(--divider);
   font-size: var(--font-ui);
   color: var(--fg-primary);
 }
 
 .settings-pane .field > span:first-child {
-  white-space: nowrap;
+  flex: 1 1 140px;
+  min-width: 0;
   text-align: left;
-  color: var(--fg-muted);
-  font-size: var(--font-ui-sm);
+  color: var(--fg-primary);
+  font-size: var(--font-ui);
+  line-height: 1.35;
 }
 
 .settings-pane .field > input,
-.settings-pane .field > .password-field,
+.settings-pane .field > .password-field {
+  flex: 0 1 var(--settings-control-w);
+  width: auto;
+  min-width: 0;
+  max-width: var(--settings-control-w);
+}
+
 .settings-pane .field > .field-inline {
-  width: 100%;
+  flex: 1 1 var(--settings-control-w);
+  min-width: 0;
 }
 
 .settings-pane .field > select {
@@ -2785,17 +2849,12 @@ mark {
   max-width: 240px;
 }
 
-.settings-pane .field > input,
-.settings-pane .field > .password-field {
-  max-width: var(--settings-control-w);
-}
-
 .settings-pane .field > input[type="number"] {
-  max-width: var(--settings-label-w);
+  max-width: 120px;
 }
 
 .settings-pane .field > .hint {
-  grid-column: 1 / -1;
+  flex: 1 1 100%;
   text-align: left;
 }
 
@@ -2892,19 +2951,13 @@ mark {
   color: var(--accent);
 }
 
+/* Flat section blocks: card chrome is gone, only a light label and hairline
+   dividers between rows remain (reference alignment). */
 .settings-pane .settings-group {
   gap: var(--space-2);
-  padding: var(--space-3) 0 0;
+  padding: 0;
   border: 0;
-  border-top: 1px solid var(--border);
   border-radius: 0;
-}
-
-.settings-pane > .settings-page-head + .settings-group,
-.settings-pane > .settings-group:first-child,
-.settings-pane > .settings-tabs + .settings-group {
-  border-top: 0;
-  padding-top: 0;
 }
 
 .settings-pane .settings-group legend {
@@ -2927,6 +2980,8 @@ mark {
   flex-direction: column;
   align-items: stretch;
   gap: 0;
+  padding: 0;
+  border-bottom: 0;
 }
 
 .settings-pane .highlight-form .field > span:first-child {
@@ -4307,14 +4362,19 @@ label.sync-action {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: var(--space-1);
+  gap: 2px;
   min-width: 0;
   max-width: 100%;
-  padding: 2px;
+  padding: 0;
   border-radius: var(--radius-md);
-  background: var(--sub-bg);
+  background: transparent;
   overflow-x: auto;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+}
+
+/* Horizontal pill strips stay swipeable without a visible scrollbar track. */
+.ui-pill-group::-webkit-scrollbar {
+  display: none;
 }
 
 .ui-pill-group.wrap {
@@ -4367,9 +4427,9 @@ label.sync-action {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-4);
   min-width: 0;
-  padding: var(--space-2) 0;
+  padding: var(--space-3) var(--space-1);
   border-bottom: 1px solid var(--divider);
 }
 
@@ -4380,13 +4440,15 @@ label.sync-action {
 .ui-setting-copy {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
   flex: 1 1 auto;
 }
 
 .ui-setting-title {
   font-size: var(--font-ui);
+  font-weight: 500;
+  line-height: 1.35;
   color: var(--fg-primary);
 }
 
@@ -4417,7 +4479,8 @@ label.sync-action {
 }
 
 .ui-setting-control > input[type="number"] {
-  max-width: var(--settings-label-w);
+  max-width: var(--settings-control-w);
+  text-align: left;
 }
 
 .ui-setting-current {
@@ -4426,15 +4489,104 @@ label.sync-action {
   color: var(--fg-muted);
 }
 
-.ui-setting-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: var(--space-2);
+/* Long option lists move under the copy and use the full row width. */
+.ui-setting-row.stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
 }
 
-.ui-setting-group > .ui-setting-row {
-  padding-left: var(--space-1);
-  padding-right: var(--space-1);
+.ui-setting-row.stack .ui-setting-control {
+  max-width: 100%;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+/* Flat section label with an optional group reset on the same line. */
+.ui-setting-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-top: var(--space-2);
+}
+
+.ui-setting-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-1) var(--space-1);
+}
+
+.ui-setting-group-title {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--fg-muted);
+}
+
+.ui-setting-group-reset {
+  flex: 0 0 auto;
+  font-size: var(--fs-sm);
+}
+
+.ui-setting-group-hint {
+  margin: 0;
+  padding: 0 var(--space-1) var(--space-2);
+  font-size: var(--fs-sm);
+  line-height: var(--line-ui);
+  color: var(--fg-muted);
+}
+
+.ui-setting-group-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* On/off switch: the state lives in the control, no extra value label. */
+.ui-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 21px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--fg-primary) 22%, transparent);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.ui-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--bg-base);
+  transition: transform 140ms ease;
+}
+
+.ui-switch.on {
+  background: var(--accent);
+}
+
+.ui-switch.on .ui-switch-thumb {
+  transform: translateX(17px);
+  background: #fff;
+}
+
+.ui-switch:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ui-switch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* Narrow windows: stack the label above the control and let pills wrap. */

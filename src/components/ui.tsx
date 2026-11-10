@@ -1,5 +1,8 @@
 import {
   Fragment,
+  createContext,
+  useContext,
+  useId,
   type ButtonHTMLAttributes,
   type HTMLAttributes,
   type KeyboardEvent,
@@ -403,21 +406,59 @@ export function PillGroup(props: PillGroupProps) {
 }
 
 /** Consistent title / description / current-state / control row. */
+/**
+ * Settings search query, shared by every setting row so the sidebar search can
+ * filter rows without a per-row registry. Empty string means "no filter".
+ */
+export const SettingsSearchContext = createContext("");
+
+/** Flattens a ReactNode into plain text so rows can be matched by keyword. */
+export function toSearchText(node: ReactNode): string {
+  if (node === null || node === undefined || typeof node === "boolean") {
+    return "";
+  }
+  if (typeof node === "string" || typeof node === "number") {
+    return String(node);
+  }
+  if (Array.isArray(node)) {
+    return node.map(toSearchText).join(" ");
+  }
+  if (typeof node === "object" && "props" in node) {
+    return toSearchText((node as { props?: { children?: ReactNode } }).props?.children);
+  }
+  return "";
+}
+
+/** A titled settings row: copy on the left, the control on the right. */
 export function SettingRow({
   title,
   hint,
   current,
   children,
+  stack,
   className,
 }: {
   title: ReactNode;
   hint?: ReactNode;
   current?: ReactNode;
   children: ReactNode;
+  /** Puts the control under the copy — for long option lists. */
+  stack?: boolean;
   className?: string;
 }) {
+  const query = useContext(SettingsSearchContext).trim().toLowerCase();
+  if (
+    query &&
+    !`${toSearchText(title)} ${toSearchText(hint)}`.toLowerCase().includes(query)
+  ) {
+    return null;
+  }
   return (
-    <div className={["ui-setting-row", className ?? ""].filter(Boolean).join(" ")}>
+    <div
+      className={["ui-setting-row", stack ? "stack" : "", className ?? ""]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <div className="ui-setting-copy">
         <span className="ui-setting-title">{title}</span>
         {hint && <span className="ui-setting-hint">{hint}</span>}
@@ -432,7 +473,38 @@ export function SettingRow({
   );
 }
 
-/** A titled block of related settings with an optional group reset action. */
+/** An on/off control that keeps `role="switch"` semantics and keyboard access. */
+export function Switch({
+  checked,
+  onChange,
+  disabled,
+  label,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      className={["ui-switch", checked ? "on" : ""].filter(Boolean).join(" ")}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+    >
+      <span className="ui-switch-thumb" />
+    </button>
+  );
+}
+
+/**
+ * A titled block of related settings. Rendered as a flat section label instead
+ * of a bordered fieldset so the pane reads as one continuous list; an optional
+ * reset action sits on the label row.
+ */
 export function SettingGroup({
   title,
   hint,
@@ -446,19 +518,36 @@ export function SettingGroup({
   resetLabel?: string;
   children: ReactNode;
 }) {
+  const titleId = useId();
+  const query = useContext(SettingsSearchContext);
+  const trimmed = query.trim().toLowerCase();
+  // A matching group title keeps the whole block visible, so searching for
+  // "highlights" still shows the related rows.
+  const keepAll =
+    trimmed.length > 0 && toSearchText(title).toLowerCase().includes(trimmed);
   return (
-    <fieldset className="settings-group ui-setting-group">
-      <legend>{title}</legend>
-      {hint && <p className="hint">{hint}</p>}
-      {children}
-      {onReset && (
-        <div className="ui-setting-actions">
-          <button type="button" className="link-btn" onClick={onReset}>
+    <section className="ui-setting-group" aria-labelledby={titleId}>
+      <div className="ui-setting-group-head">
+        <h3 className="ui-setting-group-title" id={titleId}>
+          {title}
+        </h3>
+        {onReset && resetLabel && (
+          <button
+            type="button"
+            className="link-btn ui-setting-group-reset"
+            onClick={onReset}
+          >
             {resetLabel}
           </button>
-        </div>
-      )}
-    </fieldset>
+        )}
+      </div>
+      {hint && <p className="ui-setting-group-hint">{hint}</p>}
+      <div className="ui-setting-group-body">
+        <SettingsSearchContext.Provider value={keepAll ? "" : query}>
+          {children}
+        </SettingsSearchContext.Provider>
+      </div>
+    </section>
   );
 }
 
@@ -565,11 +654,15 @@ export function MenuItem({
 
 export function DialogHeader({
   title,
+  subtitle,
+  icon,
   onClose,
   closeLabel,
   className,
 }: {
   title: ReactNode;
+  subtitle?: ReactNode;
+  icon?: ReactNode;
   onClose: () => void;
   closeLabel: string;
   className?: string;
@@ -580,7 +673,13 @@ export function DialogHeader({
         .filter(Boolean)
         .join(" ")}
     >
-      <h3>{title}</h3>
+      <div className="ui-dialog-heading">
+        {icon && <span className="ui-dialog-icon">{icon}</span>}
+        <div className="ui-dialog-copy">
+          <h3>{title}</h3>
+          {subtitle && <p className="ui-dialog-subtitle">{subtitle}</p>}
+        </div>
+      </div>
       <IconButton label={closeLabel} onClick={onClose} size="sm">
         <CloseIcon size={13} />
       </IconButton>

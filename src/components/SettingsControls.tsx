@@ -1,11 +1,39 @@
 import type { ReactNode } from "react";
-import { useTranslation } from "react-i18next";
-import { PillGroup, SettingRow, type PillOption } from "./ui";
+import { PillGroup, SettingRow, Switch, type PillOption } from "./ui";
 
 /**
- * A setting row whose choices are capsule buttons. The active pill is the
- * control state; the label next to it is an explicit, screen-reader friendly
- * "current value" so the state is never ambiguous.
+ * A row whose on/off state is a switch. Switches carry the state themselves, so
+ * no separate "current value" label is duplicated next to the control.
+ */
+export function ToggleSetting({
+  title,
+  hint,
+  checked,
+  onChange,
+  disabled,
+}: {
+  title: string;
+  hint?: ReactNode;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <SettingRow title={title} hint={hint}>
+      <Switch
+        checked={checked}
+        onChange={onChange}
+        disabled={disabled}
+        label={title}
+      />
+    </SettingRow>
+  );
+}
+
+/**
+ * A setting row whose choices are capsule buttons. The highlighted pill is the
+ * current value, so no extra "current: …" label is duplicated next to it.
+ * `stack` puts the pills under the copy for long option lists.
  */
 export function PillSetting({
   title,
@@ -15,7 +43,7 @@ export function PillSetting({
   onChange,
   disabled,
   wrap,
-  current,
+  stack,
   children,
 }: {
   title: string;
@@ -25,18 +53,11 @@ export function PillSetting({
   onChange: (value: string) => void;
   disabled?: boolean;
   wrap?: boolean;
-  current?: ReactNode;
+  stack?: boolean;
   children?: ReactNode;
 }) {
-  const { t } = useTranslation();
-  const active = options.find((option) => option.value === value)?.label;
-  const state =
-    current ??
-    (typeof active === "string"
-      ? t("settings.currentValue", { value: active })
-      : undefined);
   return (
-    <SettingRow title={title} hint={hint} current={state}>
+    <SettingRow title={title} hint={hint} stack={stack}>
       {children}
       <PillGroup
         options={options}

@@ -4,6 +4,8 @@ import { DialogHeader } from "./ui";
 
 interface ModalProps {
   title: string;
+  subtitle?: string;
+  icon?: ReactNode;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
@@ -11,7 +13,16 @@ interface ModalProps {
   className?: string;
 }
 
-export function Modal({ title, onClose, children, footer, wide, className }: ModalProps) {
+export function Modal({
+  title,
+  subtitle,
+  icon,
+  onClose,
+  children,
+  footer,
+  wide,
+  className,
+}: ModalProps) {
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -39,6 +50,8 @@ export function Modal({ title, onClose, children, footer, wide, className }: Mod
       >
         <DialogHeader
           title={title}
+          subtitle={subtitle}
+          icon={icon}
           closeLabel={t("common.close")}
           onClose={onClose}
         />

@@ -24,8 +24,15 @@ import { Modal } from "./Modal";
 import { CredentialVault } from "./CredentialVault";
 import { ShortcutEditor } from "./ShortcutEditor";
 import { VersionHistory } from "./VersionHistory";
-import { Chip, PillGroup, SettingGroup, SettingRow, type PillOption } from "./ui";
-import { ActionSetting, PillSetting } from "./SettingsControls";
+import {
+  Chip,
+  PillGroup,
+  SettingGroup,
+  SettingRow,
+  SettingsSearchContext,
+  type PillOption,
+} from "./ui";
+import { ActionSetting, PillSetting, ToggleSetting } from "./SettingsControls";
 import {
   CheckIcon,
   CloudIcon,
@@ -39,6 +46,7 @@ import {
   LogoMark,
   PuzzleIcon,
   RefreshIcon,
+  SearchIcon,
   SlidersIcon,
   TerminalIcon,
   UploadIcon,
@@ -107,6 +115,7 @@ function PasswordInput({
 export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const [category, setCategory] = useState<SettingsCategory>("general");
+  const [query, setQuery] = useState("");
   const theme = useAppStore((s) => s.theme);
   const language = useAppStore((s) => s.language);
   const languagePacks = useAppStore((s) => s.languagePacks);
@@ -478,16 +487,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const CategoryIcon = CATEGORY_ICONS[category];
-
-  // Reusable option sets. Labels are resolved lazily so changing language
-  // re-renders the pills without rebuilding any persisted state.
-  const yesNo = (): PillOption[] => [
-    { value: "1", label: t("common.yes") },
-    { value: "0", label: t("common.no") },
-  ];
-  const boolValue = (value: boolean) => (value ? "1" : "0");
-
   // Each group reset touches only the settings shown inside that group, so
   // "reset this group" never silently changes an unrelated preference.
   const resetAppearance = () => {
@@ -539,39 +538,49 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   return (
     <Modal
       title={t("settings.title")}
+      subtitle={t("settings.autoSaveHint")}
+      icon={<GearIcon size={15} />}
       onClose={onClose}
       className="settings"
     >
       <div className="settings-center">
         <nav className="settings-nav" aria-label={t("settings.title")}>
-          {SETTINGS_CATEGORIES.map((item) => {
-            const Icon = CATEGORY_ICONS[item];
-            return (
-              <button
-                key={item}
-                type="button"
-                className={category === item ? "active" : ""}
-                aria-current={category === item ? "page" : undefined}
-                onClick={() => setCategory(item)}
-              >
-                <Icon size={14} />
-                <span>{t(`settings.cat.${item}`)}</span>
-              </button>
-            );
-          })}
-        </nav>
-        <div className="settings-pane">
-          <div className="settings-page-head">
-            <h2>
-              <CategoryIcon size={15} />
-              {t(`settings.cat.${category}`)}
-              <Chip tone="info" className="settings-saved-chip">
-                <CheckIcon size={11} />
-                {t("settings.autoSaved")}
-              </Chip>
-            </h2>
-            <p className="hint">{t(`settings.desc.${category}`)}</p>
+          <div className="settings-nav-search">
+            <SearchIcon size={13} />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("settings.searchPlaceholder")}
+              aria-label={t("settings.searchPlaceholder")}
+              spellCheck={false}
+            />
           </div>
+          <div className="settings-nav-list">
+            {SETTINGS_CATEGORIES.map((item) => {
+              const Icon = CATEGORY_ICONS[item];
+              return (
+                <button
+                  key={item}
+                  type="button"
+                  className={category === item ? "active" : ""}
+                  aria-current={category === item ? "page" : undefined}
+                  onClick={() => setCategory(item)}
+                >
+                  <Icon size={14} />
+                  <span>{t(`settings.cat.${item}`)}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+        <div
+          className={["settings-pane", query.trim() ? "searching" : ""]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          <p className="settings-pane-intro">{t(`settings.desc.${category}`)}</p>
+          <SettingsSearchContext.Provider value={query}>
           {category === "general" && (
             <>
         <SettingGroup
@@ -584,6 +593,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             title={t("settings.themeTitle")}
             hint={t("settings.themeHint")}
             wrap
+            stack
             value={theme}
             onChange={setTheme}
             options={[
@@ -750,12 +760,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           onReset={resetStartup}
           resetLabel={t("settings.resetGroup")}
         >
-          <PillSetting
+          <ToggleSetting
             title={t("settings.restoreLayout")}
             hint={t("settings.restoreLayoutHint")}
-            value={boolValue(restoreLayoutOnStartup)}
-            onChange={(value) => setRestoreLayoutOnStartup(value === "1")}
-            options={yesNo()}
+            checked={restoreLayoutOnStartup}
+            onChange={setRestoreLayoutOnStartup}
           />
           <PillSetting
             title={t("settings.tabNumbering")}
@@ -768,12 +777,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               { value: "none", label: t("settings.tabNumberingNone") },
             ]}
           />
-          <PillSetting
+          <ToggleSetting
             title={t("settings.confirmClose")}
             hint={t("settings.confirmCloseHint")}
-            value={boolValue(confirmClose)}
-            onChange={(value) => setConfirmClose(value === "1")}
-            options={yesNo()}
+            checked={confirmClose}
+            onChange={setConfirmClose}
           />
         </SettingGroup>
 
@@ -825,6 +833,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             title={t("settings.fontFamily")}
             hint={t("settings.fontFamilyHint")}
             wrap
+            stack
             value={customFont ? CUSTOM_FONT_ID : storedFontChoice}
             onChange={(id) => {
               if (id === CUSTOM_FONT_ID) {
@@ -857,7 +866,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           <SettingRow
             title={t("settings.fontSize")}
             hint={t("settings.fontSizeHint")}
-            current={t("settings.currentValue", { value: terminalFontSize })}
           >
             <input
               type="number"
@@ -874,7 +882,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           <SettingRow
             title={t("settings.scrollback")}
             hint={t("settings.scrollbackHint")}
-            current={t("settings.currentValue", { value: terminalScrollback })}
           >
             <input
               type="number"
@@ -888,12 +895,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               }
             />
           </SettingRow>
-          <PillSetting
+          <ToggleSetting
             title={t("settings.cursorBlink")}
             hint={t("settings.cursorBlinkHint")}
-            value={boolValue(terminalCursorBlink)}
-            onChange={(value) => setTerminalCursorBlink(value === "1")}
-            options={yesNo()}
+            checked={terminalCursorBlink}
+            onChange={setTerminalCursorBlink}
           />
           <PillSetting
             title={t("settings.cursorStyle")}
@@ -944,26 +950,23 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               { value: "sound", label: t("settings.bellSound") },
             ]}
           />
-          <PillSetting
+          <ToggleSetting
             title={t("settings.rightClickPaste")}
             hint={t("settings.rightClickPasteHint")}
-            value={boolValue(terminalRightClickPaste)}
-            onChange={(value) => setTerminalRightClickPaste(value === "1")}
-            options={yesNo()}
+            checked={terminalRightClickPaste}
+            onChange={setTerminalRightClickPaste}
           />
-          <PillSetting
+          <ToggleSetting
             title={t("settings.scrollOnOutput")}
             hint={t("settings.scrollOnOutputHint")}
-            value={boolValue(terminalScrollOnOutput)}
-            onChange={(value) => setTerminalScrollOnOutput(value === "1")}
-            options={yesNo()}
+            checked={terminalScrollOnOutput}
+            onChange={setTerminalScrollOnOutput}
           />
-          <PillSetting
+          <ToggleSetting
             title={t("settings.autoCopy")}
             hint={t("settings.autoCopyHint")}
-            value={boolValue(terminalAutoCopy)}
-            onChange={(value) => setTerminalAutoCopy(value === "1")}
-            options={yesNo()}
+            checked={terminalAutoCopy}
+            onChange={setTerminalAutoCopy}
           />
         </SettingGroup>
 
@@ -1027,7 +1030,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           <SettingRow
             title={t("settings.keepalive")}
             hint={t("settings.keepaliveHint")}
-            current={t("settings.currentValue", { value: keepaliveSecs })}
           >
             <input
               type="number"
@@ -1039,12 +1041,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               }
             />
           </SettingRow>
-          <PillSetting
+          <ToggleSetting
             title={t("settings.osc52")}
             hint={t("settings.osc52Hint")}
-            value={boolValue(osc52)}
-            onChange={(value) => setOsc52(value === "1")}
-            options={yesNo()}
+            checked={osc52}
+            onChange={setOsc52}
           />
         </SettingGroup>
 
@@ -1133,12 +1134,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           onReset={resetTransfer}
           resetLabel={t("settings.resetGroup")}
         >
-          <PillSetting
+          <ToggleSetting
             title={t("settings.sftpShowHidden")}
             hint={t("settings.sftpShowHiddenHint")}
-            value={boolValue(sftpShowHidden)}
-            onChange={(value) => setSftpShowHidden(value === "1")}
-            options={yesNo()}
+            checked={sftpShowHidden}
+            onChange={setSftpShowHidden}
           />
           <PillSetting
             title={t("settings.transferConcurrency")}
@@ -1149,21 +1149,18 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               (value) => ({ value: String(value), label: String(value) }),
             )}
           />
-          <PillSetting
+          <ToggleSetting
             title={t("settings.editorAutoSave")}
             hint={t("settings.editorAutoSaveHint")}
-            value={boolValue(editorAutoSave)}
-            onChange={(value) => setEditorAutoSave(value === "1")}
-            options={yesNo()}
+            checked={editorAutoSave}
+            onChange={setEditorAutoSave}
           />
         </SettingGroup>
             </>
           )}
           {category === "sync" && (
             <>
-        <fieldset className="settings-group">
-          <legend>{t("sync.title")}</legend>
-          <p className="hint">{t("sync.hint")}</p>
+        <SettingGroup title={t("sync.title")} hint={t("sync.hint")}>
           <label className="field">
             <span>{t("sync.passphrase")}</span>
             <PasswordInput
@@ -1174,12 +1171,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               onToggle={() => setShowPassword(!showPassword)}
             />
           </label>
-          <PillSetting
+          <ToggleSetting
             title={t("sync.includeSecrets")}
             hint={t("sync.includeSecretsHint")}
-            value={boolValue(includeSecrets)}
-            onChange={(value) => setIncludeSecrets(value === "1")}
-            options={yesNo()}
+            checked={includeSecrets}
+            onChange={setIncludeSecrets}
           />
           <div className="sync-actions">
             <button
@@ -1210,11 +1206,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             />
           </div>
           {message && <p className="hint sync-message">{message}</p>}
-        </fieldset>
+        </SettingGroup>
 
-        <fieldset className="settings-group">
-          <legend>{t("sync.remoteTitle")}</legend>
-          <p className="hint">{t("sync.remoteHint")}</p>
+        <SettingGroup title={t("sync.remoteTitle")} hint={t("sync.remoteHint")}>
           <PillSetting
             title={t("sync.provider")}
             value={remoteKind}
@@ -1351,7 +1345,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           {remoteMessage && (
             <p className="hint sync-message">{remoteMessage}</p>
           )}
-        </fieldset>
+        </SettingGroup>
             </>
           )}
           {category === "plugins" && (
@@ -1665,8 +1659,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           )}
           {category === "about" && (
             <>
-        <fieldset className="settings-group">
-          <legend>{t("settings.cat.about")}</legend>
+        <div className="settings-about">
           <div className="about-brand">
             <LogoMark size={26} />
             <p className="about-name">{t("app.name")}</p>
@@ -1687,9 +1680,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               {t("about.repository")}
             </a>
           </p>
-        </fieldset>
+        </div>
             </>
           )}
+          </SettingsSearchContext.Provider>
         </div>
       </div>
     </Modal>
