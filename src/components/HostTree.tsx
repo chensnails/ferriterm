@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { isTauri, type HostEntry, type HostInput } from "../api";
+import { api, isTauri, type HostEntry, type HostInput } from "../api";
 import { planHostConnect } from "../connect";
 import { HostIcon } from "../host-icons";
 import { useAppStore } from "../store";
@@ -139,12 +139,68 @@ export function HostTree() {
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [treeCollapsed, setTreeCollapsed] = useState(false);
 
-  // SSH-family hosts go through the credential dialog; every other protocol
-  // knows everything it needs to open its tab right away.
+  const connectRetry = useAppStore((s) => s.connectRetry);
+  const [connectError, setConnectError] = useState<string | null>(null);
+
+  // 认证失败后由 TerminalPanel 通过 connectRetry 重新弹窗并带错误信息
+  useEffect(() => {
+    if (!connectRetry) return;
+    const host = hosts.find((item) => item.id === connectRetry.hostId);
+    if (host) {
+      setConnectTarget(host);
+      setConnectError(connectRetry.error);
+    }
+    useAppStore.getState().clearConnectRetry();
+  }, [connectRetry, hosts]);
+
+  // SSH-family hosts: 已保存凭据且保险库未锁时直连（不再询问）；否则走凭据弹窗
   const connectTo = useCallback(
-    (node: HostEntry) => {
+    async (node: HostEntry) => {
       selectHost(node.id);
       if (node.protocol === "ssh" || node.protocol === "sftp") {
+        let skipDialog = false;
+        try {
+          const vault = await api.vaultStatus();
+          const locked = vault.mode === "master" && vault.locked;
+          if (!locked) {
+            const status = await api.credentialStatus(
+              node.id,
+              node.keyId || undefined,
+            );
+            const keyAuth = node.authMethod === "key";
+            const agentAuth = node.authMethod === "agent";
+            const keyboardAuth = node.authMethod === "keyboard-interactive";
+            if (agentAuth) {
+              skipDialog = true;
+            } else if (keyboardAuth) {
+              skipDialog = false;
+            } else if (keyAuth) {
+              const keys = await api.sshKeyList();
+              const managedKey = keys.find((item) => item.id === node.keyId);
+              const passphraseSaved = node.keyId
+                ? Boolean(status.keyPassphrase)
+                : Boolean(status.passphrase);
+              const needsPassphrase = Boolean(managedKey?.hasPassphrase);
+              skipDialog = !needsPassphrase || passphraseSaved;
+            } else {
+              skipDialog = Boolean(status.password);
+            }
+          }
+        } catch {
+          skipDialog = false;
+        }
+        if (skipDialog) {
+          const plan = planHostConnect(node, hosts, keepaliveSecs);
+          const title = node.name || `${node.host}:${node.port}`;
+          openSession(
+            plan.kind,
+            title,
+            plan.pending,
+            node.production,
+            node.id,
+          );
+          return;
+        }
         setConnectTarget(node);
         return;
       }
@@ -720,7 +776,11 @@ export function HostTree() {
       {connectTarget && (
         <ConnectHostDialog
           host={connectTarget}
-          onClose={() => setConnectTarget(null)}
+          initialError={connectError ?? undefined}
+          onClose={() => {
+            setConnectTarget(null);
+            setConnectError(null);
+          }}
         />
       )}
 

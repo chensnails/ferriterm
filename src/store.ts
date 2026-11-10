@@ -344,6 +344,9 @@ interface AppState {
   ) => Promise<string | null>;
   settlePrompt: (value: string | boolean | null) => void;
   clearStatus: () => void;
+  connectRetry: { hostId: string; error: string } | null;
+  reportConnectError: (hostId: string, error: string) => void;
+  clearConnectRetry: () => void;
   hosts: HostEntry[];
   tags: Tag[];
   hostFilter: string;
@@ -1451,6 +1454,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     window.clearTimeout(statusTimer);
     set({ status: { text: "", isError: false } });
   },
+
+  connectRetry: null,
+  reportConnectError: (hostId, error) =>
+    set({ connectRetry: { hostId, error } }),
+  clearConnectRetry: () => set({ connectRetry: null }),
 
   askConfirm: (request) =>
     new Promise<boolean>((resolve) => {

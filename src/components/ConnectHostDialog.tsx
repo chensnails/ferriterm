@@ -17,9 +17,11 @@ import { Modal } from "./Modal";
 export function ConnectHostDialog({
   host,
   onClose,
+  initialError,
 }: {
   host: HostEntry;
   onClose: () => void;
+  initialError?: string;
 }) {
   const { t } = useTranslation();
   const hosts = useAppStore((s) => s.hosts);
@@ -33,10 +35,10 @@ export function ConnectHostDialog({
   const [keyPath, setKeyPath] = useState(host.keyPath);
   const [passphrase, setPassphrase] = useState("");
   const [remember, setRemember] = useState(false);
-  const [useSaved, setUseSaved] = useState(true);
+  const [useSaved, setUseSaved] = useState(!initialError);
   const [unlockPassword, setUnlockPassword] = useState("");
   const [unlocking, setUnlocking] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialError ?? "");
   const [busy, setBusy] = useState(false);
 
   const keyAuth = host.authMethod === "key";
@@ -65,7 +67,7 @@ export function ConnectHostDialog({
         setVault(nextVault);
         setStatus(nextStatus);
         setKeys(keyList);
-        setUseSaved(nextStatus.password);
+        setUseSaved(initialError ? false : nextStatus.password);
       } catch (err) {
         if (!cancelled) setError(String(err));
       }
@@ -87,7 +89,7 @@ export function ConnectHostDialog({
       ]);
       setVault(nextVault);
       setStatus(nextStatus);
-      setUseSaved(nextStatus.password);
+      setUseSaved(initialError ? false : nextStatus.password);
       setUnlockPassword("");
     } catch (err) {
       setError(vaultErrorText(err, t));

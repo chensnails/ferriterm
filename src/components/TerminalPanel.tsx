@@ -59,6 +59,14 @@ export function TerminalPanel({
               `\r\n\x1b[31m${i18n.t("terminal.connectFailed", { error: String(err) })}\x1b[0m`,
             );
             markClosed(session.id);
+            if (
+              (pending.type === "ssh" || pending.type === "sftp") &&
+              pending.args.hostId
+            ) {
+              useAppStore
+                .getState()
+                .reportConnectError(pending.args.hostId, String(err));
+            }
           });
       });
     }
