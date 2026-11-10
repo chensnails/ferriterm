@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
+import { clockLabel, dayLabel, groupByDay, parseStamp } from "../timeline";
 import { BUILD_HEAD, BUILD_HISTORY } from "../version";
-import { Chip, EmptyState, PanelHeader } from "./ui";
+import { Chip, DaySeparator, EmptyState, PanelHeader } from "./ui";
 
 const VISIBLE_COUNT = 12;
 
@@ -17,10 +18,6 @@ function relativeTime(iso: string): string {
   const hours = Math.round(diff / 3600000);
   if (Math.abs(hours) < 24) return formatter.format(-hours, "hour");
   return formatter.format(-Math.round(diff / 86400000), "day");
-}
-
-function absoluteTime(iso: string): string {
-  return iso.slice(0, 16).replace("T", " ");
 }
 
 export function VersionHistory() {
@@ -38,6 +35,9 @@ export function VersionHistory() {
   }
 
   const visible = expanded ? BUILD_HISTORY : BUILD_HISTORY.slice(0, VISIBLE_COUNT);
+  // Commit dates span several days once the list grows; day headings keep the
+  // timeline readable and pin to the top while the list scrolls.
+  const groups = groupByDay(visible, (entry) => parseStamp(entry.date));
 
   return (
     <section className="version-history">
@@ -51,34 +51,51 @@ export function VersionHistory() {
       />
       <p className="hint version-history-hint">{t("about.historyHint")}</p>
       <ol className="version-timeline" aria-label={t("about.historyTitle")}>
-        {visible.map((entry) => {
-          const current = entry.hash === BUILD_HEAD;
-          const relative = relativeTime(entry.date);
-          return (
-            <li
-              key={entry.hash}
-              className={current ? "version-entry current" : "version-entry"}
-            >
-              <span className="version-node" aria-hidden />
-              <div className="version-entry-body">
-                <div className="version-entry-head">
-                  <code className="version-label">{entry.label}</code>
-                  {current && <Chip tone="info">{t("about.current")}</Chip>}
-                </div>
-                <p className="version-subject">{entry.subject}</p>
-                <p className="hint version-time">
-                  <time dateTime={entry.date}>{absoluteTime(entry.date)}</time>
-                  {relative && (
-                    <>
-                      <span aria-hidden> · </span>
-                      <span>{relative}</span>
-                    </>
-                  )}
-                </p>
-              </div>
-            </li>
-          );
-        })}
+        {groups.map((group) => (
+          <Fragment key={group.key}>
+            <DaySeparator
+              as="li"
+              sticky
+              label={
+                group.key === "unknown"
+                  ? t("time.unknownDay")
+                  : dayLabel(group.date)
+              }
+              count={group.items.length}
+            />
+            {group.items.map((entry) => {
+              const current = entry.hash === BUILD_HEAD;
+              const date = parseStamp(entry.date);
+              const relative = relativeTime(entry.date);
+              return (
+                <li
+                  key={entry.hash}
+                  className={current ? "version-entry current" : "version-entry"}
+                >
+                  <span className="version-node" aria-hidden />
+                  <div className="version-entry-body">
+                    <div className="version-entry-head">
+                      <code className="version-label">{entry.label}</code>
+                      {current && <Chip tone="info">{t("about.current")}</Chip>}
+                    </div>
+                    <p className="version-subject">{entry.subject}</p>
+                    <p className="hint version-time">
+                      <time dateTime={entry.date}>
+                        {date ? clockLabel(date) : entry.date.slice(11, 16)}
+                      </time>
+                      {relative && (
+                        <>
+                          <span aria-hidden> · </span>
+                          <span>{relative}</span>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </Fragment>
+        ))}
       </ol>
       {total > VISIBLE_COUNT && !expanded && (
         <button

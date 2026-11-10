@@ -16,6 +16,7 @@ import { parseSchemeFile } from "../scheme";
 import { CUSTOM_FONT_ID, TERMINAL_FONTS, fontChoiceFor } from "../fonts";
 import {
   SSH_ALGORITHM_GROUPS,
+  SSH_RECOMMENDED,
   type SshAlgorithmGroupKey,
 } from "../ssh-algorithms";
 import { DEV_VERSION } from "../version";
@@ -25,16 +26,16 @@ import { CredentialVault } from "./CredentialVault";
 import { ShortcutEditor } from "./ShortcutEditor";
 import { VersionHistory } from "./VersionHistory";
 import {
+  CheckList,
   Chip,
-  PillGroup,
   SettingGroup,
   SettingRow,
   SettingsSearchContext,
-  type PillOption,
 } from "./ui";
 import {
   ActionSetting,
   PillSetting,
+  SegmentedSetting,
   SelectSetting,
   ToggleSetting,
   type SelectOption,
@@ -586,6 +587,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             .join(" ")}
         >
           <p className="settings-pane-intro">{t(`settings.desc.${category}`)}</p>
+          {/* The category line stays put while the rows scroll underneath, so a
+              long pane never loses "where am I". */}
+          <div className="settings-pane-scroll">
+          <div className="settings-scroll-fade" aria-hidden />
           <SettingsSearchContext.Provider value={query}>
           {category === "general" && (
             <>
@@ -625,25 +630,34 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               ),
             ]}
           />
-          <PillSetting
+          {/* Language can grow with language packs, so it uses the dropdown
+              the other open-ended lists use instead of a wrapping pill row. */}
+          <SelectSetting
             title={t("settings.language")}
             hint={t("settings.languagePackHint")}
-            wrap
             value={language}
             onChange={setLanguage}
             options={[
-              { value: "en", label: "English" },
-              { value: "zh-CN", label: "简体中文" },
+              {
+                value: "en",
+                label: "English",
+                group: t("settings.languageBuiltin"),
+              },
+              {
+                value: "zh-CN",
+                label: "简体中文",
+                group: t("settings.languageBuiltin"),
+              },
               ...languagePacks
                 .filter(
                   (pack) =>
                     pack.locale !== "en" && pack.locale !== "zh-CN",
                 )
                 .map(
-                  (pack): PillOption => ({
+                  (pack): SelectOption => ({
                     value: pack.locale,
                     label: pack.name,
-                    group: t("settings.themePacks"),
+                    group: t("settings.languageTitle"),
                   }),
                 ),
             ]}
@@ -771,7 +785,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             checked={restoreLayoutOnStartup}
             onChange={setRestoreLayoutOnStartup}
           />
-          <PillSetting
+          <SegmentedSetting
             title={t("settings.tabNumbering")}
             hint={t("settings.tabNumberingHint")}
             value={tabNumbering}
@@ -905,7 +919,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             checked={terminalCursorBlink}
             onChange={setTerminalCursorBlink}
           />
-          <PillSetting
+          <SegmentedSetting
             title={t("settings.cursorStyle")}
             hint={t("settings.cursorStyleHint")}
             value={terminalCursorStyle}
@@ -943,7 +957,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           onReset={resetTerminalInteraction}
           resetLabel={t("settings.resetGroup")}
         >
-          <PillSetting
+          <SegmentedSetting
             title={t("settings.bell")}
             hint={t("settings.bellHint")}
             value={terminalBell}
@@ -1004,12 +1018,27 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               const selected = sshSecurity[key];
               return (
                 <div key={key} className="ssh-algo-group">
-                  <span className="ssh-algo-group-title">
-                    {t(group.labelKey)}
-                  </span>
-                  <PillGroup
-                    multiple
-                    wrap
+                  <div className="ssh-algo-group-head">
+                    <span className="ssh-algo-group-title">
+                      {t(group.labelKey)}
+                    </span>
+                    <span className="ssh-algo-count">
+                      {t("settings.sshEnabledCount", {
+                        enabled: selected.length,
+                        total: group.items.length,
+                      })}
+                    </span>
+                    <button
+                      type="button"
+                      className="link-btn ssh-algo-recommend"
+                      onClick={() =>
+                        setSshAlgorithmGroup(key, [...SSH_RECOMMENDED[key]])
+                      }
+                    >
+                      {t("settings.sshUseRecommended")}
+                    </button>
+                  </div>
+                  <CheckList
                     label={t(group.labelKey)}
                     value={[...selected]}
                     onChange={(next) => setSshAlgorithmGroup(key, next)}
@@ -1210,7 +1239,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         </SettingGroup>
 
         <SettingGroup title={t("sync.remoteTitle")} hint={t("sync.remoteHint")}>
-          <PillSetting
+          <SegmentedSetting
             title={t("sync.provider")}
             value={remoteKind}
             onChange={(value) => setRemoteKind(value as "gist" | "webdav")}
@@ -1685,6 +1714,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             </>
           )}
           </SettingsSearchContext.Provider>
+          </div>
         </div>
       </div>
     </Modal>

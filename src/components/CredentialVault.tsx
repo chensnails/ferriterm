@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   api,
@@ -8,9 +8,11 @@ import {
   type VaultStatus,
 } from "../api";
 import { useAppStore } from "../store";
+import { clockLabel, dayLabel, groupByDay, parseStamp } from "../timeline";
 import { KeyManagerDialog } from "./KeyManagerDialog";
 import { KnownHostsDialog } from "./KnownHostsDialog";
 import { SelectSetting } from "./SettingsControls";
+import { DaySeparator } from "./ui";
 import { UnlockDialog, type VaultAction } from "./UnlockDialog";
 
 const AUTO_LOCK_CHOICES = [0, 5, 15, 30, 60];
@@ -230,15 +232,37 @@ export function CredentialVault() {
           <p className="hint">{t("vault.auditEmpty")}</p>
         ) : (
           <ul className="vault-audit">
-            {audit.map((record) => (
-              <li key={record.id} className="vault-audit-row">
-                <span className="vault-audit-time">{record.at}</span>
-                <span className="vault-audit-action">{record.action}</span>
-                <span className="vault-audit-target" title={record.detail}>
-                  {record.target}
-                </span>
-              </li>
-            ))}
+            {groupByDay(audit, (record) => parseStamp(record.at)).map(
+              (group) => (
+                <Fragment key={group.key}>
+                  <DaySeparator
+                    as="li"
+                    sticky
+                    label={group.key === "unknown" ? t("time.unknownDay") : dayLabel(group.date)}
+                    count={t("time.dayCount", { count: group.items.length })}
+                  />
+                  {group.items.map((record) => {
+                    const date = parseStamp(record.at);
+                    return (
+                      <li key={record.id} className="vault-audit-row">
+                        <span className="vault-audit-time">
+                          {date ? clockLabel(date, true) : record.at}
+                        </span>
+                        <span className="vault-audit-action">
+                          {record.action}
+                        </span>
+                        <span
+                          className="vault-audit-target"
+                          title={record.detail}
+                        >
+                          {record.target}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </Fragment>
+              ),
+            )}
           </ul>
         )}
         <div className="plugin-actions">

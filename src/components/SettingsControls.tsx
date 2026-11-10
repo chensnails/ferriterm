@@ -1,5 +1,11 @@
 import type { ReactNode } from "react";
-import { PillGroup, SettingRow, Switch, type PillOption } from "./ui";
+import {
+  PillGroup,
+  Segmented,
+  SettingRow,
+  Switch,
+  type PillOption,
+} from "./ui";
 
 /**
  * A row whose on/off state is a switch. Switches carry the state themselves, so
@@ -77,6 +83,40 @@ export interface SelectOption {
   disabled?: boolean;
   /** Consecutive options sharing a group render as one <optgroup>. */
   group?: string;
+}
+
+/**
+ * A row with a small, mutually exclusive set of choices. The connected strip
+ * separates "pick one of these modes" from the capsule row used for policy
+ * presets, so not every short list looks like the same control.
+ */
+export function SegmentedSetting({
+  title,
+  hint,
+  options,
+  value,
+  onChange,
+  disabled,
+}: {
+  title: string;
+  hint?: ReactNode;
+  options: { value: string; label: ReactNode; disabled?: boolean }[];
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <SettingRow title={title} hint={hint}>
+      <Segmented
+        options={options}
+        value={value}
+        onChange={onChange}
+        label={title}
+        semantics="radio"
+        disabled={disabled}
+      />
+    </SettingRow>
+  );
 }
 
 /**
@@ -172,7 +212,7 @@ export function ActionSetting({
     <SettingRow title={title} hint={hint} current={current}>
       <button
         type="button"
-        className={danger ? "link-btn danger" : undefined}
+        className={danger ? "ui-setting-action danger" : "ui-setting-action"}
         onClick={onAction}
         disabled={disabled}
       >

@@ -1907,26 +1907,57 @@ mark {
 .settings-pane {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 0 var(--space-1) 0 var(--space-3);
 }
 
-/* A slimmer scrollbar keeps the pane edge from reading as a second column. */
-.settings-pane::-webkit-scrollbar {
-  width: 8px;
-}
-
+/* The category description is pinned; rows scroll in their own column so a
+   long pane keeps a stable "where am I" anchor at the top. */
 .settings-pane-intro {
+  flex: 0 0 auto;
   margin: 0;
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--divider);
   font-size: var(--fs-sm);
   line-height: var(--line-ui);
   color: var(--fg-muted);
+}
+
+.settings-pane-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: var(--space-1);
+  /* Reserved gutter: rows no longer jump sideways when a scrollbar appears. */
+  scrollbar-gutter: stable;
+}
+
+/* A slimmer scrollbar keeps the pane edge from reading as a second column. */
+.settings-pane-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+/* Sticky veil at the top of the scrollport: rows pass underneath it, so the
+   pinned intro and the scrolling rows never share a half-visible text line. */
+.settings-scroll-fade {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  height: var(--space-4);
+  margin-bottom: calc(-1 * var(--space-4));
+  background: linear-gradient(
+    to bottom,
+    var(--bg-panel) 0,
+    var(--bg-panel) var(--space-1),
+    color-mix(in srgb, var(--bg-panel) 70%, transparent) 60%,
+    transparent 100%
+  );
+  pointer-events: none;
 }
 
 /* While a query is active, blocks whose rows were all filtered out disappear
@@ -2892,27 +2923,31 @@ mark {
 .ssh-algo-group {
   min-width: 0;
   margin-top: var(--space-3);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--divider);
+}
+
+.ssh-algo-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 
 .ssh-algo-group-title {
-  display: block;
-  margin-bottom: var(--space-2);
   font-size: var(--font-ui);
   color: var(--fg-primary);
 }
 
-/* Algorithm names are long; let the capsule text wrap so the group never
-   widens the settings pane, and keep the full name available as a tooltip. */
-.ssh-algo-advanced .ui-pill {
-  max-width: 100%;
-  font-family: var(--font-mono);
-  white-space: normal;
-  overflow-wrap: anywhere;
-  height: auto;
-  min-height: calc(var(--control-h) - 4px);
-  padding: var(--space-1) var(--space-2);
+/* Enabled/total plus a one-click way back to the shipped list: with 40
+   checkboxes, "everything is off" must not require ticking nineteen boxes. */
+.ssh-algo-count {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ssh-algo-recommend {
+  margin-left: auto;
+  font-size: var(--fs-xs);
 }
 
 .settings-pane .settings-inline {
@@ -2980,6 +3015,15 @@ mark {
   gap: 0;
   padding: 0;
   border-bottom: 0;
+}
+
+/* In a column flex box the shared `flex: 0 1 280px` becomes a 280px *height*;
+   reset it so the keyword input matches the add button next to it. */
+.settings-pane .highlight-form .field > input {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: none;
+  height: var(--control-h);
 }
 
 .settings-pane .highlight-form .field > span:first-child {
@@ -4421,6 +4465,94 @@ label.sync-action {
   outline-offset: 1px;
 }
 
+/* Checkbox grid for long option names (SSH algorithms). A grid reads as
+   "included / excluded" without turning 40 names into 40 buttons, and the
+   columns collapse on narrow panes instead of scrolling sideways. */
+.ui-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 1px var(--space-3);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+}
+
+.ui-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.ui-check:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+.ui-check:has(.ui-check-input:checked) {
+  color: var(--fg-primary);
+}
+
+.ui-check-input {
+  flex: 0 0 auto;
+  margin: 1px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.ui-check-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Date band that groups a time-ordered list into days. */
+.ui-day-separator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  list-style: none;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--fg-muted);
+}
+
+.ui-day-separator-label {
+  flex: 0 0 auto;
+}
+
+.ui-day-separator-line {
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--divider);
+}
+
+.ui-day-separator-count {
+  flex: 0 0 auto;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+/* Sticks to the top of whichever well scrolls (audit list, version timeline);
+   the fill matches that well so the band does not look like a floating card. */
+.ui-day-separator.sticky {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-base);
+}
+
 .ui-setting-row {
   display: flex;
   align-items: center;
@@ -4524,6 +4656,43 @@ label.sync-action {
 .ui-setting-control > select.ui-select:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* Secondary row actions ("restore sizes") used to fall through to the UA
+   button, which paints ButtonFace grey in dark mode and reads as a different
+   material from everything else in the pane. */
+.ui-setting-action {
+  flex: 0 0 auto;
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+.ui-setting-action:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.ui-setting-action.danger {
+  color: var(--danger);
+}
+
+.ui-setting-action.danger:hover:not(:disabled) {
+  border-color: var(--danger);
+}
+
+.ui-setting-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ui-setting-control > .ui-segmented {
+  flex: 0 0 auto;
 }
 
 /* The sidebar search keeps room for its magnifier icon. */
@@ -5012,7 +5181,9 @@ label.sync-action {
   padding: var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--sub-bg);
+  /* Same inset material as the audit well and the font preview, so nested
+     panels share one "data surface" instead of three different tints. */
+  background: var(--bg-base);
 }
 
 .version-history .ui-panel-header {
@@ -5030,6 +5201,13 @@ label.sync-action {
   border-left: 1px solid var(--divider);
   max-height: calc(var(--row-h) * 10);
   overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+/* Day bands start at the timeline hairline so the axis reads as continuous. */
+.version-timeline .ui-day-separator {
+  margin-left: calc(-1 * var(--space-3));
+  padding-left: var(--space-2);
 }
 
 .version-entry {
@@ -5050,7 +5228,7 @@ label.sync-action {
   height: var(--space-2);
   border-radius: 50%;
   background: var(--fg-muted);
-  box-shadow: 0 0 0 2px var(--sub-bg);
+  box-shadow: 0 0 0 2px var(--bg-base);
 }
 
 .version-entry.current .version-node {
@@ -6075,24 +6253,26 @@ body.dock-resizing-y * {
   margin: 0;
 }
 
+/* One inset well with hairline rows: twelve bordered boxes read as twelve
+   unrelated cards, which is why the old list felt noisy while scrolling. */
 .vault-audit {
   display: flex;
   flex-direction: column;
-  gap: 2px;
   margin: 0 0 var(--space-2);
-  padding: 0;
+  padding: 0 var(--space-1) var(--space-1);
   list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
 }
 
 .vault-audit-row {
   display: grid;
-  grid-template-columns: 130px 150px 1fr;
+  grid-template-columns: 4.5rem 8.5rem minmax(0, 1fr);
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-base);
-  font-size: 11px;
+  border-top: 1px solid var(--divider);
+  font-size: var(--fs-xs);
 }
 
 .vault-audit-time {

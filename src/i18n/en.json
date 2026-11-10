@@ -236,6 +236,7 @@
     "themeLight": "Light",
     "language": "Language",
     "languageTitle": "Language packs",
+    "languageBuiltin": "Built in",
     "languageReload": "Reload packs",
     "languagePackEmpty": "No language packs installed yet.",
     "languageActive": "Active",
@@ -344,6 +345,8 @@
     "sshGroupMac": "MAC algorithms",
     "sshGroupHostKey": "Host key algorithms",
     "sshGroupCompression": "Compression",
+    "sshEnabledCount": "{enabled}/{total} enabled",
+    "sshUseRecommended": "Use recommended",
     "autoSaveHint": "Changes are saved to local settings instantly",
     "searchPlaceholder": "Search settings…",
     "resetGroup": "Reset this group to defaults",
@@ -1132,5 +1135,11 @@
     "failedHint": "The SFTP channel is not connected. Use the reconnect button on the tab.",
     "noLink": "This tab has no saved connection; reopen the host from the sidebar.",
     "disconnected": "The SSH connection closed. Use the reconnect button on the tab."
+  },
+  "time": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "unknownDay": "Unknown date",
+    "dayCount": "{count, plural, one {# entry} other {# entries}}"
   }
 }

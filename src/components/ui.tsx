@@ -287,24 +287,40 @@ export function Segmented({
   value,
   onChange,
   className,
+  label,
+  disabled = false,
+  semantics = "tabs",
 }: {
   options: SegmentedOption[];
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  label?: string;
+  /** Disables the whole strip (per-option `disabled` still applies). */
+  disabled?: boolean;
+  /**
+   * `tabs` for view switchers (network toolbox), `radio` for settings where the
+   * strip picks one stored value. Both look identical; only the exposed
+   * semantics differ.
+   */
+  semantics?: "tabs" | "radio";
 }) {
+  const radio = semantics === "radio";
   return (
     <div
       className={["ui-segmented", className ?? ""].filter(Boolean).join(" ")}
-      role="tablist"
+      role={radio ? "radiogroup" : "tablist"}
+      aria-label={label}
+      aria-disabled={disabled || undefined}
     >
       {options.map((option) => (
         <button
           key={option.value}
           type="button"
-          role="tab"
-          aria-selected={option.value === value}
-          disabled={option.disabled}
+          role={radio ? "radio" : "tab"}
+          aria-checked={radio ? option.value === value : undefined}
+          aria-selected={radio ? undefined : option.value === value}
+          disabled={disabled || option.disabled}
           className={[
             "ui-segmented-item",
             option.value === value ? "active" : "",
@@ -402,6 +418,99 @@ export function PillGroup(props: PillGroupProps) {
         );
       })}
     </div>
+  );
+}
+
+export interface CheckListOption {
+  value: string;
+  label: ReactNode;
+  /** Tooltip for names that do not fit the column. */
+  hint?: string;
+}
+
+/**
+ * Multi-select for long option names (SSH algorithms): a checkbox grid reads
+ * as "include / exclude" without pretending every name is a button, and keeps
+ * the list scannable when all 40 entries are on screen at once.
+ */
+export function CheckList({
+  options,
+  value,
+  onChange,
+  label,
+  disabled,
+}: {
+  options: CheckListOption[];
+  value: string[];
+  onChange: (value: string[]) => void;
+  label: string;
+  disabled?: boolean;
+}) {
+  const selected = new Set(value);
+  return (
+    <div
+      className="ui-checklist"
+      role="group"
+      aria-label={label}
+      aria-disabled={disabled || undefined}
+    >
+      {options.map((option) => {
+        const checked = selected.has(option.value);
+        return (
+          <label key={option.value} className="ui-check" title={option.hint}>
+            <input
+              type="checkbox"
+              className="ui-check-input"
+              checked={checked}
+              disabled={disabled}
+              onChange={() => {
+                // Rebuild from the catalogue so the stored list keeps the
+                // "strongest first" order the Rust side relies on.
+                onChange(
+                  options
+                    .map((item) => item.value)
+                    .filter((item) =>
+                      item === option.value ? !checked : selected.has(item),
+                    ),
+                );
+              }}
+            />
+            <span className="ui-check-label">{option.label}</span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Date heading for grouped time lists. Rendered between rows so a long log
+ * reads as "today / yesterday / earlier" instead of one undifferentiated
+ * column of timestamps.
+ */
+export function DaySeparator({
+  label,
+  count,
+  as: Tag = "div",
+  sticky = false,
+}: {
+  label: ReactNode;
+  count?: ReactNode;
+  as?: "div" | "li" | "h4";
+  sticky?: boolean;
+}) {
+  return (
+    <Tag
+      className={["ui-day-separator", sticky ? "sticky" : ""]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <span className="ui-day-separator-label">{label}</span>
+      <span className="ui-day-separator-line" aria-hidden />
+      {count !== undefined && (
+        <span className="ui-day-separator-count">{count}</span>
+      )}
+    </Tag>
   );
 }
 
