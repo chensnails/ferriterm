@@ -162,17 +162,24 @@
   --bg-elevated: #eef1f5;
   --border: #d7dce3;
   --fg-primary: #1f2430;
-  --fg-muted: #6b7280;
+  --fg-muted: #69707e;
   --fg-on-accent: #ffffff;
   --accent: #2563eb;
   --accent-hover: #1d4ed8;
-  --danger: #dc2626;
-  --warning: #d97706;
-  --success: #16a34a;
+  --danger: #d92323;
+  --warning: #a85c05;
+  --success: #11813a;
   --selection: #bfdbfe88;
   --overlay: rgb(0 0 0 / 0.45);
   --shadow-panel: 0 12px 32px rgb(15 23 42 / 0.16);
-
+  --tag-blue: #0f62ff;
+  --tag-green: #16803d;
+  --tag-amber: #9b6406;
+  --tag-red: #de1313;
+  --tag-purple: #9937f6;
+  --tag-cyan: #047a8f;
+  --tag-pink: #d51675;
+  --tag-gray: #656f89;
   color-scheme: light;
 }
 
@@ -186,11 +193,16 @@
   --fg-on-accent: #2e3440;
   --accent: #88c0d0;
   --accent-hover: #8fbcbb;
-  --danger: #bf616a;
+  --danger: #d9a2a7;
   --warning: #ebcb8b;
   --success: #a3be8c;
   --selection: #88c0d055;
   --overlay: rgb(0 0 0 / 0.45);
+  --tag-blue: #679cff;
+  --tag-red: #f37878;
+  --tag-purple: #bf82f9;
+  --tag-pink: #f073b1;
+  --tag-gray: #959db1;
 }
 
 :root[data-theme="dracula"] {
@@ -208,6 +220,10 @@
   --success: #50fa7b;
   --selection: #44475a88;
   --overlay: rgb(0 0 0 / 0.45);
+  --tag-blue: #5590ff;
+  --tag-red: #f26565;
+  --tag-purple: #b772f8;
+  --tag-pink: #ee5ea5;
 }
 
 :root[data-theme="solarized"] {
@@ -215,18 +231,25 @@
   --bg-panel: #eee8d5;
   --bg-elevated: #fffaf0;
   --border: #d8d2c0;
-  --fg-primary: #586e75;
-  --fg-muted: #93a1a1;
+  --fg-primary: #556b72;
+  --fg-muted: #5c6a6a;
   --fg-on-accent: #fdf6e3;
-  --accent: #268bd2;
-  --accent-hover: #2aa198;
-  --danger: #dc322f;
-  --warning: #b58900;
-  --success: #859900;
+  --accent: #1d6ca2;
+  --accent-hover: #1e736c;
+  --danger: #c72421;
+  --warning: #826200;
+  --success: #5f6d00;
   --selection: #b3d4e088;
   --overlay: rgb(0 0 0 / 0.45);
   --shadow-panel: 0 12px 32px rgb(88 110 117 / 0.18);
-
+  --tag-blue: #0f62ff;
+  --tag-green: #16803d;
+  --tag-amber: #9b6406;
+  --tag-red: #df1313;
+  --tag-purple: #9937f6;
+  --tag-cyan: #047a8f;
+  --tag-pink: #d51675;
+  --tag-gray: #65708a;
   color-scheme: light;
 }
 
@@ -245,6 +268,7 @@
   --success: #9ece6a;
   --selection: #33467c88;
   --overlay: rgb(0 0 0 / 0.5);
+  --tag-purple: #ac5df7;
 }
 
 :root[data-theme="gruvbox"] {
@@ -257,11 +281,14 @@
   --fg-on-accent: #282828;
   --accent: #83a598;
   --accent-hover: #8ec07c;
-  --danger: #fb4934;
+  --danger: #fb5744;
   --warning: #fabd2f;
   --success: #b8bb26;
   --selection: #665c5488;
   --overlay: rgb(0 0 0 / 0.5);
+  --tag-red: #f15f5f;
+  --tag-purple: #b56ef8;
+  --tag-pink: #ee59a2;
 }
 
 :root[data-theme="one-dark"] {
@@ -270,15 +297,19 @@
   --bg-elevated: #2f343d;
   --border: #3b4048;
   --fg-primary: #abb2bf;
-  --fg-muted: #7f848e;
+  --fg-muted: #90949d;
   --fg-on-accent: #1b1f24;
   --accent: #61afef;
   --accent-hover: #7cc0f5;
-  --danger: #e06c75;
+  --danger: #e1737b;
   --warning: #e5c07b;
   --success: #98c379;
   --selection: #3e445188;
   --overlay: rgb(0 0 0 / 0.5);
+  --tag-blue: #5791ff;
+  --tag-red: #f26868;
+  --tag-purple: #b874f8;
+  --tag-pink: #ef61a7;
 }
 
 :root[data-theme="catppuccin"] {
@@ -296,6 +327,8 @@
   --success: #a6e3a1;
   --selection: #585b7088;
   --overlay: rgb(0 0 0 / 0.5);
+  --tag-red: #f04e4e;
+  --tag-purple: #ae62f8;
 }
 
 :root[data-theme="rose-pine"] {
@@ -313,6 +346,7 @@
   --success: #9ccfd8;
   --selection: #403d5288;
   --overlay: rgb(0 0 0 / 0.5);
+  --tag-purple: #aa59f7;
 }
 
 :root[data-theme="solarized-dark"] {
@@ -321,15 +355,18 @@
   --bg-elevated: #0b3f4b;
   --border: #0f4b5a;
   --fg-primary: #93a1a1;
-  --fg-muted: #839496;
+  --fg-muted: #8d9d9f;
   --fg-on-accent: #fdf6e3;
-  --accent: #268bd2;
-  --accent-hover: #2aa198;
-  --danger: #dc322f;
-  --warning: #b58900;
-  --success: #859900;
+  --accent: #4aa1de;
+  --accent-hover: #2daca2;
+  --danger: #e87977;
+  --warning: #c29300;
+  --success: #8fa400;
   --selection: #1f5a6699;
   --overlay: rgb(0 0 0 / 0.5);
+  --tag-red: #f15c5c;
+  --tag-purple: #b46cf8;
+  --tag-pink: #ed56a1;
 }
 
 :root[data-theme="github-light"] {
@@ -348,7 +385,14 @@
   --selection: #b6d7ff99;
   --overlay: rgb(0 0 0 / 0.45);
   --shadow-panel: 0 12px 32px rgb(31 35 40 / 0.16);
-
+  --tag-blue: #1b6aff;
+  --tag-green: #178640;
+  --tag-amber: #a36907;
+  --tag-red: #e81414;
+  --tag-purple: #9e42f6;
+  --tag-cyan: #048096;
+  --tag-pink: #e0177a;
+  --tag-gray: #6a7590;
   color-scheme: light;
 }
 
@@ -2289,19 +2333,22 @@ mark {
 /* Legacy fieldset groups follow the same flat rhythm as .ui-setting-group:
    one pane used to mix bordered boxes with flat sections, which reads as a
    bug rather than as hierarchy. */
+/* A fieldset parks its legend in the border box, so `padding-top` opens a gap
+   under the title instead of above the group: the separation has to be a
+   margin on the group itself. */
 .settings-group {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
-  margin: 0;
-  padding: var(--space-5) 0 0;
+  margin: var(--space-5) 0 0;
+  padding: 0;
   border: 0;
   border-radius: 0;
 }
 
 .settings-group:first-of-type {
-  padding-top: var(--space-1);
+  margin-top: var(--space-1);
 }
 
 .settings-group legend {
@@ -3277,12 +3324,19 @@ mark {
 }
 
 /* Flat section blocks: card chrome is gone, only a light label and hairline
-   dividers between rows remain (reference alignment). */
+   dividers between rows remain (reference alignment). The top padding is what
+   separates one section from the one above; dropping it here made every legacy
+   pane (vault, plugins, sync) read as one long run of labels. */
 .settings-pane .settings-group {
   gap: var(--space-2);
+  margin: var(--space-4) 0 0;
   padding: 0;
   border: 0;
   border-radius: 0;
+}
+
+.settings-pane .settings-group:first-of-type {
+  margin-top: var(--space-1);
 }
 
 .settings-pane .settings-group legend {
@@ -4437,10 +4491,11 @@ label.sync-action {
   gap: var(--space-2);
 }
 
-/* Inside a settings pane an action row is its own band: without the padding
-   the buttons sat flush against the row above them. */
+/* Inside a settings pane an action row keeps a gutter from the row above, but
+   only sideways: vertical padding made every section that ends with buttons sit
+   further from the next title than one that ends with a hint. */
 .settings-pane .plugin-actions {
-  padding: var(--space-2) var(--space-1);
+  padding: 0 var(--space-1);
 }
 
 /* Action rows carry one button material. These used to fall through to the UA
