@@ -2235,12 +2235,12 @@ mark {
   gap: var(--space-2);
   min-width: 0;
   margin: 0;
-  padding: var(--space-4) 0 0;
+  padding: var(--space-5) 0 0;
   border: 0;
   border-radius: 0;
 }
 
-.settings-group:first-child {
+.settings-group:first-of-type {
   padding-top: var(--space-1);
 }
 
@@ -2772,11 +2772,71 @@ mark {
   color: var(--fg-muted);
 }
 
+/* Errors read as a state, not as one more line of copy: a tinted band with a
+   danger edge. Plain red text disappeared next to ordinary hints. */
 .error-text {
   margin: 0;
-  font-size: var(--font-ui-sm);
+  padding: var(--space-1) var(--space-2);
+  border-left: 2px solid var(--danger);
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
   color: var(--danger);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-ui);
   word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Loading placeholders: the pane keeps its shape while the first sample
+   arrives instead of flashing empty boxes. */
+.ui-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+
+.ui-skeleton-line {
+  height: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--hover-bg) 0%,
+    var(--selected-bg) 45%,
+    var(--hover-bg) 100%
+  );
+  background-size: 220% 100%;
+  animation: ui-skeleton-sweep 1.2s linear infinite;
+}
+
+.ui-skeleton-line[data-w="half"] {
+  width: 62%;
+}
+
+.ui-skeleton-line[data-w="short"] {
+  width: 38%;
+}
+
+@keyframes ui-skeleton-sweep {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+/* Available to screen readers, invisible on screen. */
+.ui-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .tag-picker {
@@ -3534,6 +3594,16 @@ mark {
 .link-btn:hover:not(:disabled) {
   color: var(--accent-hover);
   text-decoration: underline;
+}
+
+/* Destructive inline actions (delete a credential, forget a host) were painted
+   in the accent colour, which reads as "primary action". */
+.link-btn.danger {
+  color: var(--danger);
+}
+
+.link-btn.danger:hover:not(:disabled) {
+  color: var(--danger);
 }
 
 .link-btn:disabled {
@@ -4296,29 +4366,108 @@ label.sync-action {
 
 .plugin-actions {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-2);
-  margin-bottom: var(--space-2);
+}
+
+/* Inside a settings pane an action row is its own band: without the padding
+   the buttons sat flush against the row above them. */
+.settings-pane .plugin-actions {
+  padding: var(--space-2) var(--space-1);
+}
+
+/* Action rows carry one button material. These used to fall through to the UA
+   button, so a pane mixed platform grey with the token surfaces right above
+   it; `primary` and `danger` are the only two variants that change weight. */
+.plugin-actions button {
+  height: var(--button-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  transition:
+    background var(--motion-fast),
+    border-color var(--motion-fast),
+    color var(--motion-fast);
+}
+
+.plugin-actions button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--bg-elevated) 86%, var(--fg-primary));
+}
+
+.plugin-actions button:active:not(:disabled) {
+  background: var(--selected-bg);
+}
+
+.plugin-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* The one call to action in a pane. */
+.plugin-actions button.primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--fg-on-accent);
+}
+
+.plugin-actions button.primary:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--accent-hover);
+}
+
+/* Destructive actions are tinted, not solid: they sit next to ordinary
+   buttons and must read as "careful" rather than "default". */
+.plugin-actions button.danger {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.plugin-actions button.danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger-bg) 60%, var(--danger));
+  color: var(--fg-primary);
 }
 
 .plugin-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* The list opens with the rule that separates its rows, so the group title is
+   never mistaken for the first row's label. */
+.settings-pane .plugin-list {
+  border-top: 1px solid var(--divider);
+}
+
+/* Rows are hairlines, not cards: the plugin pane and the credential list used
+   to paint every entry as its own bordered box while the settings rows right
+   beside them were flat. */
 .plugin-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-base);
-  font-size: 12px;
+  padding: var(--space-2) var(--space-1);
+  border: 0;
+  border-bottom: 1px solid var(--divider);
+  border-radius: 0;
+  background: transparent;
+  font-size: var(--fs-base);
+}
+
+.plugin-row:last-child {
+  border-bottom: 0;
 }
 
 .plugin-name {
@@ -4801,6 +4950,13 @@ label.sync-action {
   border-color: var(--accent);
 }
 
+/* Hover is the only feedback these fields had none of: the pointer needs to
+   know the box is editable before the click lands. */
+.ui-setting-control > input:hover:not(:disabled),
+.ui-setting-control > select:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--fg-muted) 55%, var(--border));
+}
+
 /* Numeric controls keep one width so the box never resizes with the copy
    next to it (the flex row would otherwise shrink it). */
 .ui-setting-control > input[type="number"] {
@@ -4892,10 +5048,10 @@ label.sync-action {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding-top: var(--space-4);
+  padding-top: var(--space-5);
 }
 
-.ui-setting-group:first-child {
+.ui-setting-group:first-of-type {
   padding-top: var(--space-1);
 }
 

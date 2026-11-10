@@ -709,6 +709,29 @@ export function EmptyState({
   );
 }
 
+/** Placeholder rows for a pane whose first sample has not arrived yet, so the
+    layout keeps its shape instead of flashing empty boxes. */
+export function Skeleton({
+  rows = 3,
+  label,
+}: {
+  rows?: number;
+  label?: string;
+}) {
+  return (
+    <div className="ui-skeleton">
+      {Array.from({ length: rows }, (_, index) => (
+        <span
+          key={index}
+          className="ui-skeleton-line"
+          data-w={index % 3 === 1 ? "half" : index % 3 === 2 ? "short" : "full"}
+        />
+      ))}
+      {label && <span className="ui-sr-only">{label}</span>}
+    </div>
+  );
+}
+
 export function Notice({
   children,
   tone = "info",

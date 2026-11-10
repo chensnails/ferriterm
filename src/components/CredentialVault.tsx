@@ -12,7 +12,7 @@ import { clockLabel, dayLabel, groupByDay, parseStamp } from "../timeline";
 import { KeyManagerDialog } from "./KeyManagerDialog";
 import { KnownHostsDialog } from "./KnownHostsDialog";
 import { SelectSetting } from "./SettingsControls";
-import { DaySeparator } from "./ui";
+import { DaySeparator, Skeleton } from "./ui";
 import { UnlockDialog, type VaultAction } from "./UnlockDialog";
 
 const AUTO_LOCK_CHOICES = [0, 5, 15, 30, 60];
@@ -86,6 +86,12 @@ export function CredentialVault() {
   };
 
   const masterMode = status?.mode === "master";
+
+  // First paint: hold the pane's shape instead of showing "local vault" before
+  // the real mode is known.
+  if (isTauri && status === null && !error) {
+    return <Skeleton rows={4} label={t("common.loading")} />;
+  }
 
   return (
     <>
