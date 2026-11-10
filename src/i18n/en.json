@@ -328,7 +328,22 @@
     "scrollOnOutput": "Scroll on output",
     "scrollOnOutputHint": "Follow new output as it arrives. Turn off to keep your reading position steady while output streams.",
     "autoCopy": "Copy on select",
-    "autoCopyHint": "Automatically copy selected text to the clipboard."
+    "autoCopyHint": "Automatically copy selected text to the clipboard.",
+    "sshSecurityTitle": "SSH security algorithms",
+    "sshSecurityHint": "Global default for every SSH and SFTP host. Applies to newly opened connections; already connected sessions keep their negotiated algorithms.",
+    "sshPreset": "Security level",
+    "sshPresetRecommended": "Recommended (russh defaults)",
+    "sshPresetCompatible": "Compatible with legacy devices",
+    "sshPresetStrict": "Strict (modern algorithms only)",
+    "sshPresetCustom": "Custom",
+    "sshPresetHint": "Recommended leaves the library's safe defaults untouched. Compatible adds SHA-1 / CBC / zlib for older appliances.",
+    "sshAdvanced": "Advanced: choose algorithms",
+    "sshAdvancedHint": "Ticking any box switches the level to Custom. Names are listed strongest first; clearing a whole group keeps the library default for that group.",
+    "sshGroupKex": "Key exchange (KEX)",
+    "sshGroupCipher": "Encryption ciphers",
+    "sshGroupMac": "MAC algorithms",
+    "sshGroupHostKey": "Host key algorithms",
+    "sshGroupCompression": "Compression"
   },
   "monitor": {
     "open": "System monitor",

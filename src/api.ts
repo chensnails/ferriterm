@@ -93,6 +93,21 @@ export interface JumpHop {
   keyboardInteractive?: boolean;
 }
 
+/** Algorithm name lists sent to russh. Empty group = keep library default. */
+export interface SshAlgorithms {
+  kex: string[];
+  cipher: string[];
+  mac: string[];
+  hostKey: string[];
+  compression: string[];
+}
+
+export type SshPreset = "recommended" | "compatible" | "strict" | "custom";
+
+export interface SshSecuritySettings extends SshAlgorithms {
+  preset: SshPreset;
+}
+
 export interface SshConnectArgs {
   host: string;
   port: number;
@@ -109,6 +124,8 @@ export interface SshConnectArgs {
   jump?: JumpHop[];
   keepalive?: number;
   hostId?: string;
+  /** Global SSH algorithm policy; omitted when using russh's safe defaults. */
+  algorithms?: SshAlgorithms;
   cols: number;
   rows: number;
 }

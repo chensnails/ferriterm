@@ -328,7 +328,22 @@
     "scrollOnOutput": "随输出滚动",
     "scrollOnOutputHint": "有新输出时自动跟随到底部；关闭后在持续输出时保持当前阅读位置不动。",
     "autoCopy": "选中即复制",
-    "autoCopyHint": "选中文本后自动复制到剪贴板。"
+    "autoCopyHint": "选中文本后自动复制到剪贴板。",
+    "sshSecurityTitle": "SSH 安全算法",
+    "sshSecurityHint": "所有 SSH 与 SFTP 主机的全局默认值。仅对新建立的连接生效，已连接的会话保持其协商结果。",
+    "sshPreset": "安全级别",
+    "sshPresetRecommended": "推荐（采用 russh 默认）",
+    "sshPresetCompatible": "兼容旧设备",
+    "sshPresetStrict": "严格（仅现代算法）",
+    "sshPresetCustom": "自定义",
+    "sshPresetHint": "推荐档保持库内安全默认值不变；兼容档额外加入 SHA-1 / CBC / zlib 以适配老旧设备。",
+    "sshAdvanced": "高级：逐类选择算法",
+    "sshAdvancedHint": "勾选任意项即切换为自定义。算法按安全性从高到低排列；若某类全部取消，该类沿用库默认值。",
+    "sshGroupKex": "密钥交换（KEX）",
+    "sshGroupCipher": "加密算法",
+    "sshGroupMac": "消息认证码（MAC）",
+    "sshGroupHostKey": "主机密钥算法",
+    "sshGroupCompression": "压缩"
   },
   "monitor": {
     "open": "系统监控",

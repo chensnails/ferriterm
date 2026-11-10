@@ -2776,6 +2776,58 @@ mark {
   min-width: 0;
 }
 
+/* SSH algorithm advanced picker. Long algorithm names must wrap inside the
+   column instead of widening the pane (no horizontal scrolling). */
+.ssh-algo-advanced {
+  min-width: 0;
+  margin-top: var(--space-2);
+}
+
+.ssh-algo-advanced > summary {
+  cursor: pointer;
+  font-size: var(--font-ui);
+  color: var(--accent);
+}
+
+.ssh-algo-advanced > .hint {
+  margin: var(--space-1) 0 var(--space-2);
+}
+
+.ssh-algo-group {
+  min-width: 0;
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--divider);
+}
+
+.ssh-algo-group-title {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-ui);
+  color: var(--fg-primary);
+}
+
+.ssh-algo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+}
+
+.ssh-algo-item {
+  min-width: 0;
+  align-items: flex-start;
+}
+
+.ssh-algo-item > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: calc(var(--font-ui) - 1px);
+  line-height: 1.4;
+  color: var(--fg-muted);
+}
+
 .settings-pane .settings-inline {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

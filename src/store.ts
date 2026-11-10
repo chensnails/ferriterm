@@ -8,7 +8,16 @@ import {
   type Tag,
   type PluginScan,
   type TransferJob,
+  type SshAlgorithms,
+  type SshPreset,
+  type SshSecuritySettings,
 } from "./api";
+import {
+  DEFAULT_SSH_SECURITY,
+  SSH_PRESETS,
+  parseSshSecurity,
+  type SshAlgorithmGroupKey,
+} from "./ssh-algorithms";
 import { planHostConnect, type PendingConnect } from "./connect";
 import { isSensitiveCommand } from "./commands";
 import {
@@ -402,6 +411,12 @@ interface AppState {
   setTerminalScrollOnOutput: (value: boolean) => void;
   terminalAutoCopy: boolean;
   setTerminalAutoCopy: (value: boolean) => void;
+  sshSecurity: SshSecuritySettings;
+  setSshPreset: (preset: SshPreset) => void;
+  setSshAlgorithmGroup: (
+    group: SshAlgorithmGroupKey,
+    names: string[],
+  ) => void;
   osc52: boolean;
   setOsc52: (enabled: boolean) => void;
   keywordHighlights: KeywordRule[];
@@ -649,6 +664,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   terminalRightClickPaste: false,
   terminalScrollOnOutput: true,
   terminalAutoCopy: false,
+  sshSecurity: { ...DEFAULT_SSH_SECURITY },
   osc52: true,
   keywordHighlights: DEFAULT_KEYWORD_RULES,
   tabNumbering: "asNeed",
@@ -824,6 +840,27 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ terminalAutoCopy: value });
     if (isTauri) {
       api.setSetting("terminalAutoCopy", value ? "1" : "0").catch(() => {});
+    }
+  },
+  setSshPreset: (preset) => {
+    const base: SshAlgorithms =
+      preset === "custom" ? get().sshSecurity : SSH_PRESETS[preset];
+    const next: SshSecuritySettings = { ...base, preset };
+    set({ sshSecurity: next });
+    if (isTauri) {
+      api.setSetting("sshSecurity", JSON.stringify(next)).catch(() => {});
+    }
+  },
+  setSshAlgorithmGroup: (group, names) => {
+    const previous = get().sshSecurity;
+    const next: SshSecuritySettings = {
+      ...previous,
+      preset: "custom",
+      [group]: names,
+    };
+    set({ sshSecurity: next });
+    if (isTauri) {
+      api.setSetting("sshSecurity", JSON.stringify(next)).catch(() => {});
     }
   },
   setOsc52: (enabled) => {
@@ -1447,6 +1484,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       terminalRightClickPaste: (settings.terminalRightClickPaste ?? "0") === "1",
       terminalScrollOnOutput: (settings.terminalScrollOnOutput ?? "1") !== "0",
       terminalAutoCopy: (settings.terminalAutoCopy ?? "0") === "1",
+      sshSecurity: parseSshSecurity(settings.sshSecurity),
       osc52: (settings.osc52 ?? "1") !== "0",
       keywordHighlights: parseKeywordRules(settings.keywordHighlights),
       tabNumbering,

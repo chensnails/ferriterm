@@ -7,9 +7,14 @@ import {
   type TerminalBell,
   type TerminalCursorStyle,
 } from "../store";
+import type { SshPreset } from "../api";
 import { BUILTIN_THEMES, HIGHLIGHT_COLORS } from "../theme";
 import { parseSchemeFile } from "../scheme";
 import { CUSTOM_FONT_ID, TERMINAL_FONTS, fontChoiceFor } from "../fonts";
+import {
+  SSH_ALGORITHM_GROUPS,
+  type SshAlgorithmGroupKey,
+} from "../ssh-algorithms";
 import { DEV_VERSION } from "../version";
 import { Modal } from "./Modal";
 import { CredentialVault } from "./CredentialVault";
@@ -134,6 +139,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   );
   const terminalAutoCopy = useAppStore((s) => s.terminalAutoCopy);
   const setTerminalAutoCopy = useAppStore((s) => s.setTerminalAutoCopy);
+  const sshSecurity = useAppStore((s) => s.sshSecurity);
+  const setSshPreset = useAppStore((s) => s.setSshPreset);
+  const setSshAlgorithmGroup = useAppStore((s) => s.setSshAlgorithmGroup);
   const osc52 = useAppStore((s) => s.osc52);
   const setOsc52 = useAppStore((s) => s.setOsc52);
   const keywordHighlights = useAppStore((s) => s.keywordHighlights);
@@ -855,6 +863,62 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             </select>
           </label>
           <span className="hint">{t("settings.autoCopyHint")}</span>
+        </fieldset>
+
+        <fieldset className="settings-group">
+          <legend>{t("settings.sshSecurityTitle")}</legend>
+          <p className="hint">{t("settings.sshSecurityHint")}</p>
+          <label className="field">
+            <span>{t("settings.sshPreset")}</span>
+            <select
+              value={sshSecurity.preset}
+              onChange={(e) => setSshPreset(e.target.value as SshPreset)}
+            >
+              <option value="recommended">
+                {t("settings.sshPresetRecommended")}
+              </option>
+              <option value="compatible">
+                {t("settings.sshPresetCompatible")}
+              </option>
+              <option value="strict">{t("settings.sshPresetStrict")}</option>
+              <option value="custom">{t("settings.sshPresetCustom")}</option>
+            </select>
+          </label>
+          <span className="hint">{t("settings.sshPresetHint")}</span>
+          <details className="ssh-algo-advanced">
+            <summary>{t("settings.sshAdvanced")}</summary>
+            <p className="hint">{t("settings.sshAdvancedHint")}</p>
+            {SSH_ALGORITHM_GROUPS.map((group) => {
+              const key = group.key as SshAlgorithmGroupKey;
+              const selected = sshSecurity[key];
+              return (
+                <div key={key} className="ssh-algo-group">
+                  <span className="ssh-algo-group-title">
+                    {t(group.labelKey)}
+                  </span>
+                  <div className="ssh-algo-grid">
+                    {group.items.map((name) => (
+                      <label key={name} className="checkbox ssh-algo-item">
+                        <input
+                          type="checkbox"
+                          checked={selected.includes(name)}
+                          onChange={(e) =>
+                            setSshAlgorithmGroup(
+                              key,
+                              e.target.checked
+                                ? [...selected, name]
+                                : selected.filter((item) => item !== name),
+                            )
+                          }
+                        />
+                        <span>{name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </details>
         </fieldset>
 
         <label className="field">

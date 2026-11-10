@@ -4,6 +4,7 @@ import { TerminalView } from "../terminal";
 import { api } from "../api";
 import i18n from "../i18n";
 import { useAppStore, type SessionMeta } from "../store";
+import { connectAlgorithms } from "../ssh-algorithms";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 
 export function TerminalPanel({
@@ -39,9 +40,17 @@ export function TerminalPanel({
     if (pending) {
       void view.ready.then(() => {
         const { cols, rows } = view.term;
+        const algorithms = connectAlgorithms(
+          useAppStore.getState().sshSecurity,
+        );
         const connect =
           pending.type === "ssh" || pending.type === "sftp"
-            ? api.sshConnect(session.id, { ...pending.args, cols, rows })
+            ? api.sshConnect(session.id, {
+                ...pending.args,
+                ...(algorithms ? { algorithms } : {}),
+                cols,
+                rows,
+              })
             : pending.type === "serial"
               ? api.serialOpen(session.id, pending.config)
               : pending.type === "telnet"

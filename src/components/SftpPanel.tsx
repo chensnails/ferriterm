@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri, onClosed, type VfsEntry } from "../api";
 import { useAppStore, type SessionMeta } from "../store";
+import { connectAlgorithms } from "../ssh-algorithms";
 import { FileEditor } from "./FileEditor";
 import { FilePane } from "./FilePane";
 import { PermissionsDialog } from "./PermissionsDialog";
@@ -57,8 +58,14 @@ export function SftpPanel({
     }
     let cancelled = false;
     store.setStatus(t("sftp.connecting"));
+    const algorithms = connectAlgorithms(store.sshSecurity);
     api
-      .sshConnect(session.id, { ...pending.args, cols: 80, rows: 24 })
+      .sshConnect(session.id, {
+        ...pending.args,
+        ...(algorithms ? { algorithms } : {}),
+        cols: 80,
+        rows: 24,
+      })
       .then(() => {
         if (cancelled) return;
         setPhase("ready");

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -9,8 +10,8 @@ use ft_core::{
     TerminalSink, X11ChannelHandler,
 };
 use russh::client::{self, Config};
-use russh::keys::{HashAlg, PrivateKey, PublicKey};
-use russh::{ChannelMsg, Disconnect};
+use russh::keys::{Algorithm, HashAlg, PrivateKey, PublicKey};
+use russh::{cipher, compression, kex, mac, ChannelMsg, Disconnect};
 use serde::Deserialize;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::net::TcpStream;
@@ -191,6 +192,24 @@ pub struct JumpHop {
     pub keyboard_interactive: bool,
 }
 
+/// User-selected SSH algorithm preference lists. An empty group keeps the
+/// russh default for that group, so a partially filled payload can never
+/// produce a handshake with no usable algorithm.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SshAlgorithms {
+    #[serde(default)]
+    pub kex: Vec<String>,
+    #[serde(default)]
+    pub cipher: Vec<String>,
+    #[serde(default)]
+    pub mac: Vec<String>,
+    #[serde(default)]
+    pub host_key: Vec<String>,
+    #[serde(default)]
+    pub compression: Vec<String>,
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SshConnectArgs {
@@ -219,6 +238,8 @@ pub struct SshConnectArgs {
     pub keepalive: Option<u64>,
     #[serde(default)]
     pub host_id: Option<String>,
+    #[serde(default)]
+    pub algorithms: Option<SshAlgorithms>,
     pub cols: u32,
     pub rows: u32,
 }
@@ -363,7 +384,86 @@ fn client_config(args: &SshConnectArgs) -> Config {
         config.keepalive_interval = Some(Duration::from_secs(keepalive));
         config.keepalive_max = 3;
     }
+    if let Some(algorithms) = &args.algorithms {
+        apply_algorithms(&mut config, algorithms);
+    }
     config
+}
+
+/// Maps the user's selected algorithm names onto russh's `Preferred` lists.
+///
+/// Unknown names are ignored (the frontend validates already, but a stale
+/// settings blob must never break a connection). A group is only replaced
+/// when at least one name maps, so an empty group keeps the library default.
+/// KEX additionally re-appends the four extension pseudo-algorithms that
+/// russh's own default KEXINIT advertises — without them `ext-info-c` and
+/// OpenSSH strict-kex would silently disappear from the proposal.
+fn apply_algorithms(config: &mut Config, algorithms: &SshAlgorithms) {
+    let kex: Vec<kex::Name> = algorithms
+        .kex
+        .iter()
+        .filter_map(|name| kex::Name::try_from(name.as_str()).ok())
+        .collect();
+    if !kex.is_empty() {
+        let mut names = kex;
+        for extension in [
+            kex::EXTENSION_SUPPORT_AS_CLIENT,
+            kex::EXTENSION_SUPPORT_AS_SERVER,
+            kex::EXTENSION_OPENSSH_STRICT_KEX_AS_CLIENT,
+            kex::EXTENSION_OPENSSH_STRICT_KEX_AS_SERVER,
+        ] {
+            if !names.contains(&extension) {
+                names.push(extension);
+            }
+        }
+        config.preferred.kex = Cow::Owned(names);
+    }
+
+    let cipher: Vec<cipher::Name> = algorithms
+        .cipher
+        .iter()
+        .filter_map(|name| cipher::Name::try_from(name.as_str()).ok())
+        .collect();
+    if !cipher.is_empty() {
+        config.preferred.cipher = Cow::Owned(cipher);
+    }
+
+    let mac: Vec<mac::Name> = algorithms
+        .mac
+        .iter()
+        .filter_map(|name| mac::Name::try_from(name.as_str()).ok())
+        .collect();
+    if !mac.is_empty() {
+        config.preferred.mac = Cow::Owned(mac);
+    }
+
+    // Host-key algorithms are an enum, not a Name: use russh's own default
+    // list as the allow-list so only variants it can actually verify get
+    // advertised, while preserving the user's preference order.
+    let defaults = russh::Preferred::DEFAULT;
+    let host_key: Vec<Algorithm> = algorithms
+        .host_key
+        .iter()
+        .filter_map(|name| {
+            defaults
+                .key
+                .iter()
+                .find(|algo| algo.as_str() == name.as_str())
+                .cloned()
+        })
+        .collect();
+    if !host_key.is_empty() {
+        config.preferred.key = Cow::Owned(host_key);
+    }
+
+    let compression: Vec<compression::Name> = algorithms
+        .compression
+        .iter()
+        .filter_map(|name| compression::Name::try_from(name.as_str()).ok())
+        .collect();
+    if !compression.is_empty() {
+        config.preferred.compression = Cow::Owned(compression);
+    }
 }
 
 async fn authenticate_hop(
@@ -844,5 +944,190 @@ mod tests {
         )
         .expect("deserialize");
         assert_eq!(args.key_path.as_deref(), Some("~/.ssh/id_ed25519"));
+    }
+
+    fn algorithms_payload(json: &str) -> Config {
+        let args: SshConnectArgs = serde_json::from_str(json).expect("deserialize");
+        client_config(&args)
+    }
+
+    #[test]
+    fn algorithms_payload_is_optional_and_camel_cased() {
+        let plain = algorithms_payload(
+            r#"{"host":"h","port":22,"username":"u","cols":80,"rows":24}"#,
+        );
+        assert_eq!(
+            plain.preferred.kex.as_ref(),
+            Config::default().preferred.kex.as_ref()
+        );
+
+        let config = algorithms_payload(
+            r#"{"host":"h","port":22,"username":"u","cols":80,"rows":24,
+                "algorithms":{"hostKey":["ssh-ed25519"],"compression":["none"]}}"#,
+        );
+        let args: SshConnectArgs = serde_json::from_str(
+            r#"{"host":"h","port":22,"username":"u","cols":80,"rows":24,
+                "algorithms":{"hostKey":["ssh-ed25519"],"compression":["none"]}}"#,
+        )
+        .expect("deserialize");
+        assert_eq!(
+            args.algorithms.as_ref().and_then(|a| a.host_key.first()),
+            Some(&"ssh-ed25519".to_string())
+        );
+        assert_eq!(config.preferred.compression.len(), 1);
+    }
+
+    #[test]
+    fn kex_selection_keeps_extension_pseudo_algorithms() {
+        let config = algorithms_payload(
+            r#"{"host":"h","port":22,"username":"u","cols":80,"rows":24,
+                "algorithms":{"kex":["curve25519-sha256"]}}"#,
+        );
+        let names: Vec<&str> = config
+            .preferred
+            .kex
+            .iter()
+            .map(|name| name.as_ref())
+            .collect();
+        assert_eq!(names.first(), Some(&"curve25519-sha256"));
+        for extension in [
+            "ext-info-c",
+            "ext-info-s",
+            "kex-strict-c-v00@openssh.com",
+            "kex-strict-s-v00@openssh.com",
+        ] {
+            assert!(names.contains(&extension), "missing {extension}");
+        }
+    }
+
+    #[test]
+    fn unknown_algorithm_names_are_dropped_without_emptying_the_group() {
+        let config = algorithms_payload(
+            r#"{"host":"h","port":22,"username":"u","cols":80,"rows":24,
+                "algorithms":{"kex":["made-up-kex"],"cipher":["made-up-cipher"],
+                              "mac":["made-up-mac"],"hostKey":["made-up-key"],
+                              "compression":["made-up-compression"]}}"#,
+        );
+        let defaults = Config::default();
+        assert_eq!(
+            config.preferred.kex.as_ref(),
+            defaults.preferred.kex.as_ref()
+        );
+        assert_eq!(
+            config.preferred.cipher.as_ref(),
+            defaults.preferred.cipher.as_ref()
+        );
+        assert_eq!(config.preferred.mac.as_ref(), defaults.preferred.mac.as_ref());
+        assert_eq!(config.preferred.key.as_ref(), defaults.preferred.key.as_ref());
+        assert_eq!(
+            config.preferred.compression.as_ref(),
+            defaults.preferred.compression.as_ref()
+        );
+    }
+
+    /// Every name exposed by the settings UI (src/ssh-algorithms.ts) must be
+    /// accepted by russh's runtime registries. A russh upgrade that renames or
+    /// drops an algorithm would otherwise silently remove it from a preset.
+    #[test]
+    fn every_exposed_algorithm_name_is_understood_by_russh() {
+        let kex = [
+            "mlkem768x25519-sha256",
+            "curve25519-sha256",
+            "curve25519-sha256@libssh.org",
+            "ecdh-sha2-nistp256",
+            "ecdh-sha2-nistp384",
+            "ecdh-sha2-nistp521",
+            "diffie-hellman-group-exchange-sha256",
+            "diffie-hellman-group14-sha256",
+            "diffie-hellman-group15-sha512",
+            "diffie-hellman-group16-sha512",
+            "diffie-hellman-group17-sha512",
+            "diffie-hellman-group18-sha512",
+            "diffie-hellman-group-exchange-sha1",
+            "diffie-hellman-group14-sha1",
+            "diffie-hellman-group1-sha1",
+        ];
+        let cipher = [
+            "chacha20-poly1305@openssh.com",
+            "aes256-gcm@openssh.com",
+            "aes128-gcm@openssh.com",
+            "aes256-ctr",
+            "aes192-ctr",
+            "aes128-ctr",
+            "aes256-cbc",
+            "aes192-cbc",
+            "aes128-cbc",
+        ];
+        let mac = [
+            "hmac-sha2-512-etm@openssh.com",
+            "hmac-sha2-256-etm@openssh.com",
+            "hmac-sha2-512",
+            "hmac-sha2-256",
+            "hmac-sha1-etm@openssh.com",
+            "hmac-sha1",
+        ];
+        let host_key = [
+            "ssh-ed25519",
+            "rsa-sha2-512",
+            "rsa-sha2-256",
+            "ecdsa-sha2-nistp256",
+            "ecdsa-sha2-nistp384",
+            "ecdsa-sha2-nistp521",
+            "ssh-rsa",
+        ];
+        let compression = ["none", "zlib", "zlib@openssh.com"];
+
+        let mut unknown = Vec::new();
+        for name in kex {
+            if kex::Name::try_from(name).is_err() {
+                unknown.push(format!("kex:{name}"));
+            }
+        }
+        for name in cipher {
+            if cipher::Name::try_from(name).is_err() {
+                unknown.push(format!("cipher:{name}"));
+            }
+        }
+        for name in mac {
+            if mac::Name::try_from(name).is_err() {
+                unknown.push(format!("mac:{name}"));
+            }
+        }
+        for name in host_key {
+            if !russh::Preferred::DEFAULT
+                .key
+                .iter()
+                .any(|algo| algo.as_str() == name)
+            {
+                unknown.push(format!("hostKey:{name}"));
+            }
+        }
+        for name in compression {
+            if compression::Name::try_from(name).is_err() {
+                unknown.push(format!("compression:{name}"));
+            }
+        }
+        assert!(unknown.is_empty(), "unavailable algorithms: {unknown:?}");
+    }
+
+    #[test]
+    fn strict_selection_applies_all_five_groups() {
+        let config = algorithms_payload(
+            r#"{"host":"h","port":22,"username":"u","cols":80,"rows":24,
+                "algorithms":{"kex":["curve25519-sha256"],
+                              "cipher":["chacha20-poly1305@openssh.com"],
+                              "mac":["hmac-sha2-256-etm@openssh.com"],
+                              "hostKey":["ssh-ed25519"],
+                              "compression":["none"]}}"#,
+        );
+        assert_eq!(config.preferred.cipher.len(), 1);
+        assert_eq!(config.preferred.mac.len(), 1);
+        assert_eq!(config.preferred.key.len(), 1);
+        assert_eq!(config.preferred.compression.len(), 1);
+        assert!(config
+            .preferred
+            .kex
+            .iter()
+            .any(|name| name.as_ref() == "curve25519-sha256"));
     }
 }
