@@ -14,6 +14,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0006_transfer_jobs.sql"),
     include_str!("../migrations/0007_vault.sql"),
     include_str!("../migrations/0008_host_protocol_icon.sql"),
+    include_str!("../migrations/0009_ssh_key_metadata.sql"),
 ];
 
 pub const PROTOCOLS: &[&str] = &["ssh", "sftp", "telnet", "serial", "local"];
@@ -212,6 +213,12 @@ pub struct SshKey {
     pub created_at: String,
     #[serde(default)]
     pub updated_at: String,
+    /// Free-form operator note. Metadata only, never sent to a remote host.
+    #[serde(default)]
+    pub notes: String,
+    /// Optional ISO date (YYYY-MM-DD) used for rotation reminders.
+    #[serde(default)]
+    pub expires_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -820,7 +827,7 @@ impl Store {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT id, name, algorithm, fingerprint, public_key, comment, source_path,
-                    has_passphrase, created_at, updated_at
+                    has_passphrase, created_at, updated_at, notes, expires_at
              FROM ssh_keys ORDER BY name",
         )?;
         let rows = stmt.query_map([], |row| {
@@ -835,6 +842,8 @@ impl Store {
                 has_passphrase: row.get(7)?,
                 created_at: row.get(8)?,
                 updated_at: row.get(9)?,
+                notes: row.get(10)?,
+                expires_at: row.get(11)?,
             })
         })?;
         rows.collect()
@@ -844,9 +853,10 @@ impl Store {
         let conn = self.conn.lock().unwrap();
         conn.execute(
             "INSERT INTO ssh_keys(id, name, algorithm, fingerprint, public_key, comment,
-                                  source_path, has_passphrase, created_at, updated_at)
+                                  source_path, has_passphrase, created_at, updated_at,
+                                  notes, expires_at)
              VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
-                    COALESCE(NULLIF(?9, ''), datetime('now')), datetime('now'))
+                    COALESCE(NULLIF(?9, ''), datetime('now')), datetime('now'), ?10, ?11)
              ON CONFLICT(id) DO UPDATE SET
                  name = excluded.name,
                  algorithm = excluded.algorithm,
@@ -855,6 +865,8 @@ impl Store {
                  comment = excluded.comment,
                  source_path = excluded.source_path,
                  has_passphrase = excluded.has_passphrase,
+                 notes = excluded.notes,
+                 expires_at = excluded.expires_at,
                  updated_at = datetime('now')",
             params![
                 key.id,
@@ -866,9 +878,28 @@ impl Store {
                 key.source_path,
                 key.has_passphrase,
                 key.created_at,
+                key.notes,
+                key.expires_at,
             ],
         )?;
         Ok(())
+    }
+
+    /// Updates only operator-owned metadata; key material and fingerprints
+    /// are never touched here.
+    pub fn update_ssh_key_metadata(
+        &self,
+        id: &str,
+        notes: &str,
+        expires_at: &str,
+    ) -> rusqlite::Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        let changed = conn.execute(
+            "UPDATE ssh_keys SET notes = ?2, expires_at = ?3, updated_at = datetime('now')
+             WHERE id = ?1",
+            params![id, notes, expires_at],
+        )?;
+        Ok(changed > 0)
     }
 
     pub fn delete_ssh_key(&self, id: &str) -> rusqlite::Result<()> {
@@ -1406,11 +1437,25 @@ mod tests {
             has_passphrase: false,
             created_at: String::new(),
             updated_at: String::new(),
+            notes: "bastion access".into(),
+            expires_at: "2027-01-31".into(),
         };
         store.save_ssh_key(&key).unwrap();
         let listed = store.list_ssh_keys().unwrap();
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].name, "work");
+        assert_eq!(listed[0].notes, "bastion access");
+        assert_eq!(listed[0].expires_at, "2027-01-31");
+
+        assert!(store
+            .update_ssh_key_metadata("k1", "rotated", "2028-02-29")
+            .unwrap());
+        assert!(!store.update_ssh_key_metadata("missing", "", "").unwrap());
+        let updated = store.list_ssh_keys().unwrap();
+        assert_eq!(updated[0].notes, "rotated");
+        assert_eq!(updated[0].expires_at, "2028-02-29");
+        assert_eq!(updated[0].fingerprint, "SHA256:abc");
+
         store.delete_ssh_key("k1").unwrap();
         assert!(store.list_ssh_keys().unwrap().is_empty());
 

@@ -6130,6 +6130,129 @@ body.dock-resizing-y * {
   gap: var(--space-2);
 }
 
+/* Inline metadata editor, visually attached to the row it belongs to. */
+.key-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2) 0 var(--space-3) var(--space-3);
+  border-left: 2px solid var(--accent);
+}
+
+.key-editor .field {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+}
+
+.key-editor .field > span:first-child {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
+.key-editor .field > textarea,
+.key-editor .field > input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.key-rotate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--divider);
+}
+
+.key-rotate .field-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.key-rotate .field-inline > input {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.key-export {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.key-export > .plugin-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.key-export textarea {
+  width: 100%;
+  min-height: 72px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  resize: vertical;
+}
+
+/* The key dialog's own buttons and inline inputs need the themed surface:
+   without it they fall back to the OS widget look. */
+.key-manager .plugin-actions button {
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--font-ui);
+}
+
+.key-manager .plugin-actions button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.key-manager .plugin-actions button.primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--fg-on-accent);
+  font-weight: 600;
+}
+
+.key-manager .plugin-actions button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.key-manager .plugin-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.key-manager .field-inline > input {
+  height: var(--control-h);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--font-ui);
+  outline: none;
+}
+
+.key-manager .field-inline > input:focus {
+  border-color: var(--accent);
+}
+
+.badge.danger {
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--border));
+  color: var(--danger);
+}
+
 .key-paste {
   min-height: 92px;
   resize: vertical;

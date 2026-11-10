@@ -165,6 +165,10 @@ export interface SshKey {
   hasPassphrase: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Operator note; metadata only, never sent to a remote host. */
+  notes: string;
+  /** Optional ISO date (YYYY-MM-DD) used for rotation reminders. */
+  expiresAt: string;
 }
 
 export interface KeyCandidate {
@@ -282,6 +286,11 @@ export interface CommandGroup {
   id: string;
   name: string;
   commands: CommandItem[];
+}
+
+export interface KeyBundleStats {
+  imported: number;
+  skipped: number;
 }
 
 export interface ImportStats {
@@ -776,6 +785,15 @@ export const api = {
     comment: string;
   }) => invoke<SshKey>("ssh_key_generate", payload),
   sshKeyDelete: (id: string) => invoke<void>("ssh_key_delete", { id }),
+  sshKeyUpdateMetadata: (id: string, notes: string, expiresAt: string) =>
+    invoke<SshKey>("ssh_key_update_metadata", { id, notes, expiresAt }),
+  sshKeyRotate: (id: string, passphrase: string, comment: string) =>
+    invoke<SshKey>("ssh_key_rotate", { id, passphrase, comment }),
+  sshKeyExportPublic: () => invoke<string>("ssh_key_export_public"),
+  sshKeyExportBundle: (passphrase: string) =>
+    invoke<string>("ssh_key_export_bundle", { passphrase }),
+  sshKeyImportBundle: (payload: string, passphrase: string) =>
+    invoke<KeyBundleStats>("ssh_key_import_bundle", { payload, passphrase }),
 
   knownHostsList: () => invoke<KnownHostEntry[]>("known_hosts_list"),
   knownHostsRemove: (host: string, port: number) =>

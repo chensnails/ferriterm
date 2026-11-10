@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri, type KeyCandidate, type SshKey } from "../api";
+import { useAppStore } from "../store";
 import { Modal } from "./Modal";
 
 interface KeyPreview {
@@ -10,11 +11,30 @@ interface KeyPreview {
   encrypted: boolean;
 }
 
+/** How close a managed key is to its operator-set expiry date. */
+function expiryInfo(expiresAt: string): {
+  state: "none" | "ok" | "soon" | "expired";
+  days: number;
+} {
+  const trimmed = expiresAt.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return { state: "none", days: 0 };
+  const target = new Date(`${trimmed}T00:00:00`).getTime();
+  if (Number.isNaN(target)) return { state: "none", days: 0 };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((target - today.getTime()) / 86_400_000);
+  if (days < 0) return { state: "expired", days: -days };
+  if (days <= 30) return { state: "soon", days };
+  return { state: "ok", days };
+}
+
 export function KeyManagerDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const [keys, setKeys] = useState<SshKey[]>([]);
   const [candidates, setCandidates] = useState<KeyCandidate[]>([]);
-  const [tab, setTab] = useState<"library" | "import" | "generate">("library");
+  const [tab, setTab] = useState<
+    "library" | "import" | "generate" | "backup"
+  >("library");
   const [name, setName] = useState("");
   const [path, setPath] = useState("");
   const [pasted, setPasted] = useState("");
@@ -29,6 +49,14 @@ export function KeyManagerDialog({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftNote, setDraftNote] = useState("");
+  const [draftExpiry, setDraftExpiry] = useState("");
+  const [rotatePassphrase, setRotatePassphrase] = useState("");
+  const [backupPassphrase, setBackupPassphrase] = useState("");
+  const [publicPayload, setPublicPayload] = useState("");
+  const [bundlePayload, setBundlePayload] = useState("");
+  const [bundleInput, setBundleInput] = useState("");
 
   const reload = async () => {
     try {
@@ -172,10 +200,113 @@ export function KeyManagerDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const startEdit = (key: SshKey) => {
+    setEditingId(key.id);
+    setDraftNote(key.notes);
+    setDraftExpiry(key.expiresAt);
+    setRotatePassphrase("");
+    setError("");
+  };
+
+  const saveMetadata = async (key: SshKey) => {
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await api.sshKeyUpdateMetadata(
+        key.id,
+        draftNote,
+        draftExpiry,
+      );
+      setKeys((list) =>
+        list.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      setEditingId(null);
+      setMessage(t("keys.metadataSaved", { name: updated.name }));
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const rotate = async (key: SshKey) => {
+    const confirmed = await useAppStore.getState().askConfirm({
+      title: t("keys.rotate"),
+      body: t("keys.rotateConfirm", { name: key.name }),
+      confirmLabel: t("keys.rotate"),
+      danger: true,
+    });
+    if (!confirmed) return;
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await api.sshKeyRotate(key.id, rotatePassphrase, "");
+      setKeys((list) =>
+        list.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      setEditingId(null);
+      setRotatePassphrase("");
+      setMessage(t("keys.rotated", { name: updated.name }));
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const exportPublic = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      setPublicPayload(await api.sshKeyExportPublic());
+      setMessage(t("keys.publicReady"));
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const exportBundle = async () => {
+    if (!backupPassphrase.trim()) return;
+    setBusy(true);
+    setError("");
+    try {
+      setBundlePayload(await api.sshKeyExportBundle(backupPassphrase));
+      setMessage(t("keys.bundleReady"));
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const importBundle = async () => {
+    const payload = bundleInput.trim();
+    if (!payload || !backupPassphrase.trim()) return;
+    setBusy(true);
+    setError("");
+    try {
+      const stats = await api.sshKeyImportBundle(payload, backupPassphrase);
+      setMessage(
+        t("keys.bundleImported", {
+          imported: stats.imported,
+          skipped: stats.skipped,
+        }),
+      );
+      setBundleInput("");
+      await reload();
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <Modal title={t("keys.title")} onClose={onClose} className="key-manager">
       <div className="settings-tabs">
-        {(["library", "import", "generate"] as const).map((item) => (
+        {(["library", "import", "generate", "backup"] as const).map((item) => (
           <button
             key={item}
             type="button"
@@ -194,38 +325,131 @@ export function KeyManagerDialog({ onClose }: { onClose: () => void }) {
             <p className="hint">{t("keys.empty")}</p>
           ) : (
             <ul className="plugin-list">
-              {keys.map((key) => (
-                <li key={key.id} className="plugin-row key-row">
-                  <span className="plugin-main">
-                    <span className="plugin-name">
-                      {key.name}
-                      {key.hasPassphrase && (
-                        <span className="badge">{t("keys.encrypted")}</span>
-                      )}
-                    </span>
-                    <span className="hint plugin-desc">
-                      {key.algorithm} · {key.fingerprint}
-                    </span>
-                    {key.comment && (
-                      <span className="hint plugin-desc">{key.comment}</span>
+              {keys.map((key) => {
+                const expiry = expiryInfo(key.expiresAt);
+                return (
+                  <Fragment key={key.id}>
+                    <li className="plugin-row key-row">
+                      <span className="plugin-main">
+                        <span className="plugin-name">
+                          {key.name}
+                          {key.hasPassphrase && (
+                            <span className="badge">{t("keys.encrypted")}</span>
+                          )}
+                          {expiry.state === "expired" && (
+                            <span className="badge danger">
+                              {t("keys.expired", { days: expiry.days })}
+                            </span>
+                          )}
+                          {expiry.state === "soon" && (
+                            <span className="badge warn">
+                              {t("keys.expiresSoon", { days: expiry.days })}
+                            </span>
+                          )}
+                        </span>
+                        <span className="hint plugin-desc">
+                          {key.algorithm} · {key.fingerprint}
+                        </span>
+                        {key.comment && (
+                          <span className="hint plugin-desc">
+                            {key.comment}
+                          </span>
+                        )}
+                        {key.notes && (
+                          <span className="hint plugin-desc">{key.notes}</span>
+                        )}
+                        {key.expiresAt && (
+                          <span className="hint plugin-desc">
+                            {t("keys.expiresOn", { date: key.expiresAt })}
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        className="link-btn"
+                        onClick={() => void copy(key.publicKey)}
+                      >
+                        {t("keys.copyPublic")}
+                      </button>
+                      <button
+                        type="button"
+                        className="link-btn"
+                        onClick={() => startEdit(key)}
+                      >
+                        {t("keys.edit")}
+                      </button>
+                      <button
+                        type="button"
+                        className="link-btn danger"
+                        onClick={() => void remove(key)}
+                      >
+                        {t("common.delete")}
+                      </button>
+                    </li>
+                    {editingId === key.id && (
+                      <li className="key-editor">
+                        <label className="field">
+                          <span>{t("keys.note")}</span>
+                          <textarea
+                            rows={2}
+                            value={draftNote}
+                            maxLength={2000}
+                            placeholder={t("keys.notePlaceholder")}
+                            onChange={(e) => setDraftNote(e.target.value)}
+                          />
+                        </label>
+                        <label className="field">
+                          <span>{t("keys.expiresAt")}</span>
+                          <input
+                            type="date"
+                            value={draftExpiry}
+                            onChange={(e) => setDraftExpiry(e.target.value)}
+                          />
+                        </label>
+                        <span className="hint">{t("keys.expiresHint")}</span>
+                        <div className="plugin-actions">
+                          <button
+                            type="button"
+                            className="primary"
+                            disabled={busy}
+                            onClick={() => void saveMetadata(key)}
+                          >
+                            {t("keys.save")}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => setEditingId(null)}
+                          >
+                            {t("common.cancel")}
+                          </button>
+                        </div>
+                        <div className="key-rotate">
+                          <span className="hint">{t("keys.rotateHint")}</span>
+                          <div className="field-inline">
+                            <input
+                              type="password"
+                              value={rotatePassphrase}
+                              placeholder={t("keys.rotatePassphrase")}
+                              onChange={(e) =>
+                                setRotatePassphrase(e.target.value)
+                              }
+                            />
+                            <button
+                              type="button"
+                              className="link-btn danger"
+                              disabled={busy}
+                              onClick={() => void rotate(key)}
+                            >
+                              {t("keys.rotate")}
+                            </button>
+                          </div>
+                        </div>
+                      </li>
                     )}
-                  </span>
-                  <button
-                    type="button"
-                    className="link-btn"
-                    onClick={() => void copy(key.publicKey)}
-                  >
-                    {t("keys.copyPublic")}
-                  </button>
-                  <button
-                    type="button"
-                    className="link-btn danger"
-                    onClick={() => void remove(key)}
-                  >
-                    {t("common.delete")}
-                  </button>
-                </li>
-              ))}
+                  </Fragment>
+                );
+              })}
             </ul>
           )}
           <p className="hint">{t("keys.libraryHint")}</p>
@@ -451,6 +675,96 @@ export function KeyManagerDialog({ onClose }: { onClose: () => void }) {
             </div>
           )}
         </fieldset>
+      )}
+
+      {tab === "backup" && (
+        <>
+          <fieldset className="settings-group">
+            <legend>{t("keys.backupTitle")}</legend>
+            <p className="hint">{t("keys.backupHint")}</p>
+            <label className="field">
+              <span>{t("keys.bundlePassphrase")}</span>
+              <input
+                type="password"
+                value={backupPassphrase}
+                onChange={(e) => setBackupPassphrase(e.target.value)}
+                placeholder={t("keys.bundlePassphrasePlaceholder")}
+              />
+            </label>
+            <div className="plugin-actions">
+              <button
+                type="button"
+                disabled={busy || keys.length === 0}
+                onClick={() => void exportPublic()}
+              >
+                {t("keys.exportPublic")}
+              </button>
+              <button
+                type="button"
+                disabled={busy || keys.length === 0 || !backupPassphrase.trim()}
+                onClick={() => void exportBundle()}
+              >
+                {t("keys.exportBundle")}
+              </button>
+            </div>
+            {publicPayload && (
+              <div className="key-export">
+                <span className="plugin-name">
+                  {t("keys.publicReady")}
+                  <button
+                    type="button"
+                    className="link-btn"
+                    onClick={() => void copy(publicPayload)}
+                  >
+                    {t("keys.copyPayload")}
+                  </button>
+                </span>
+                <textarea readOnly rows={4} value={publicPayload} />
+              </div>
+            )}
+            {bundlePayload && (
+              <div className="key-export">
+                <span className="plugin-name">
+                  {t("keys.bundleReady")}
+                  <button
+                    type="button"
+                    className="link-btn"
+                    onClick={() => void copy(bundlePayload)}
+                  >
+                    {t("keys.copyPayload")}
+                  </button>
+                </span>
+                <textarea readOnly rows={4} value={bundlePayload} />
+              </div>
+            )}
+          </fieldset>
+          <fieldset className="settings-group">
+            <legend>{t("keys.importBundle")}</legend>
+            <p className="hint">{t("keys.importBundleHint")}</p>
+            <label className="field">
+              <span>{t("keys.bundlePayload")}</span>
+              <textarea
+                rows={4}
+                spellCheck={false}
+                value={bundleInput}
+                placeholder={t("keys.bundlePayloadPlaceholder")}
+                onChange={(e) => setBundleInput(e.target.value)}
+              />
+            </label>
+            <div className="plugin-actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={
+                  busy || !bundleInput.trim() || !backupPassphrase.trim()
+                }
+                onClick={() => void importBundle()}
+              >
+                {t("keys.importBundle")}
+              </button>
+            </div>
+          </fieldset>
+        </>
       )}
 
       {message && <p className="hint sync-message">{message}</p>}
