@@ -369,3 +369,21 @@ export function applyThemePack(
 ) {
   applyTheme(base === "light" ? "light" : base === "dark" ? "dark" : id, tokens);
 }
+
+/** Interface type scale. Every `--fs-*` token resolves from these three, so
+ *  one number moves the whole chrome without touching the terminal. */
+export function applyUiFont(size: number) {
+  const root = document.documentElement;
+  const base = Math.min(16, Math.max(11, Math.round(size)));
+  root.style.setProperty("--font-ui", `${base}px`);
+  root.style.setProperty("--font-ui-sm", `${Math.max(10, base - 1)}px`);
+  root.style.setProperty("--font-title", `${base + 2}px`);
+}
+
+/** Motion is a preference, not a theme: `data-motion="reduced"` is what the
+ *  stylesheet keys off, next to the OS-level `prefers-reduced-motion` query. */
+export function applyMotion(reduced: boolean) {
+  const root = document.documentElement;
+  if (reduced) root.dataset.motion = "reduced";
+  else delete root.dataset.motion;
+}

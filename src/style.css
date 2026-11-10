@@ -46,7 +46,10 @@
 
 /* Design tokens — source of truth is docs/UI_SPEC.md §2. No color/size/spacing/
    radius/duration literals outside this block. */
-:root {
+/* The default palette also answers `data-theme="dark"` so theme previews can
+   ask for it explicitly on a nested element. */
+:root,
+[data-theme="dark"] {
   --bg-base: #0f1117;
   --bg-panel: #151922;
   --bg-elevated: #1c2130;
@@ -156,7 +159,7 @@
   color-scheme: dark;
 }
 
-:root[data-theme="light"] {
+[data-theme="light"] {
   --bg-base: #f5f6f8;
   --bg-panel: #ffffff;
   --bg-elevated: #eef1f5;
@@ -183,7 +186,7 @@
   color-scheme: light;
 }
 
-:root[data-theme="nord"] {
+[data-theme="nord"] {
   --bg-base: #2e3440;
   --bg-panel: #3b4252;
   --bg-elevated: #434c5e;
@@ -205,7 +208,7 @@
   --tag-gray: #959db1;
 }
 
-:root[data-theme="dracula"] {
+[data-theme="dracula"] {
   --bg-base: #282a36;
   --bg-panel: #21222c;
   --bg-elevated: #343746;
@@ -226,7 +229,7 @@
   --tag-pink: #ee5ea5;
 }
 
-:root[data-theme="solarized"] {
+[data-theme="solarized"] {
   --bg-base: #fdf6e3;
   --bg-panel: #eee8d5;
   --bg-elevated: #fffaf0;
@@ -253,7 +256,7 @@
   color-scheme: light;
 }
 
-:root[data-theme="tokyo-night"] {
+[data-theme="tokyo-night"] {
   --bg-base: #1a1b26;
   --bg-panel: #16161e;
   --bg-elevated: #24283b;
@@ -271,7 +274,7 @@
   --tag-purple: #ac5df7;
 }
 
-:root[data-theme="gruvbox"] {
+[data-theme="gruvbox"] {
   --bg-base: #282828;
   --bg-panel: #1d2021;
   --bg-elevated: #3c3836;
@@ -291,7 +294,7 @@
   --tag-pink: #ee59a2;
 }
 
-:root[data-theme="one-dark"] {
+[data-theme="one-dark"] {
   --bg-base: #282c34;
   --bg-panel: #21252b;
   --bg-elevated: #2f343d;
@@ -312,7 +315,7 @@
   --tag-pink: #ef61a7;
 }
 
-:root[data-theme="catppuccin"] {
+[data-theme="catppuccin"] {
   --bg-base: #1e1e2e;
   --bg-panel: #181825;
   --bg-elevated: #313244;
@@ -331,7 +334,7 @@
   --tag-purple: #ae62f8;
 }
 
-:root[data-theme="rose-pine"] {
+[data-theme="rose-pine"] {
   --bg-base: #191724;
   --bg-panel: #1f1d2e;
   --bg-elevated: #26233a;
@@ -349,7 +352,7 @@
   --tag-purple: #aa59f7;
 }
 
-:root[data-theme="solarized-dark"] {
+[data-theme="solarized-dark"] {
   --bg-base: #002b36;
   --bg-panel: #073642;
   --bg-elevated: #0b3f4b;
@@ -369,7 +372,7 @@
   --tag-pink: #ed56a1;
 }
 
-:root[data-theme="github-light"] {
+[data-theme="github-light"] {
   --bg-base: #ffffff;
   --bg-panel: #f6f8fa;
   --bg-elevated: #eef1f4;
@@ -2049,6 +2052,118 @@ mark {
 }
 
 .settings-pane.searching .font-preview {
+  display: none;
+}
+
+/* ---- Appearance: theme gallery ----
+   Each card renders a real swatch: the preview element carries the theme's own
+   `data-theme`, so its tokens (and `color-scheme`) resolve from the same blocks
+   the app uses — no duplicated colour tables. The card chrome itself stays in
+   the app theme so selection stays readable. */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.theme-card:hover {
+  border-color: var(--fg-muted);
+}
+
+.theme-card.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  color: var(--fg-primary);
+}
+
+.theme-card-preview {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  height: 54px;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  overflow: hidden;
+}
+
+.theme-card-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.theme-card-chip {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.theme-card-pill {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--accent);
+  opacity: 0.85;
+}
+
+.theme-card-line {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--fg-muted);
+  opacity: 0.45;
+}
+
+.theme-card-line.short {
+  width: 62%;
+}
+
+.theme-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  font-size: var(--fs-xs);
+}
+
+.theme-card-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-primary);
+}
+
+.theme-card.active .theme-card-name {
+  font-weight: 500;
+}
+
+.theme-card-check {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.settings-pane.searching .theme-grid {
   display: none;
 }
 
@@ -4373,6 +4488,15 @@ label.sync-action {
 
 .sync-bulk button {
   font-size: var(--font-ui-sm);
+}
+
+/* The in-app "reduce motion" switch shares the OS query's rules; the attribute
+   selector keeps the two paths honest — one meaning, one set of effects. */
+[data-motion="reduced"] *,
+[data-motion="reduced"] *::before,
+[data-motion="reduced"] *::after {
+  transition: none !important;
+  animation: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

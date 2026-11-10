@@ -30,6 +30,8 @@ import {
 import {
   applyTheme,
   applyThemePack,
+  applyUiFont,
+  applyMotion,
   builtinPalette,
   HIGHLIGHT_COLORS,
   setTerminalPalette,
@@ -49,6 +51,8 @@ import i18n, {
 export const DEFAULT_TERMINAL_FONT_SIZE = 14;
 export const DEFAULT_TERMINAL_FONT_FAMILY = DEFAULT_TERMINAL_FONT_STACK;
 export const DEFAULT_TERMINAL_SCROLLBACK = 5000;
+/** Interface type size. 13 is what the stylesheet's token block starts from. */
+export const DEFAULT_UI_FONT_SIZE = 13;
 
 // Terminal render / interaction preferences live here (rather than terminal.ts)
 // so the store owns persisted settings without a circular import.
@@ -379,6 +383,15 @@ interface AppState {
   /** Persistent status-bar monitor readout (on by default). */
   statusMonitor: boolean;
   setStatusMonitor: (enabled: boolean) => void;
+  /** Interface type size in px (11–16); drives every `--fs-*` token. */
+  uiFontSize: number;
+  setUiFontSize: (size: number) => void;
+  /** Global switch for transitions and animations. */
+  reduceMotion: boolean;
+  setReduceMotion: (enabled: boolean) => void;
+  /** When on, opening a dock card closes the other two. */
+  dockSingleCard: boolean;
+  setDockSingleCard: (enabled: boolean) => void;
   forwardOpen: boolean;
   setForwardOpen: (open: boolean) => void;
   toggleForward: () => void;
@@ -663,6 +676,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   monitorOpen: false,
   monitorTarget: "local",
   statusMonitor: true,
+  uiFontSize: DEFAULT_UI_FONT_SIZE,
+  reduceMotion: false,
+  dockSingleCard: false,
   forwardOpen: false,
   transferOpen: false,
   transferSessionId: null,
@@ -714,16 +730,43 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleMonitor: () =>
     set((s) => {
       const open = !s.monitorOpen;
+      const single = s.dockSingleCard && open;
       if (isTauri) {
         api.setSetting("monitorOpen", open ? "1" : "0").catch(() => {});
+        if (single) {
+          api.setSetting("commandsOpen", "0").catch(() => {});
+          api.setSetting("execLogOpen", "0").catch(() => {});
+        }
       }
-      return { monitorOpen: open };
+      return {
+        monitorOpen: open,
+        ...(single ? { commandsOpen: false, execLogOpen: false } : {}),
+      };
     }),
   setMonitorTarget: (monitorTarget) => set({ monitorTarget }),
   setStatusMonitor: (enabled) => {
     set({ statusMonitor: enabled });
     if (isTauri) {
       api.setSetting("statusMonitor", enabled ? "1" : "0").catch(() => {});
+    }
+  },
+  setUiFontSize: (size) => {
+    const next = Math.min(16, Math.max(11, Math.round(size)));
+    set({ uiFontSize: next });
+    applyUiFont(next);
+    if (isTauri) api.setSetting("uiFontSize", String(next)).catch(() => {});
+  },
+  setReduceMotion: (enabled) => {
+    set({ reduceMotion: enabled });
+    applyMotion(enabled);
+    if (isTauri) {
+      api.setSetting("reduceMotion", enabled ? "1" : "0").catch(() => {});
+    }
+  },
+  setDockSingleCard: (enabled) => {
+    set({ dockSingleCard: enabled });
+    if (isTauri) {
+      api.setSetting("dockSingleCard", enabled ? "1" : "0").catch(() => {});
     }
   },
   setForwardOpen: (open) => set({ forwardOpen: open }),
@@ -969,10 +1012,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleCommands: () =>
     set((s) => {
       const open = !s.commandsOpen;
+      const single = s.dockSingleCard && open;
       if (isTauri) {
         api.setSetting("commandsOpen", open ? "1" : "0").catch(() => {});
+        if (single) {
+          api.setSetting("monitorOpen", "0").catch(() => {});
+          api.setSetting("execLogOpen", "0").catch(() => {});
+        }
       }
-      return { commandsOpen: open };
+      return {
+        commandsOpen: open,
+        ...(single ? { monitorOpen: false, execLogOpen: false } : {}),
+      };
     }),
   toggleSidebar: () =>
     set((s) => {
@@ -1215,10 +1266,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleExecLog: () =>
     set((s) => {
       const open = !s.execLogOpen;
+      const single = s.dockSingleCard && open;
       if (isTauri) {
         api.setSetting("execLogOpen", open ? "1" : "0").catch(() => {});
+        if (single) {
+          api.setSetting("commandsOpen", "0").catch(() => {});
+          api.setSetting("monitorOpen", "0").catch(() => {});
+        }
       }
-      return { execLogOpen: open };
+      return {
+        execLogOpen: open,
+        ...(single ? { commandsOpen: false, monitorOpen: false } : {}),
+      };
     }),
 
   clearExecLog: () => set({ execLog: [] }),
@@ -1489,6 +1548,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     const tabNumbering: TabNumbering =
       numbering === "always" || numbering === "none" ? numbering : "asNeed";
     const importedThemes = parseStoredThemes(settings["themes:imported"]);
+    const uiFontSize = Number.parseInt(settings.uiFontSize ?? "", 10);
+    const reduceMotion = settings.reduceMotion === "1";
+    const dockSingleCard = settings.dockSingleCard === "1";
     const pack = get().pluginScan?.themes.find((item) => item.id === theme);
     const custom = importedThemes.find((item) => item.id === theme);
     if (pack) {
@@ -1555,6 +1617,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       // machine again; only the on/off choice is persisted.
       monitorTarget: "local",
       statusMonitor: (settings.statusMonitor ?? "1") !== "0",
+      uiFontSize: Number.isFinite(uiFontSize)
+        ? Math.min(16, Math.max(11, uiFontSize))
+        : get().uiFontSize,
+      reduceMotion,
+      dockSingleCard,
       execLogOpen: (settings.execLogOpen ?? "0") === "1",
       transferConcurrency: clampTransferConcurrency(
         Number(settings.transferConcurrency),
@@ -1565,6 +1632,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       // The queue starts at its built-in default, so push the saved value.
       api.setTransferConcurrency(get().transferConcurrency).catch(() => {});
     }
+    // The stored type scale and motion preference must reach the DOM even when
+    // they equal the defaults, because a previous session may have changed them.
+    applyUiFont(get().uiFontSize);
+    applyMotion(reduceMotion);
   },
 
   loadLanguagePacks: async () => {

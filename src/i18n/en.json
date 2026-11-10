@@ -216,6 +216,12 @@
     "close": "Close",
     "theme": "Theme",
     "themeTitle": "Active theme",
+    "uiFontSize": "Interface font size",
+    "uiFontSizeHint": "Sidebar and labels, 11–16 pt; the terminal font is set separately.",
+    "reduceMotion": "Reduce motion",
+    "reduceMotionHint": "Turn off menu, dialog and notification animations.",
+    "dockSingleCard": "Show one dock card at a time",
+    "dockSingleCardHint": "Opening a card closes the other cards in the right dock.",
     "themeBuiltin": "Built-in",
     "themePacks": "Plugin themes",
     "themePackHint": "Install a theme plugin to add more palettes.",
@@ -263,6 +269,7 @@
     "highlightColor_cyan": "Cyan",
     "cat": {
       "general": "General",
+      "appearance": "Appearance",
       "terminal": "Terminal",
       "keyboard": "Keyboard",
       "transfer": "Transfer",
@@ -272,7 +279,8 @@
       "credentials": "Credentials"
     },
     "desc": {
-      "general": "Theme, language and tab behaviour.",
+      "general": "Language and tab behaviour.",
+      "appearance": "Theme, interface type size and motion.",
       "terminal": "Font, cursor, scrollback and highlight rules.",
       "keyboard": "Shortcuts for every app action.",
       "transfer": "Concurrency, hidden files and editor behaviour.",
@@ -364,6 +372,12 @@
     "group": {
       "appearance": "Appearance & language",
       "appearanceHint": "Theme, language packs and terminal look. Changes are saved immediately.",
+      "language": "Language",
+      "languageHint": "Interface language and installed language packs.",
+      "theme": "Theme",
+      "themeHint": "Pick a palette; the change applies to the whole interface immediately.",
+      "interface": "Interface",
+      "interfaceHint": "Type size, motion and dock behaviour.",
       "startup": "Startup & sessions",
       "startupHint": "Controls what the app restores and how tabs behave.",
       "statusBar": "Status bar",

@@ -25,6 +25,7 @@ import { Modal } from "./Modal";
 import { CredentialVault } from "./CredentialVault";
 import { ShortcutEditor } from "./ShortcutEditor";
 import { VersionHistory } from "./VersionHistory";
+import { ThemeGallery, ThemeImportButton } from "./ThemeGallery";
 import {
   CheckList,
   Chip,
@@ -56,11 +57,13 @@ import {
   SearchIcon,
   SlidersIcon,
   TerminalIcon,
+  ThemeIcon,
   UploadIcon,
 } from "./icons";
 
 const SETTINGS_CATEGORIES = [
   "general",
+  "appearance",
   "credentials",
   "terminal",
   "keyboard",
@@ -74,6 +77,7 @@ type SettingsCategory = (typeof SETTINGS_CATEGORIES)[number];
 
 const CATEGORY_ICONS: Record<SettingsCategory, typeof SlidersIcon> = {
   general: SlidersIcon,
+  appearance: ThemeIcon,
   credentials: KeyIcon,
   terminal: TerminalIcon,
   keyboard: KeyboardIcon,
@@ -168,6 +172,12 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const keywordHighlights = useAppStore((s) => s.keywordHighlights);
   const setKeywordHighlights = useAppStore((s) => s.setKeywordHighlights);
   const setTheme = useAppStore((s) => s.setTheme);
+  const uiFontSize = useAppStore((s) => s.uiFontSize);
+  const setUiFontSize = useAppStore((s) => s.setUiFontSize);
+  const reduceMotion = useAppStore((s) => s.reduceMotion);
+  const setReduceMotion = useAppStore((s) => s.setReduceMotion);
+  const dockSingleCard = useAppStore((s) => s.dockSingleCard);
+  const setDockSingleCard = useAppStore((s) => s.setDockSingleCard);
   const setLanguage = useAppStore((s) => s.setLanguage);
   const setKeepalive = useAppStore((s) => s.setKeepalive);
   const tabNumbering = useAppStore((s) => s.tabNumbering);
@@ -226,7 +236,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const [gistTokenSaved, setGistTokenSaved] = useState(false);
   const [davPassSaved, setDavPassSaved] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const themeFileRef = useRef<HTMLInputElement>(null);
   const paneRef = useRef<HTMLDivElement>(null);
   /** The top veil exists only while rows are actually scrolled under the
       pinned intro; at rest it would clip the first group title. */
@@ -416,8 +425,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       setThemeMessage(t("settings.themeImportFailed", { error: detail }));
-    } finally {
-      if (themeFileRef.current) themeFileRef.current.value = "";
     }
   };
 
@@ -512,7 +519,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   // "reset this group" never silently changes an unrelated preference.
   const resetAppearance = () => {
     setTheme("dark");
-    setLanguage(detectLanguage());
+    setUiFontSize(13);
+    setReduceMotion(false);
+    setDockSingleCard(false);
   };
   const resetStartup = () => {
     setRestoreLayoutOnStartup(true);
@@ -623,41 +632,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           {category === "general" && (
             <>
         <SettingGroup
-          title={t("settings.group.appearance")}
-          hint={t("settings.group.appearanceHint")}
-          onReset={resetAppearance}
-          resetLabel={t("settings.resetGroup")}
+          title={t("settings.group.language")}
+          hint={t("settings.group.languageHint")}
         >
-          <SelectSetting
-            title={t("settings.themeTitle")}
-            hint={t("settings.themeHint")}
-            wide
-            value={theme}
-            onChange={setTheme}
-            options={[
-              ...BUILTIN_THEMES.map(
-                (item): SelectOption => ({
-                  value: item.id,
-                  label: t(`settings.theme_${item.id}`),
-                  group: t("settings.themeBuiltin"),
-                }),
-              ),
-              ...themes.map(
-                (pack): SelectOption => ({
-                  value: pack.id,
-                  label: pack.name,
-                  group: t("settings.themePacks"),
-                }),
-              ),
-              ...importedThemes.map(
-                (item): SelectOption => ({
-                  value: item.id,
-                  label: item.name,
-                  group: t("settings.themeCustom"),
-                }),
-              ),
-            ]}
-          />
           {/* Language can grow with language packs, so it uses the dropdown
               the other open-ended lists use instead of a wrapping pill row. */}
           <SelectSetting
@@ -690,84 +667,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 ),
             ]}
           />
-          <div className="plugin-actions">
-            <button
-              type="button"
-              onClick={() => themeFileRef.current?.click()}
-            >
-              {t("settings.themeImport")}
-            </button>
-            <input
-              ref={themeFileRef}
-              type="file"
-              accept=".itermcolors,.toml,.tml"
-              hidden
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void importSchemeFile(file);
-              }}
-            />
-          </div>
-          <span className="hint">{t("settings.themeImportHint")}</span>
-          {themeMessage && (
-            <p className="hint sync-message">{themeMessage}</p>
-          )}
-          {importedThemes.length > 0 && (
-            <ul className="plugin-list">
-              {importedThemes.map((item) => (
-                <li key={item.id} className="plugin-row">
-                  <span className="plugin-name">{item.name}</span>
-                  <span className="plugin-kind">
-                    {t(`settings.theme_${item.base}`)}
-                  </span>
-                  {theme === item.id ? (
-                    <span className="hint">{t("settings.themeActive")}</span>
-                  ) : (
-                    <button
-                      type="button"
-                      className="link-btn"
-                      onClick={() => setTheme(item.id)}
-                    >
-                      {t("settings.themeApply")}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="link-btn"
-                    onClick={() => removeImportedTheme(item.id)}
-                  >
-                    {t("settings.themeRemove")}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {themes.length === 0 ? (
-            <p className="hint">{t("settings.themePackHint")}</p>
-          ) : (
-            <ul className="plugin-list">
-              {themes.map((pack) => (
-                <li key={pack.id} className="plugin-row">
-                  <span className="plugin-name">{pack.name}</span>
-                  <span className="plugin-kind">
-                    {t(`settings.theme_${pack.base}`)}
-                    {pack.version ? ` · ${pack.version}` : ""}
-                  </span>
-                  {theme === pack.id ? (
-                    <span className="hint">{t("settings.themeActive")}</span>
-                  ) : (
-                    <button
-                      type="button"
-                      className="link-btn"
-                      onClick={() => setTheme(pack.id)}
-                    >
-                      {t("settings.themeApply")}
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
           <div className="plugin-actions">
             <button type="button" onClick={() => void refreshPlugins()}>
               {t("settings.languageReload")}
@@ -875,6 +774,86 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             hint={t("settings.cache.shortcutsHint")}
             actionLabel={t("settings.cache.resetShortcuts")}
             onAction={resetShortcuts}
+          />
+        </SettingGroup>
+            </>
+          )}
+          {category === "appearance" && (
+            <>
+        <SettingGroup
+          title={t("settings.group.theme")}
+          hint={t("settings.group.themeHint")}
+          onReset={resetAppearance}
+          resetLabel={t("settings.resetGroup")}
+        >
+          <ThemeGallery
+            theme={theme}
+            packs={themes}
+            imported={importedThemes}
+            onSelect={setTheme}
+          />
+          <div className="plugin-actions">
+            <ThemeImportButton
+              label={t("settings.themeImport")}
+              onFile={(file) => void importSchemeFile(file)}
+            />
+          </div>
+          <span className="hint">{t("settings.themeImportHint")}</span>
+          {themeMessage && (
+            <p className="hint sync-message">{themeMessage}</p>
+          )}
+          {importedThemes.length > 0 && (
+            <ul className="plugin-list">
+              {importedThemes.map((item) => (
+                <li key={item.id} className="plugin-row">
+                  <span className="plugin-name">{item.name}</span>
+                  <span className="plugin-kind">
+                    {t(`settings.theme_${item.base}`)}
+                  </span>
+                  <button
+                    type="button"
+                    className="link-btn"
+                    onClick={() => removeImportedTheme(item.id)}
+                  >
+                    {t("settings.themeRemove")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </SettingGroup>
+
+        <SettingGroup
+          title={t("settings.group.interface")}
+          hint={t("settings.group.interfaceHint")}
+        >
+          <SettingRow
+            title={t("settings.uiFontSize")}
+            hint={t("settings.uiFontSizeHint")}
+          >
+            <input
+              type="number"
+              min={11}
+              max={16}
+              value={uiFontSize}
+              onChange={(e) =>
+                setUiFontSize(
+                  Number.parseInt(e.target.value, 10) || uiFontSize,
+                )
+              }
+            />
+          </SettingRow>
+          <ToggleSetting
+            title={t("settings.reduceMotion")}
+            hint={t("settings.reduceMotionHint")}
+            checked={reduceMotion}
+            onChange={setReduceMotion}
+          />
+          <ToggleSetting
+            title={t("settings.dockSingleCard")}
+            hint={t("settings.dockSingleCardHint")}
+            checked={dockSingleCard}
+            onChange={setDockSingleCard}
           />
         </SettingGroup>
             </>

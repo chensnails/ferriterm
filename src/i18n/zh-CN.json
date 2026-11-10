@@ -216,6 +216,12 @@
     "close": "关闭",
     "theme": "主题",
     "themeTitle": "当前主题",
+    "uiFontSize": "界面字号",
+    "uiFontSizeHint": "侧栏与标签等界面文字，11–16；终端字体单独设置。",
+    "reduceMotion": "减少动态效果",
+    "reduceMotionHint": "关闭菜单、对话框和通知的动画。",
+    "dockSingleCard": "右侧栏只显示一张卡片",
+    "dockSingleCardHint": "打开新卡片时会自动收起其它卡片。",
     "themeBuiltin": "内置主题",
     "themePacks": "插件主题",
     "themePackHint": "安装主题插件即可添加更多配色。",
@@ -263,6 +269,7 @@
     "highlightColor_cyan": "青",
     "cat": {
       "general": "常规",
+      "appearance": "外观",
       "terminal": "终端",
       "keyboard": "键盘",
       "transfer": "传输",
@@ -272,7 +279,8 @@
       "credentials": "凭据"
     },
     "desc": {
-      "general": "主题、语言与标签页行为。",
+      "general": "语言与标签页行为。",
+      "appearance": "主题、界面字号与动效。",
       "terminal": "字体、光标、回滚与高亮规则。",
       "keyboard": "为每个应用动作设置快捷键。",
       "transfer": "并发数、隐藏文件与编辑器行为。",
@@ -364,6 +372,12 @@
     "group": {
       "appearance": "外观与语言",
       "appearanceHint": "主题、语言包与终端外观。修改后即时生效并保存。",
+      "language": "语言",
+      "languageHint": "界面语言与已安装的语言包。",
+      "theme": "主题",
+      "themeHint": "选择配色，立即作用于整个界面。",
+      "interface": "界面",
+      "interfaceHint": "字号、动效与停靠栏行为。",
       "startup": "启动与会话",
       "startupHint": "控制应用启动时恢复的内容与标签页行为。",
       "statusBar": "状态栏",
