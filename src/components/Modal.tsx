@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { DialogHeader } from "./ui";
 
@@ -24,6 +24,13 @@ export function Modal({
   className,
 }: ModalProps) {
   const { t } = useTranslation();
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Move focus into the dialog so Tab starts inside it and Escape is not the
+  // only keyboard path out of the window behind it.
+  useEffect(() => {
+    dialogRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -41,12 +48,14 @@ export function Modal({
       }}
     >
       <div
+        ref={dialogRef}
         className={["modal", wide ? "wide" : "", className ?? ""]
           .filter(Boolean)
           .join(" ")}
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        tabIndex={-1}
       >
         <DialogHeader
           title={title}

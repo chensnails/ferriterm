@@ -2008,20 +2008,78 @@ mark {
   display: none;
 }
 
-/* Narrow windows: keep the category list reachable without eating the pane,
-   and let the segmented rows stack instead of overflowing horizontally. */
+/* Three responsive tiers, one per window width the dialog has to survive:
+   >=1080 keeps the full two-column layout, 720-1080 trims the category column
+   and the gutters, and <720 turns the categories into a strip above the pane
+   so the rows keep their full width. */
+@media (max-width: 1080px) {
+  .settings-center {
+    gap: var(--space-3);
+  }
+
+  .settings-nav {
+    width: calc(var(--settings-nav-w) * 0.84);
+  }
+
+  .settings-pane {
+    padding-right: 0;
+  }
+}
+
 @media (max-width: 720px) {
   .settings-center {
+    flex-direction: column;
+    height: min(var(--settings-h), 78vh);
     gap: var(--space-2);
   }
 
   .settings-nav {
-    width: 152px;
-    padding-right: var(--space-1);
+    width: auto;
+    flex: 0 0 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+    padding: 0 0 var(--space-2);
+    border-right: 0;
+    border-bottom: 1px solid var(--divider);
+    overflow: visible;
+  }
+
+  .settings-nav-search {
+    flex: 1 0 100%;
+  }
+
+  /* Categories scroll sideways instead of wrapping into three rows. */
+  .settings-nav-list {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: var(--space-1);
+    width: 100%;
+    padding-bottom: var(--space-1);
+    overflow-x: auto;
+  }
+
+  .settings-nav-list button {
+    flex: 0 0 auto;
+  }
+
+  /* The sideways scroll needs an affordance, not a 10px bar under the chips. */
+  .settings-nav-list::-webkit-scrollbar {
+    height: var(--space-1);
   }
 
   .settings-pane {
-    padding-left: var(--space-1);
+    padding-left: 0;
+  }
+
+  /* The dialog edges stop eating width that the rows need. */
+  .modal.settings .modal-body {
+    padding: var(--space-3);
+  }
+
+  .modal.settings .modal-head {
+    padding: var(--space-2) var(--space-3);
   }
 
   .settings-inline {
@@ -3031,6 +3089,12 @@ mark {
 
 .modal.settings {
   width: min(var(--settings-w), 100%);
+}
+
+/* The dialog takes focus on open so keyboard users start inside it; that must
+   not paint a ring around the whole panel. */
+.modal:focus-visible {
+  outline: none;
 }
 
 /* Settings center — flat rows with hairline dividers (Termora alignment) */
