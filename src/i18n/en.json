@@ -861,7 +861,17 @@
     "showAll": "Show all {count} builds",
     "description": "Cross-platform SSH terminal and file transfer.",
     "cleanRoom": "An independent implementation; no source code, icons or UI strings from other products are included.",
-    "repository": "View source on GitHub"
+    "repository": "View source on GitHub",
+    "updateHint": "Checks the published release manifest; the artifact is verified by SHA-256 and size before installation.",
+    "checkUpdate": "Check for updates",
+    "checking": "Checking…",
+    "upToDate": "Ferriterm {version} is up to date.",
+    "updateAvailable": "Version {version} is available.",
+    "installUpdate": "Download and install",
+    "installing": "Downloading and verifying…",
+    "updateProgress": "{received} of {total}",
+    "updateProgressUnknown": "{received} downloaded",
+    "installedRelaunch": "Update installed; restarting…"
   },
   "terminal": {
     "disconnected": "[session disconnected]",

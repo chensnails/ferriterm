@@ -11,6 +11,20 @@ package version in `src-tauri/tauri.conf.json`.
 - Engineering assessment and phased remediation roadmap
   (`docs/assessment-2026-11-10.md`).
 - LICENSE (GPL-3.0-only), README, CONTRIBUTING and this changelog.
+- Self-update in Settings → About: manifest check, streamed download with
+  progress, SHA-256/size verification, then platform install (macOS in-place
+  replace + restart, Linux AppImage, Windows installer handoff).
+- Baseline content security policy for production and development webviews.
+
+### Fixed
+
+- Vault and known_hosts files are replaced atomically and keep a previous
+  generation; interrupted enable/disable/change-master windows roll back on
+  startup or unlock instead of leaving an undecryptable vault (kill -9
+  injection tested).
+- SFTP requests time out after 30s and retire the connection; owner-name exec
+  is bounded by a 15s deadline and a 1 MiB output cap.
+- Loopback smoke examples compile against the current `SshConnectArgs`.
 
 ## [0.1.0] - 2026-11-09
 

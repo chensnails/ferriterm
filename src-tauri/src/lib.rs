@@ -1,5 +1,6 @@
 mod commands;
 mod net_tools;
+mod updater;
 
 use std::sync::Arc;
 
@@ -112,6 +113,8 @@ pub fn run() {
             commands::delete_secret,
             commands::vault_status,
             commands::vault_unlock,
+            updater::update_check,
+            updater::update_install,
             commands::vault_lock,
             commands::vault_enable_master_password,
             commands::vault_disable_master_password,

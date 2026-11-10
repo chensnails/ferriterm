@@ -85,6 +85,17 @@ before installation (`verify_download`). It rejects:
 - non-HTTPS download URLs
 - size mismatches and digest mismatches (`ChecksumMismatch`)
 
+The client consumes this in `src-tauri/src/updater.rs`: Settings → About →
+"Check for updates" runs `update_check` against
+`https://github.com/chensnails/ferriterm/releases/latest/download/latest.json`,
+and "Download and install" runs `update_install`, which streams the artifact
+with progress events, calls `verify_download`, and only then installs:
+macOS extracts the `.app.tar.gz` and `ditto`s it over the running bundle
+before restarting, Linux replaces the running AppImage (or installs to
+`~/.local/bin`), Windows expands the NSIS zip, launches the installer and
+exits so the bundle is unlocked. Draft releases are not served by the
+`latest` URL, so checks only see published releases.
+
 The rejection paths are covered by unit tests in
 `crates/ft-security/src/update.rs` (`rejects_tampered_artifact`,
 `rejects_insecure_url`, `rejects_missing_or_malformed_checksum`, and others).

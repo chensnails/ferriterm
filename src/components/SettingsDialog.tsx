@@ -29,6 +29,7 @@ import { Modal } from "./Modal";
 import { CredentialVault } from "./CredentialVault";
 import { ShortcutEditor } from "./ShortcutEditor";
 import { VersionHistory } from "./VersionHistory";
+import { UpdatePanel } from "./UpdatePanel";
 import { ThemeGallery, ThemeImportButton } from "./ThemeGallery";
 import {
   CheckList,
@@ -2008,6 +2009,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             <Chip tone="info">{DEV_VERSION}</Chip>
           </p>
           <VersionHistory />
+          <UpdatePanel />
           <p className="hint">{t("about.description")}</p>
           <p className="hint">{t("about.cleanRoom")}</p>
           <p className="hint">

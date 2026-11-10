@@ -132,6 +132,19 @@ export interface SshConnectArgs {
 
 export type VaultMode = "local" | "master";
 
+export interface UpdateInfo {
+  currentVersion: string;
+  version: string;
+  notes: string;
+  available: boolean;
+  size: number | null;
+}
+
+export interface UpdateProgress {
+  received: number;
+  total: number | null;
+}
+
 export interface VaultStatus {
   mode: VaultMode;
   locked: boolean;
@@ -835,6 +848,8 @@ export const api = {
     invoke<void>("delete_secret", { secretRef }),
 
   vaultStatus: () => invoke<VaultStatus>("vault_status"),
+  updateCheck: () => invoke<UpdateInfo>("update_check"),
+  updateInstall: () => invoke<string>("update_install"),
   vaultUnlock: (password: string) =>
     invoke<void>("vault_unlock", { password }),
   vaultLock: () => invoke<void>("vault_lock"),
@@ -1001,6 +1016,11 @@ export const api = {
 export const outputEvent = (id: string) => `terminal://${id}/output`;
 export const closedEvent = (id: string) => `terminal://${id}/closed`;
 export const transferUpdateEvent = "transfer://update";
+export const updateProgressEvent = "update://progress";
+
+export const onUpdateProgress = (
+  cb: (progress: UpdateProgress) => void,
+): Promise<UnlistenFn> => listen<UpdateProgress>(updateProgressEvent, (e) => cb(e.payload));
 export const forwardErrorEvent = "forward://error";
 
 export interface ForwardError {

@@ -861,7 +861,17 @@
     "showAll": "显示全部 {count} 个版本",
     "description": "跨平台 SSH 终端与文件传输。",
     "cleanRoom": "独立实现，不包含其他产品的源代码、图标或界面文案。",
-    "repository": "在 GitHub 上查看源码"
+    "repository": "在 GitHub 上查看源码",
+    "updateHint": "检查已发布的更新清单；安装包在安装前经过 SHA-256 与大小校验。",
+    "checkUpdate": "检查更新",
+    "checking": "正在检查…",
+    "upToDate": "Ferriterm {version} 已是最新。",
+    "updateAvailable": "发现新版本 {version}。",
+    "installUpdate": "下载并安装",
+    "installing": "正在下载并校验…",
+    "updateProgress": "已下载 {received} / {total}",
+    "updateProgressUnknown": "已下载 {received}",
+    "installedRelaunch": "更新已安装，正在重启…"
   },
   "terminal": {
     "disconnected": "[会话已断开]",

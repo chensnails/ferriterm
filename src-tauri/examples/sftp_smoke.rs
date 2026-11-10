@@ -50,6 +50,7 @@ async fn run() -> Result<(), String> {
             agent: false,
             x11: false,
             jump: Vec::new(),
+            algorithms: None,
             keepalive: None,
             host_id: None,
             cols: 80,
