@@ -1,0 +1,6 @@
+# One toolchain for contributors and CI. rustfmt and clippy change their
+# opinions between releases; without a pin, a local `cargo fmt` or clippy run
+# rewrites code that CI considers clean.
+[toolchain]
+channel = "1.99.1"
+components = ["clippy", "rustfmt"]

@@ -32,7 +32,8 @@ verified by SHA-256 and size before installation (Settings → About).
 
 ## Build from source
 
-Requirements: Rust 1.85+, Node 22, and the Tauri 2 platform prerequisites
+Requirements: Rust 1.99.1 (`rust-toolchain.toml`, installed by rustup on the
+first build), Node 22 (`.nvmrc`), and the Tauri 2 platform prerequisites
 (WebKitGTK 4.1 on Linux, Xcode command line tools on macOS, MSVC on Windows).
 
 ```sh

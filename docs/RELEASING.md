@@ -6,14 +6,19 @@ every updater artifact.
 
 ## 1. Bump the version
 
-Update `version` in `src-tauri/tauri.conf.json` and the workspace version in
-`Cargo.toml`, then commit:
+`package.json` is the only file you edit: the Tauri config points at it, and
+`tools/sync-version.mjs` copies the number into the Cargo workspace as npm's
+`version` lifecycle script. With a clean tree, run:
 
 ```sh
-git commit -am "chore: release v0.2.0"
-git tag v0.2.0
+npm version minor -m "chore: release v%s"
 git push origin main --tags
 ```
+
+`npm version` accepts `patch`, `minor`, `major` or an explicit `x.y.z`, and
+creates the `v*` tag the workflow expects. CI runs `npm run version:check`, so
+a hand-edited `Cargo.toml` that disagrees with `package.json` fails before a
+bundle is built.
 
 Pushing a `v*` tag triggers `.github/workflows/release.yml`. The
 `workflow_dispatch` entry point accepts the same version but assumes the tag and

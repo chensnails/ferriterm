@@ -12,8 +12,10 @@ npm ci
 npm run tauri dev
 ```
 
-Rust 1.85+ and Node 22 are the reference toolchain. Linux needs WebKitGTK 4.1
-and the usual Tauri 2 prerequisites.
+Rust 1.99.1 and Node 22 are the reference toolchain: `rust-toolchain.toml`
+makes rustup install the compiler, rustfmt and clippy at that exact version,
+and `.nvmrc` names the Node release CI uses. Linux needs WebKitGTK 4.1 and the
+usual Tauri 2 prerequisites.
 
 ## Before opening a pull request
 

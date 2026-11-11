@@ -10,7 +10,9 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "lint:ui": "node tools/ui_lint.mjs"
+    "lint:ui": "node tools/ui_lint.mjs",
+    "version": "node tools/sync-version.mjs",
+    "version:check": "node tools/sync-version.mjs --check"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
