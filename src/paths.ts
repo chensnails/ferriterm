@@ -12,8 +12,14 @@ export function joinPath(dir: string, name: string): string {
   return `${dir.replace(/[\\/]+$/, "")}/${name}`;
 }
 
+function isUncRoot(path: string): boolean {
+  // `\\server\share` is a share root; climbing out would leave the share.
+  return /^[\\/]{2}[^\\/]+[\\/]+[^\\/]+[\\/]*$/.test(path);
+}
+
 export function parentPath(path: string): string {
   const trimmed = path.replace(/[\\/]+$/, "");
+  if (isUncRoot(trimmed)) return trimmed;
   const index = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
   if (index <= 0) return path.startsWith("/") ? "/" : trimmed;
   const parent = trimmed.slice(0, index);
@@ -22,5 +28,9 @@ export function parentPath(path: string): string {
 }
 
 export function isRootPath(path: string): boolean {
-  return /^[\\/]+$/.test(path) || /^[A-Za-z]:[\\/]*$/.test(path);
+  return (
+    /^[\\/]+$/.test(path) ||
+    /^[A-Za-z]:[\\/]*$/.test(path) ||
+    isUncRoot(path)
+  );
 }

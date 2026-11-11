@@ -99,9 +99,8 @@ impl Vfs for LocalFs {
 
     fn home<'a>(&'a self) -> VfsFuture<'a, String> {
         Box::pin(async move {
-            Ok(std::env::var("HOME")
-                .ok()
-                .or_else(|| std::env::var("USERPROFILE").ok())
+            Ok(home_dir()
+                .map(|home| home.to_string_lossy().into_owned())
                 .unwrap_or_else(|| "/".to_string()))
         })
     }
@@ -194,17 +193,31 @@ fn normalize(path: &str) -> PathBuf {
     if trimmed.is_empty() {
         return PathBuf::from(".");
     }
-    if trimmed == "~" {
-        if let Ok(home) = std::env::var("HOME") {
-            return PathBuf::from(home);
-        }
-    }
-    if let Some(rest) = trimmed.strip_prefix("~/") {
-        if let Ok(home) = std::env::var("HOME") {
-            return Path::new(&home).join(rest);
-        }
+    let home = home_dir();
+    if let Some(expanded) = expand_home(trimmed, home.as_deref()) {
+        return expanded;
     }
     PathBuf::from(trimmed)
+}
+
+fn home_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+}
+
+/// Expands the shell-style `~` prefix. Both separators are accepted so a path
+/// typed on Windows (`~\Documents`) resolves even when the env var is
+/// `USERPROFILE` rather than `HOME`.
+fn expand_home(path: &str, home: Option<&Path>) -> Option<PathBuf> {
+    let home = home?;
+    if path == "~" {
+        return Some(home.to_path_buf());
+    }
+    let rest = path
+        .strip_prefix("~/")
+        .or_else(|| path.strip_prefix("~\\"))?;
+    Some(home.join(rest))
 }
 
 /// A handle that may write timestamps on files *and* directories. Unix accepts
@@ -273,6 +286,22 @@ fn entry_from_metadata(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn expands_home_for_both_separators() {
+        let home = Path::new("C:\\Users\\me");
+        assert_eq!(expand_home("~", Some(home)), Some(home.to_path_buf()));
+        assert_eq!(
+            expand_home(r"~\Documents", Some(home)),
+            Some(home.join("Documents"))
+        );
+        assert_eq!(
+            expand_home("~/Documents", Some(home)),
+            Some(home.join("Documents"))
+        );
+        assert_eq!(expand_home("C:\\tmp", Some(home)), None);
+        assert_eq!(expand_home("~", None), None);
+    }
 
     #[tokio::test]
     async fn writes_and_reads_local_file() {

@@ -75,6 +75,9 @@ pub trait Vfs: Send + Sync {
     fn open<'a>(&'a self, path: &'a str, mode: OpenMode) -> VfsFuture<'a, Box<dyn VfsFile + Send>>;
 }
 
+/// Joins a directory and a child name. Both `/` and `\` count as separators
+/// because the local side of a transfer may be a Windows path while the remote
+/// side is POSIX; the result always uses `/`, which Windows accepts too.
 pub fn join_path(base: &str, name: &str) -> String {
     if base.is_empty() {
         return name.to_string();
@@ -82,23 +85,51 @@ pub fn join_path(base: &str, name: &str) -> String {
     if name.is_empty() {
         return base.to_string();
     }
-    if base.ends_with('/') {
-        format!("{base}{name}")
-    } else {
-        format!("{base}/{name}")
+    let trimmed = base.trim_end_matches(['/', '\\']);
+    if trimmed.is_empty() {
+        return format!("/{name}");
     }
+    format!("{trimmed}/{name}")
 }
 
 pub fn parent_path(path: &str) -> Option<String> {
-    let trimmed = path.trim_end_matches('/');
-    if trimmed.is_empty() {
+    let trimmed = path.trim_end_matches(['/', '\\']);
+    if trimmed.is_empty() || is_unc_root(trimmed) {
         return None;
     }
-    match trimmed.rfind('/') {
+    let index = trimmed.rfind(['/', '\\']);
+    match index {
         Some(0) => Some("/".to_string()),
-        Some(index) => Some(trimmed[..index].to_string()),
+        Some(index) => {
+            let parent = &trimmed[..index];
+            // `C:` on its own is not a directory; the root is `C:/`.
+            if is_drive_prefix(parent) {
+                Some(format!("{parent}/"))
+            } else {
+                Some(parent.to_string())
+            }
+        }
         None => None,
     }
+}
+
+fn is_drive_prefix(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    bytes.len() == 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
+}
+
+/// `\\server\share` is the root of a UNC path: climbing out of it would leave
+/// the share, so the caller must stop there.
+fn is_unc_root(path: &str) -> bool {
+    let rest = if let Some(rest) = path.strip_prefix(r"\\") {
+        rest
+    } else if let Some(rest) = path.strip_prefix("//") {
+        rest
+    } else {
+        return false;
+    };
+    let mut parts = rest.split(['/', '\\']).filter(|part| !part.is_empty());
+    parts.next().is_some() && parts.next().is_some() && parts.next().is_none()
 }
 
 pub async fn read_text(vfs: &dyn Vfs, path: &str, max_bytes: u64) -> Result<TextFile, String> {
@@ -160,6 +191,10 @@ mod tests {
         assert_eq!(join_path("/tmp", "a"), "/tmp/a");
         assert_eq!(join_path("/tmp/", "a"), "/tmp/a");
         assert_eq!(join_path("", "a"), "a");
+        assert_eq!(join_path("/", "a"), "/a");
+        // The local side of a transfer may be a Windows path.
+        assert_eq!(join_path(r"C:\Users\me", "a"), "C:\\Users\\me/a");
+        assert_eq!(join_path(r"C:\Users\me\", "a"), "C:\\Users\\me/a");
     }
 
     #[test]
@@ -168,6 +203,19 @@ mod tests {
         assert_eq!(parent_path("/tmp"), Some("/".to_string()));
         assert_eq!(parent_path("/"), None);
         assert_eq!(parent_path("a"), None);
+        assert_eq!(parent_path(r"C:\Users\me"), Some(r"C:\Users".to_string()));
+        assert_eq!(parent_path("C:\\Users"), Some("C:/".to_string()));
+        assert_eq!(parent_path("C:/"), None);
+    }
+
+    #[test]
+    fn unc_share_is_a_root() {
+        assert_eq!(
+            parent_path(r"\\server\share\dir"),
+            Some(r"\\server\share".to_string())
+        );
+        assert_eq!(parent_path(r"\\server\share"), None);
+        assert_eq!(parent_path(r"\\server\share\"), None);
     }
 
     /// The editor's "overwrite" button has no backend of its own: it saves with
