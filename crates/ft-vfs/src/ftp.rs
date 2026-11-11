@@ -283,9 +283,10 @@ impl FtpConn {
                 })?;
                 // A server behind NAT often advertises an address we cannot
                 // reach; the control connection already knows the real one.
-                let unreachable = host.is_unspecified()
-                    || (host.is_loopback() && !self.peer.ip().is_loopback());
-                let address = SocketAddr::new(if unreachable { self.peer.ip() } else { host }, port);
+                let unreachable =
+                    host.is_unspecified() || (host.is_loopback() && !self.peer.ip().is_loopback());
+                let address =
+                    SocketAddr::new(if unreachable { self.peer.ip() } else { host }, port);
                 timeout(CONNECT_TIMEOUT, TcpStream::connect(address))
                     .await
                     .map_err(|_| format!("timed out opening the FTP data channel to {address}"))?
@@ -526,7 +527,8 @@ fn parse_ftp_timestamp(value: &str) -> u64 {
     if digits.len() < 14 {
         return 0;
     }
-    let number = |range: std::ops::Range<usize>| digits.get(range).and_then(|v| v.parse::<i64>().ok());
+    let number =
+        |range: std::ops::Range<usize>| digits.get(range).and_then(|v| v.parse::<i64>().ok());
     match (
         number(0..4),
         number(4..6),
@@ -893,7 +895,9 @@ impl Vfs for FtpVfs {
             let start = match mode {
                 OpenMode::Read => 0,
                 OpenMode::Write { truncate: true } => 0,
-                OpenMode::Write { truncate: false } => self.stat(path).await.map(|e| e.size).unwrap_or(0),
+                OpenMode::Write { truncate: false } => {
+                    self.stat(path).await.map(|e| e.size).unwrap_or(0)
+                }
             };
             let conn = self.connect().await?;
             let mut file = FtpFile {
@@ -1214,7 +1218,11 @@ mod tests {
                         .get(&argument)
                         .map(|content| content.len());
                     match size {
-                        Some(size) => write.write_all(format!("213 {size}\r\n").as_bytes()).await?,
+                        Some(size) => {
+                            write
+                                .write_all(format!("213 {size}\r\n").as_bytes())
+                                .await?
+                        }
                         None => write.write_all(b"550 no such file\r\n").await?,
                     }
                 }
@@ -1322,7 +1330,9 @@ mod tests {
             if mlsd {
                 out.push_str(&format!("type=dir;modify=20240131120000; {child}\r\n"));
             } else {
-                out.push_str(&format!("drwxr-xr-x 2 ftp ftp 4096 Jan 31 12:00 {child}\r\n"));
+                out.push_str(&format!(
+                    "drwxr-xr-x 2 ftp ftp 4096 Jan 31 12:00 {child}\r\n"
+                ));
             }
         }
         out
@@ -1351,7 +1361,10 @@ mod tests {
             .commands()
             .iter()
             .any(|line| line.starts_with("LIST ")));
-        assert!(!server.commands().iter().any(|line| line.starts_with("MLSD")));
+        assert!(!server
+            .commands()
+            .iter()
+            .any(|line| line.starts_with("MLSD")));
     }
 
     #[tokio::test]
@@ -1418,7 +1431,10 @@ mod tests {
             server.files.lock().unwrap().get("/resume.txt").cloned(),
             Some(b"abcdef".to_vec())
         );
-        assert!(server.commands().iter().any(|line| line.starts_with("APPE ")));
+        assert!(server
+            .commands()
+            .iter()
+            .any(|line| line.starts_with("APPE ")));
     }
 
     #[tokio::test]
@@ -1436,7 +1452,11 @@ mod tests {
     #[tokio::test]
     async fn restarts_a_download_at_the_requested_offset() {
         let server = MockServer::start(true).await;
-        let mut file = server.vfs().open("/hello.txt", OpenMode::Read).await.unwrap();
+        let mut file = server
+            .vfs()
+            .open("/hello.txt", OpenMode::Read)
+            .await
+            .unwrap();
         assert_eq!(&file.read(0, 2).await.unwrap(), b"he");
         // A non-sequential offset restarts the transfer with REST.
         assert_eq!(&file.read(6, 3).await.unwrap(), b"ftp");

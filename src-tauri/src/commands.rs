@@ -115,7 +115,11 @@ impl SessionLabels {
         let mut all: Vec<(String, SessionLabel)> = self
             .inner
             .lock()
-            .map(|map| map.iter().map(|(id, label)| (id.clone(), label.clone())).collect())
+            .map(|map| {
+                map.iter()
+                    .map(|(id, label)| (id.clone(), label.clone()))
+                    .collect()
+            })
             .unwrap_or_default();
         all.sort_by(|left, right| left.1.label.cmp(&right.1.label));
         all
@@ -350,13 +354,9 @@ pub async fn ssh_connect(
             .unwrap_or_else(|| format!("{}@{}", connected.username, connected.host)),
         None => format!("{}@{}", connected.username, connected.host),
     };
-    runtime.labels().remember(
-        &id,
-        SessionLabel {
-            label,
-            ..connected
-        },
-    );
+    runtime
+        .labels()
+        .remember(&id, SessionLabel { label, ..connected });
     if let Some(host_id) = host_id {
         auto_start_forwards(&app, &state, &runtime, &host_id, &id).await;
     }

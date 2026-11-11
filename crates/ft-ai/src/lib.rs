@@ -60,7 +60,9 @@ impl Kind {
 /// Unknown protocol ids degrade to OpenAI instead of failing the whole provider
 /// list — a stored config must never become unreadable after an upgrade.
 impl<'de> Deserialize<'de> for Kind {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
         let raw = String::deserialize(deserializer)?;
         Ok(Kind::from_id(&raw))
     }
@@ -97,7 +99,9 @@ impl MaxTokensField {
 }
 
 impl<'de> Deserialize<'de> for MaxTokensField {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
         let raw = String::deserialize(deserializer)?;
         Ok(MaxTokensField::from_id(&raw))
     }
@@ -136,7 +140,9 @@ impl Reasoning {
 }
 
 impl<'de> Deserialize<'de> for Reasoning {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
         let raw = String::deserialize(deserializer)?;
         Ok(Reasoning::from_id(&raw))
     }
@@ -159,7 +165,6 @@ pub struct HeaderPair {
 fn default_true() -> bool {
     true
 }
-
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -482,7 +487,8 @@ pub const COMMAND_SYSTEM_PROMPT: &str = "You translate a natural-language reques
 Reply ONLY with JSON: {\"command\": \"...\", \"explanation\": \"one short sentence\"}. Never chain unrelated commands. \
 Prefer safe, read-only commands when the request is ambiguous.";
 
-pub const CHAT_SYSTEM_PROMPT: &str = "You are the Ferriterm terminal assistant. Reply in plain sentences without bold or headings. \
+pub const CHAT_SYSTEM_PROMPT: &str =
+    "You are the Ferriterm terminal assistant. Reply in plain sentences without bold or headings. \
 Never claim you ran anything. Any terminal context given to you is already redacted. \
 Shell commands must go in fenced code blocks: one command per block, no leading $ and no comments. \
 If the user only wants an explanation, include no code block.";
@@ -635,8 +641,8 @@ pub struct Reply {
 }
 
 fn client(provider: &Provider) -> Result<reqwest::Client> {
-    let mut builder =
-        reqwest::Client::builder().timeout(Duration::from_secs(provider.timeout_secs.clamp(5, 600)));
+    let mut builder = reqwest::Client::builder()
+        .timeout(Duration::from_secs(provider.timeout_secs.clamp(5, 600)));
     let proxy = provider.proxy.trim();
     if !proxy.is_empty() {
         builder = builder.proxy(
@@ -783,10 +789,7 @@ fn merge_system(wire: &mut Vec<serde_json::Value>, system: &str) {
             let current = wire[index]["content"].as_str().unwrap_or("").to_string();
             wire[index]["content"] = serde_json::json!(format!("{system}\n\n{current}"));
         }
-        None => wire.insert(
-            0,
-            serde_json::json!({ "role": "user", "content": system }),
-        ),
+        None => wire.insert(0, serde_json::json!({ "role": "user", "content": system })),
     }
 }
 
@@ -806,7 +809,10 @@ fn request_body(
         serde_json::json!(provider.max_tokens),
     );
     if provider.send_sampling {
-        body.insert("temperature".into(), serde_json::json!(provider.temperature));
+        body.insert(
+            "temperature".into(),
+            serde_json::json!(provider.temperature),
+        );
         if let Some(top_p) = provider.top_p {
             body.insert("top_p".into(), serde_json::json!(top_p));
         }
@@ -977,7 +983,10 @@ pub async fn test_connection(provider: &Provider, key: &str) -> Result<Reply> {
 pub async fn models(provider: &Provider, key: &str) -> Result<Vec<String>> {
     let provider = provider.clone().sanitize();
     let url = models_endpoint(&provider)?;
-    let builder = apply_extra(apply_auth(client(&provider)?.get(&url), &provider, key), &provider);
+    let builder = apply_extra(
+        apply_auth(client(&provider)?.get(&url), &provider, key),
+        &provider,
+    );
     let response = builder
         .send()
         .await
@@ -1208,7 +1217,10 @@ AKIAABCDEFGHIJKLMNOP\n\
         let (context, count) = build_context(&input, &opts(Scope::Screen, true));
         assert_eq!(context.lines().count(), 3);
         assert!(!context.contains("abc123secret") && count == 1, "{context}");
-        assert_eq!(build_context(&input, &opts(Scope::Selection, true)).0, "sel");
+        assert_eq!(
+            build_context(&input, &opts(Scope::Selection, true)).0,
+            "sel"
+        );
         // A request built from the same data agrees with the borrowed form.
         let request = ContextRequest {
             selection: Some("sel".into()),
@@ -1235,7 +1247,8 @@ AKIAABCDEFGHIJKLMNOP\n\
     #[test]
     fn salvages_a_command_from_truncated_json() {
         // The exact shape a reasoning model produced: budget ran out mid-string.
-        let reply = "\n\n{\"command\": \"find . -maxdepth 1 -type f -printf '%s %p\\\\n' | sort -rn";
+        let reply =
+            "\n\n{\"command\": \"find . -maxdepth 1 -type f -printf '%s %p\\\\n' | sort -rn";
         assert_eq!(
             extract_command(reply).0,
             "find . -maxdepth 1 -type f -printf '%s %p\\n' | sort -rn"
@@ -1258,7 +1271,10 @@ AKIAABCDEFGHIJKLMNOP\n\
         );
 
         // Not JSON: the fenced and plain-line paths stay in charge.
-        assert_eq!(extract_command("run `df -h` please").0, "run `df -h` please");
+        assert_eq!(
+            extract_command("run `df -h` please").0,
+            "run `df -h` please"
+        );
     }
 
     #[test]
@@ -1339,7 +1355,9 @@ AKIAABCDEFGHIJKLMNOP\n\
         );
         let mut versioned = provider(Kind::Azure, "https://res.openai.azure.com", "d");
         versioned.api_version = "2025-01-01-preview".into();
-        assert!(chat_endpoint(&versioned).unwrap().ends_with("api-version=2025-01-01-preview"));
+        assert!(chat_endpoint(&versioned)
+            .unwrap()
+            .ends_with("api-version=2025-01-01-preview"));
         // Bad bases fail loudly instead of producing a relative URL.
         assert!(chat_endpoint(&provider(Kind::OpenAi, "  ", "m")).is_err());
         assert!(chat_endpoint(&provider(Kind::OpenAi, "api.openai.com/v1", "m")).is_err());
@@ -1348,15 +1366,21 @@ AKIAABCDEFGHIJKLMNOP\n\
             models_endpoint(&provider(Kind::OpenAi, "https://api.deepseek.com/v1", "m")).unwrap(),
             "https://api.deepseek.com/v1/models"
         );
-        assert!(models_endpoint(&provider(Kind::Azure, "https://res.openai.azure.com", "d"))
-            .unwrap()
-            .contains("/openai/models?api-version="));
+        assert!(
+            models_endpoint(&provider(Kind::Azure, "https://res.openai.azure.com", "d"))
+                .unwrap()
+                .contains("/openai/models?api-version=")
+        );
     }
 
     #[test]
     fn builds_each_protocol_body_differently() {
         let messages = vec![("user".to_string(), "hi".to_string())];
-        let openai = request_body(&provider(Kind::OpenAi, "https://x/v1", "m"), "sys", &messages);
+        let openai = request_body(
+            &provider(Kind::OpenAi, "https://x/v1", "m"),
+            "sys",
+            &messages,
+        );
         assert_eq!(openai["messages"][0]["role"], "system");
         assert_eq!(openai["max_tokens"], serde_json::json!(1024));
         assert!(openai["temperature"].is_number());
@@ -1460,12 +1484,7 @@ AKIAABCDEFGHIJKLMNOP\n\
         assert!(!next.send_sampling);
 
         // `system` role not understood.
-        let (next, note) = adjustment(
-            &base,
-            422,
-            "invalid role: system is not supported",
-        )
-        .unwrap();
+        let (next, note) = adjustment(&base, 422, "invalid role: system is not supported").unwrap();
         assert_eq!(note, "ai.noteSystem");
         assert!(next.fold_system);
 
@@ -1687,7 +1706,10 @@ AKIAABCDEFGHIJKLMNOP\n\
             .unwrap_err()
             .to_string();
         server.join().unwrap();
-        assert!(error.contains("401") && !error.contains("sk-TESTKEY-9999"), "{error}");
+        assert!(
+            error.contains("401") && !error.contains("sk-TESTKEY-9999"),
+            "{error}"
+        );
     }
 
     #[tokio::test]
@@ -1722,7 +1744,8 @@ AKIAABCDEFGHIJKLMNOP\n\
             let (mut socket, _) = listener.accept().unwrap();
             let mut buffer = [0u8; 4096];
             let _ = socket.read(&mut buffer);
-            let body = "data: {\"model\":\"m1\",\"choices\":[{\"delta\":{\"content\":\"Hel\"}}]}\n\n\
+            let body =
+                "data: {\"model\":\"m1\",\"choices\":[{\"delta\":{\"content\":\"Hel\"}}]}\n\n\
 data: {\"choices\":[{\"delta\":{\"content\":\"lo\"}}]}\n\n\
 data: [DONE]\n\n";
             let _ = write!(

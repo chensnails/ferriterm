@@ -310,19 +310,23 @@ pub async fn ai_explain(
     let key = key_for(&credentials, &provider)?;
     // The tail is redacted like any other context before it leaves.
     let (tail, _) = ft_ai::redact(&output_tail);
-    let user = ft_ai::build_explain_prompt(
-        &command,
-        code,
-        host.as_deref().unwrap_or("local"),
-        &tail,
-    );
+    let user =
+        ft_ai::build_explain_prompt(&command, code, host.as_deref().unwrap_or("local"), &tail);
     let user = match context.as_ref().map(|context| context.build().0) {
-        Some(extra) if !extra.is_empty() => format!("{user}\n\nTerminal context:\n```\n{extra}\n```"),
+        Some(extra) if !extra.is_empty() => {
+            format!("{user}\n\nTerminal context:\n```\n{extra}\n```")
+        }
         _ => user,
     };
-    ft_ai::chat(&provider, &key, ft_ai::EXPLAIN_SYSTEM_PROMPT, &user, Some(600))
-        .await
-        .map_err(|err| err.to_string())
+    ft_ai::chat(
+        &provider,
+        &key,
+        ft_ai::EXPLAIN_SYSTEM_PROMPT,
+        &user,
+        Some(600),
+    )
+    .await
+    .map_err(|err| err.to_string())
 }
 
 /// Preset catalogue returned to the settings UI. Every entry carries a fully
@@ -361,26 +365,134 @@ fn preset(
 #[tauri::command]
 pub fn ai_presets() -> Vec<ProviderPreset> {
     let mut list = vec![
-        preset("openai", "OpenAI", Kind::OpenAi, "https://api.openai.com/v1", "gpt-4.1-mini"),
-        preset("anthropic", "Anthropic", Kind::Anthropic, "https://api.anthropic.com/v1", "claude-sonnet-4-5"),
+        preset(
+            "openai",
+            "OpenAI",
+            Kind::OpenAi,
+            "https://api.openai.com/v1",
+            "gpt-4.1-mini",
+        ),
+        preset(
+            "anthropic",
+            "Anthropic",
+            Kind::Anthropic,
+            "https://api.anthropic.com/v1",
+            "claude-sonnet-4-5",
+        ),
         // Gemini exposes an OpenAI-compatible face; the native generateContent
         // shape is intentionally not implemented.
-        preset("gemini", "Google Gemini", Kind::OpenAi, "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-2.5-flash"),
-        preset("azure", "Azure OpenAI", Kind::Azure, "https://your-resource.openai.azure.com/openai/v1", "gpt-4.1-mini"),
-        preset("deepseek", "DeepSeek", Kind::OpenAi, "https://api.deepseek.com/v1", "deepseek-chat"),
-        preset("dashscope", "阿里云百炼（通义）", Kind::OpenAi, "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-plus"),
-        preset("zhipu", "智谱 GLM", Kind::OpenAi, "https://open.bigmodel.cn/api/paas/v4", "glm-4-flash"),
-        preset("moonshot", "Kimi（月之暗面）", Kind::OpenAi, "https://api.moonshot.cn/v1", "moonshot-v1-8k"),
-        preset("minimax", "MiniMax", Kind::OpenAi, "https://api.minimaxi.com/v1", "MiniMax-Text-01"),
-        preset("siliconflow", "硅基流动", Kind::OpenAi, "https://api.siliconflow.cn/v1", "deepseek-ai/DeepSeek-V3"),
-        preset("ark", "火山方舟（豆包）", Kind::OpenAi, "https://ark.cn-beijing.volces.com/api/v3", "doubao-pro-32k"),
-        preset("qianfan", "百度千帆（文心）", Kind::OpenAi, "https://qianfan.baidubce.com/v2", "ernie-4.5-turbo-128k"),
-        preset("hunyuan", "腾讯混元", Kind::OpenAi, "https://tokenhub.tencentmaas.com/v1", "hunyuan-turbos-latest"),
-        preset("yi", "零一万物", Kind::OpenAi, "https://api.lingyiwanwu.com/v1", "yi-lightning"),
-        preset("stepfun", "阶跃星辰", Kind::OpenAi, "https://api.stepfun.com/v1", "step-2-16k"),
-        preset("groq", "Groq", Kind::OpenAi, "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"),
-        preset("openrouter", "OpenRouter", Kind::OpenAi, "https://openrouter.ai/api/v1", "openai/gpt-4.1-mini"),
-        preset("ollama", "Ollama（本地）", Kind::OpenAi, "http://127.0.0.1:11434/v1", "qwen2.5:7b"),
+        preset(
+            "gemini",
+            "Google Gemini",
+            Kind::OpenAi,
+            "https://generativelanguage.googleapis.com/v1beta/openai",
+            "gemini-2.5-flash",
+        ),
+        preset(
+            "azure",
+            "Azure OpenAI",
+            Kind::Azure,
+            "https://your-resource.openai.azure.com/openai/v1",
+            "gpt-4.1-mini",
+        ),
+        preset(
+            "deepseek",
+            "DeepSeek",
+            Kind::OpenAi,
+            "https://api.deepseek.com/v1",
+            "deepseek-chat",
+        ),
+        preset(
+            "dashscope",
+            "阿里云百炼（通义）",
+            Kind::OpenAi,
+            "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "qwen-plus",
+        ),
+        preset(
+            "zhipu",
+            "智谱 GLM",
+            Kind::OpenAi,
+            "https://open.bigmodel.cn/api/paas/v4",
+            "glm-4-flash",
+        ),
+        preset(
+            "moonshot",
+            "Kimi（月之暗面）",
+            Kind::OpenAi,
+            "https://api.moonshot.cn/v1",
+            "moonshot-v1-8k",
+        ),
+        preset(
+            "minimax",
+            "MiniMax",
+            Kind::OpenAi,
+            "https://api.minimaxi.com/v1",
+            "MiniMax-Text-01",
+        ),
+        preset(
+            "siliconflow",
+            "硅基流动",
+            Kind::OpenAi,
+            "https://api.siliconflow.cn/v1",
+            "deepseek-ai/DeepSeek-V3",
+        ),
+        preset(
+            "ark",
+            "火山方舟（豆包）",
+            Kind::OpenAi,
+            "https://ark.cn-beijing.volces.com/api/v3",
+            "doubao-pro-32k",
+        ),
+        preset(
+            "qianfan",
+            "百度千帆（文心）",
+            Kind::OpenAi,
+            "https://qianfan.baidubce.com/v2",
+            "ernie-4.5-turbo-128k",
+        ),
+        preset(
+            "hunyuan",
+            "腾讯混元",
+            Kind::OpenAi,
+            "https://tokenhub.tencentmaas.com/v1",
+            "hunyuan-turbos-latest",
+        ),
+        preset(
+            "yi",
+            "零一万物",
+            Kind::OpenAi,
+            "https://api.lingyiwanwu.com/v1",
+            "yi-lightning",
+        ),
+        preset(
+            "stepfun",
+            "阶跃星辰",
+            Kind::OpenAi,
+            "https://api.stepfun.com/v1",
+            "step-2-16k",
+        ),
+        preset(
+            "groq",
+            "Groq",
+            Kind::OpenAi,
+            "https://api.groq.com/openai/v1",
+            "llama-3.3-70b-versatile",
+        ),
+        preset(
+            "openrouter",
+            "OpenRouter",
+            Kind::OpenAi,
+            "https://openrouter.ai/api/v1",
+            "openai/gpt-4.1-mini",
+        ),
+        preset(
+            "ollama",
+            "Ollama（本地）",
+            Kind::OpenAi,
+            "http://127.0.0.1:11434/v1",
+            "qwen2.5:7b",
+        ),
     ];
     // Azure needs a version for the classic deployment path.
     if let Some(azure) = list.iter_mut().find(|item| item.id == "azure") {

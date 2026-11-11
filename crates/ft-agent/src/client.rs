@@ -82,11 +82,13 @@ impl Client {
     }
 
     pub async fn health(&self) -> Result<Health, ClientError> {
-        self.call("GET", "/v1/health", None::<&()>, CALL_TIMEOUT).await
+        self.call("GET", "/v1/health", None::<&()>, CALL_TIMEOUT)
+            .await
     }
 
     pub async fn hosts(&self) -> Result<Vec<HostSummary>, ClientError> {
-        self.call("GET", "/v1/hosts", None::<&()>, CALL_TIMEOUT).await
+        self.call("GET", "/v1/hosts", None::<&()>, CALL_TIMEOUT)
+            .await
     }
 
     pub async fn sessions(&self) -> Result<Vec<SessionSummary>, ClientError> {
@@ -174,38 +176,36 @@ impl Client {
         .into_bytes();
         request.extend_from_slice(&payload);
 
-        let exchange = async {
-            let mut stream = TcpStream::connect(self.addr)
-                .await
-                .map_err(|err| ClientError::transport(format!("cannot reach the app: {err}")))?;
-            stream
-                .write_all(&request)
-                .await
-                .map_err(|err| ClientError::transport(format!("cannot send the request: {err}")))?;
-            stream
-                .flush()
-                .await
-                .map_err(|err| ClientError::transport(format!("cannot send the request: {err}")))?;
+        let exchange =
+            async {
+                let mut stream = TcpStream::connect(self.addr).await.map_err(|err| {
+                    ClientError::transport(format!("cannot reach the app: {err}"))
+                })?;
+                stream.write_all(&request).await.map_err(|err| {
+                    ClientError::transport(format!("cannot send the request: {err}"))
+                })?;
+                stream.flush().await.map_err(|err| {
+                    ClientError::transport(format!("cannot send the request: {err}"))
+                })?;
 
-            let mut response = Vec::new();
-            let mut chunk = [0u8; 8192];
-            loop {
-                let read = stream
-                    .read(&mut chunk)
-                    .await
-                    .map_err(|err| ClientError::transport(format!("cannot read the answer: {err}")))?;
-                if read == 0 {
-                    break;
+                let mut response = Vec::new();
+                let mut chunk = [0u8; 8192];
+                loop {
+                    let read = stream.read(&mut chunk).await.map_err(|err| {
+                        ClientError::transport(format!("cannot read the answer: {err}"))
+                    })?;
+                    if read == 0 {
+                        break;
+                    }
+                    response.extend_from_slice(&chunk[..read]);
+                    if response.len() > MAX_BODY * 2 {
+                        return Err(ClientError::transport(
+                            "the answer is larger than this client accepts",
+                        ));
+                    }
                 }
-                response.extend_from_slice(&chunk[..read]);
-                if response.len() > MAX_BODY * 2 {
-                    return Err(ClientError::transport(
-                        "the answer is larger than this client accepts",
-                    ));
-                }
-            }
-            Ok::<Vec<u8>, ClientError>(response)
-        };
+                Ok::<Vec<u8>, ClientError>(response)
+            };
 
         let response = match tokio::time::timeout(timeout, exchange).await {
             Ok(result) => result?,
@@ -255,8 +255,11 @@ impl Client {
 /// Dial `port` once, for the CLI's `status` command before it has a token.
 pub async fn reachable(port: u16) -> bool {
     matches!(
-        tokio::time::timeout(CONNECT_TIMEOUT, TcpStream::connect(crate::server::loopback(port)))
-            .await,
+        tokio::time::timeout(
+            CONNECT_TIMEOUT,
+            TcpStream::connect(crate::server::loopback(port))
+        )
+        .await,
         Ok(Ok(_))
     )
 }

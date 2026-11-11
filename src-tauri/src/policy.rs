@@ -74,10 +74,7 @@ pub fn policy_get(store: State<'_, Store>) -> Result<PolicyConfig, String> {
 
 /// Replace the whole configuration (mode switches and rule edits in settings).
 #[tauri::command]
-pub fn policy_save(
-    store: State<'_, Store>,
-    config: PolicyConfig,
-) -> Result<PolicyConfig, String> {
+pub fn policy_save(store: State<'_, Store>, config: PolicyConfig) -> Result<PolicyConfig, String> {
     let mut config = config;
     // A rule with no pattern would match nothing yet sit in the list looking
     // active, so it is dropped on write rather than stored and ignored.
@@ -184,10 +181,7 @@ fn now_secs() -> u64 {
 
 /// Append one decision to the chain. Written for every verdict, including the
 /// ones that never ran, because "what almost ran" is worth keeping.
-pub(crate) fn record_decision(
-    audit: &AuditLog,
-    entry: AuditInput,
-) -> Result<AuditEntry, String> {
+pub(crate) fn record_decision(audit: &AuditLog, entry: AuditInput) -> Result<AuditEntry, String> {
     let mut record = AuditEntry {
         id: String::new(),
         ts: String::new(),
@@ -217,10 +211,7 @@ pub(crate) fn record_decision(
 /// The command wrapper: the interface records what the person chose, the agent
 /// service records what it was told to do, and both land in the same file.
 #[tauri::command]
-pub fn policy_record(
-    audit: State<'_, AuditLog>,
-    entry: AuditInput,
-) -> Result<AuditEntry, String> {
+pub fn policy_record(audit: State<'_, AuditLog>, entry: AuditInput) -> Result<AuditEntry, String> {
     record_decision(&audit, entry)
 }
 
@@ -257,7 +248,11 @@ pub fn policy_audit_verify(
 /// Absolute path of a month file, so the interface can reveal it.
 #[tauri::command]
 pub fn policy_audit_path(audit: State<'_, AuditLog>, month: String) -> String {
-    audit.dir().join(format!("audit-{month}.jsonl")).display().to_string()
+    audit
+        .dir()
+        .join(format!("audit-{month}.jsonl"))
+        .display()
+        .to_string()
 }
 
 /// Grading summary used by the settings page to explain a rule before saving.
@@ -276,7 +271,14 @@ pub fn policy_preview(
     host: String,
 ) -> Result<RulePreview, String> {
     let config = load(&store)?;
-    let decision = ft_policy::evaluate(&config.to_policy(), &pattern, &Context { host, elevated: false });
+    let decision = ft_policy::evaluate(
+        &config.to_policy(),
+        &pattern,
+        &Context {
+            host,
+            elevated: false,
+        },
+    );
     Ok(RulePreview {
         risk: decision.risk,
         reasons: decision.reasons,

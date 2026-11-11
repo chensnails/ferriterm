@@ -201,10 +201,7 @@ async fn handle(mut stream: TcpStream, shared: Arc<Shared>) -> std::io::Result<(
     }
 }
 
-async fn route(
-    request: &Request,
-    shared: &Shared,
-) -> Result<serde_json::Value, Problem> {
+async fn route(request: &Request, shared: &Shared) -> Result<serde_json::Value, Problem> {
     match (request.method.as_str(), request.path.as_str()) {
         ("GET", "/v1/health") => {
             let mut health = shared.backend.health().await.map_err(Problem::backend)?;
@@ -340,9 +337,7 @@ async fn read_request(stream: &mut TcpStream) -> Result<Request, Problem> {
                 .parse::<usize>()
                 .map_err(|_| Problem::request("bad content-length"))?;
         } else if name.eq_ignore_ascii_case("authorization") {
-            authorization = value
-                .strip_prefix("Bearer ")
-                .map(|token| token.to_string());
+            authorization = value.strip_prefix("Bearer ").map(|token| token.to_string());
         }
     }
     if length > MAX_BODY {

@@ -100,14 +100,19 @@ pub fn app_data_dir() -> Option<PathBuf> {
     }
     #[cfg(target_os = "macos")]
     {
-        std::env::var_os("HOME")
-            .map(|home| PathBuf::from(home).join("Library/Application Support").join(APP_IDENTIFIER))
+        std::env::var_os("HOME").map(|home| {
+            PathBuf::from(home)
+                .join("Library/Application Support")
+                .join(APP_IDENTIFIER)
+        })
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
         let base = std::env::var_os("XDG_DATA_HOME")
             .map(PathBuf::from)
-            .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share")))?;
+            .or_else(|| {
+                std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share"))
+            })?;
         Some(base.join(APP_IDENTIFIER))
     }
 }
@@ -119,7 +124,8 @@ pub fn discover_endpoint() -> Result<(PathBuf, Endpoint), String> {
         let endpoint = Endpoint::load(&path)?;
         return Ok((path, endpoint));
     }
-    let dir = app_data_dir().ok_or_else(|| "cannot locate the application data directory".to_string())?;
+    let dir =
+        app_data_dir().ok_or_else(|| "cannot locate the application data directory".to_string())?;
     let path = Endpoint::path_in(&dir);
     let endpoint = Endpoint::load(&path)?;
     Ok((path, endpoint))

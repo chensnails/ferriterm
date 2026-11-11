@@ -119,10 +119,7 @@ pub fn glob_match(pattern: &str, text: &str) -> bool {
 
 /// Last match wins, matching the order the rules are stored in.
 pub fn matching<'a>(rules: &'a [Rule], command: &str, host: &str) -> Option<&'a Rule> {
-    rules
-        .iter()
-        .rev()
-        .find(|rule| rule.matches(command, host))
+    rules.iter().rev().find(|rule| rule.matches(command, host))
 }
 
 #[cfg(test)]

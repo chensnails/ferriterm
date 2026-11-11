@@ -85,9 +85,21 @@ impl Backend for Mock {
             }
             let ran = request.command == "uptime";
             Ok(ExecReport {
-                verdict: if ran { "allow".to_string() } else { "deny".to_string() },
-                risk: if ran { "r0".to_string() } else { "r4".to_string() },
-                reasons: if ran { Vec::new() } else { vec!["recursiveDelete".to_string()] },
+                verdict: if ran {
+                    "allow".to_string()
+                } else {
+                    "deny".to_string()
+                },
+                risk: if ran {
+                    "r0".to_string()
+                } else {
+                    "r4".to_string()
+                },
+                reasons: if ran {
+                    Vec::new()
+                } else {
+                    vec!["recursiveDelete".to_string()]
+                },
                 rule: None,
                 mode: "auto".to_string(),
                 ran,
@@ -258,7 +270,11 @@ async fn a_missing_session_is_an_error_not_an_empty_report() {
         .await
         .unwrap_err();
     assert_eq!(error.status, 409);
-    assert!(error.message.contains("no session gone"), "{}", error.message);
+    assert!(
+        error.message.contains("no session gone"),
+        "{}",
+        error.message
+    );
 }
 
 #[tokio::test]

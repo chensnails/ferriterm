@@ -288,11 +288,7 @@ impl AuditLog {
     }
 
     /// Append one decision. `entry.hash` and `prev_hash` are filled in here.
-    pub fn append(
-        &self,
-        entry: &mut AuditEntry,
-        now: u64,
-    ) -> std::io::Result<PathBuf> {
+    pub fn append(&self, entry: &mut AuditEntry, now: u64) -> std::io::Result<PathBuf> {
         self.ensure_dir()?;
         let (iso, month) = timestamp(now);
         let previous = self.last_hash()?;
@@ -443,7 +439,8 @@ mod tests {
         let log = AuditLog::new(&dir);
         for (index, command) in ["ls", "rm build.log", "cp a b"].iter().enumerate() {
             let mut item = entry(command, Choice::Auto);
-            log.append(&mut item, 1_794_391_200 + index as u64).expect("append");
+            log.append(&mut item, 1_794_391_200 + index as u64)
+                .expect("append");
         }
         let report = log.verify("202611").expect("verify");
         assert!(report.ok);
@@ -460,7 +457,8 @@ mod tests {
         let log = AuditLog::new(&dir);
         for index in 0..3 {
             let mut item = entry("ls", Choice::Auto);
-            log.append(&mut item, 1_794_391_200 + index).expect("append");
+            log.append(&mut item, 1_794_391_200 + index)
+                .expect("append");
         }
         let path = log.file_for("202611");
         let text = fs::read_to_string(&path).expect("read");
@@ -480,7 +478,8 @@ mod tests {
         let log = AuditLog::new(&dir);
         for index in 0..3 {
             let mut item = entry("ls", Choice::Auto);
-            log.append(&mut item, 1_794_391_200 + index).expect("append");
+            log.append(&mut item, 1_794_391_200 + index)
+                .expect("append");
         }
         let path = log.file_for("202611");
         let lines: Vec<String> = fs::read_to_string(&path)
@@ -541,10 +540,14 @@ mod tests {
         let log = AuditLog::new(&dir);
         for index in 0..2 {
             let mut item = entry("ls", Choice::Auto);
-            log.append(&mut item, 1_794_391_200 + index).expect("append");
+            log.append(&mut item, 1_794_391_200 + index)
+                .expect("append");
         }
         let text = fs::read_to_string(log.file_for("202611")).expect("read");
-        assert!(!text.contains("origin"), "an absent origin must not be written");
+        assert!(
+            !text.contains("origin"),
+            "an absent origin must not be written"
+        );
         assert!(log.verify("202611").expect("verify").ok);
         fs::remove_dir_all(&dir).ok();
     }
@@ -556,14 +559,19 @@ mod tests {
         for index in 0..2 {
             let mut item = entry("ls", Choice::Auto);
             item.origin = Some(Origin::Mcp);
-            log.append(&mut item, 1_794_391_200 + index).expect("append");
+            log.append(&mut item, 1_794_391_200 + index)
+                .expect("append");
         }
         let path = log.file_for("202611");
         let text = fs::read_to_string(&path).expect("read");
         assert!(text.contains("\"origin\":\"mcp\""));
 
         // Rewriting who asked is as much a lie as rewriting what ran.
-        fs::write(&path, text.replacen("\"origin\":\"mcp\"", "\"origin\":\"ui\"", 1)).expect("write");
+        fs::write(
+            &path,
+            text.replacen("\"origin\":\"mcp\"", "\"origin\":\"ui\"", 1),
+        )
+        .expect("write");
         let report = log.verify("202611").expect("verify");
         assert!(!report.ok);
         assert_eq!(report.broken_at, Some(1));

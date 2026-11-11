@@ -245,7 +245,10 @@ async fn call(params: &Value, endpoint: Option<&str>) -> Result<Value, (i64, Str
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
-    let arguments = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
+    let arguments = params
+        .get("arguments")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
 
     Ok(match name.as_str() {
         "list_hosts" => list_hosts(endpoint).await,
@@ -303,8 +306,7 @@ async fn list_sessions(endpoint: Option<&str>) -> Value {
     };
 
     let text = if sessions.is_empty() {
-        "No open sessions. Someone has to connect in the app before a command can run."
-            .to_string()
+        "No open sessions. Someone has to connect in the app before a command can run.".to_string()
     } else {
         sessions
             .iter()
@@ -546,7 +548,10 @@ mod tests {
         // protocol error it cannot act on.
         std::env::set_var("FERRITERM_AGENT", "Z:\\definitely-not-here\\agent.json");
         let reply = answer(
-            request("tools/call", json!({ "name": "list_hosts", "arguments": {} })),
+            request(
+                "tools/call",
+                json!({ "name": "list_hosts", "arguments": {} }),
+            ),
             None,
         )
         .await

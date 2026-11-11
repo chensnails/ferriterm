@@ -15,8 +15,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use ft_agent::protocol::{
-    CheckReport, CheckRequest, ExecReport, ExecRequest, FileBlob, Health, HostSummary,
-    PathRequest, SessionSummary, UploadReport, UploadRequest,
+    CheckReport, CheckRequest, ExecReport, ExecRequest, FileBlob, Health, HostSummary, PathRequest,
+    SessionSummary, UploadReport, UploadRequest,
 };
 use ft_agent::server::{Backend, BackendFuture};
 use ft_core::SessionRegistry;
@@ -190,12 +190,21 @@ impl Backend for AgentBackend {
             match decision.verdict {
                 Verdict::Allow => {
                     let timeout = Duration::from_millis(
-                        request.timeout_ms.unwrap_or(60_000).clamp(1_000, MAX_TIMEOUT_MS),
+                        request
+                            .timeout_ms
+                            .unwrap_or(60_000)
+                            .clamp(1_000, MAX_TIMEOUT_MS),
                     );
                     // The audit line goes in before the command runs: a record
                     // written afterwards would be missing for exactly the
                     // commands that crash the process.
-                    self.record(&request.command, &label.label, &decision, Choice::Auto, origin);
+                    self.record(
+                        &request.command,
+                        &label.label,
+                        &decision,
+                        Choice::Auto,
+                        origin,
+                    );
                     let output = ft_ssh::exec(
                         &self.sessions,
                         &request.session,
@@ -220,7 +229,13 @@ impl Backend for AgentBackend {
                     );
                 }
                 Verdict::Deny => {
-                    self.record(&request.command, &label.label, &decision, Choice::Denied, origin);
+                    self.record(
+                        &request.command,
+                        &label.label,
+                        &decision,
+                        Choice::Denied,
+                        origin,
+                    );
                 }
             }
             report.duration_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;

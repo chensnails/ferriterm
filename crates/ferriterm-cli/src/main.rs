@@ -259,7 +259,10 @@ fn parse_target(rest: Vec<String>) -> Result<Target, Failure> {
 async fn status(client: &Client, endpoint: &Endpoint, json: bool) -> Result<ExitCode, Failure> {
     let health: Health = client.health().await?;
     if json {
-        println!("{}", serde_json::to_string_pretty(&health).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&health).unwrap_or_default()
+        );
         return Ok(ExitCode::SUCCESS);
     }
     let path = discover_endpoint()
@@ -279,7 +282,10 @@ async fn status(client: &Client, endpoint: &Endpoint, json: bool) -> Result<Exit
 async fn hosts(client: &Client, json: bool) -> Result<ExitCode, Failure> {
     let hosts: Vec<HostSummary> = client.hosts().await?;
     if json {
-        println!("{}", serde_json::to_string_pretty(&hosts).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&hosts).unwrap_or_default()
+        );
         return Ok(ExitCode::SUCCESS);
     }
     if hosts.is_empty() {
@@ -309,7 +315,10 @@ async fn hosts(client: &Client, json: bool) -> Result<ExitCode, Failure> {
 async fn sessions(client: &Client, json: bool) -> Result<ExitCode, Failure> {
     let sessions: Vec<SessionSummary> = client.sessions().await?;
     if json {
-        println!("{}", serde_json::to_string_pretty(&sessions).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&sessions).unwrap_or_default()
+        );
         return Ok(ExitCode::SUCCESS);
     }
     if sessions.is_empty() {
@@ -336,11 +345,25 @@ async fn check(client: &Client, rest: Vec<String>, json: bool) -> Result<ExitCod
         })
         .await?;
     if json {
-        println!("{}", serde_json::to_string_pretty(&report).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).unwrap_or_default()
+        );
     } else {
         println!("command  {}", report.command);
-        println!("host     {}", if report.host.is_empty() { "-" } else { &report.host });
-        println!("risk     {} ({})", risk_label(&report.risk), reasons(&report.reasons));
+        println!(
+            "host     {}",
+            if report.host.is_empty() {
+                "-"
+            } else {
+                &report.host
+            }
+        );
+        println!(
+            "risk     {} ({})",
+            risk_label(&report.risk),
+            reasons(&report.reasons)
+        );
         println!("verdict  {}", report.verdict);
         println!("mode     {}", report.mode);
         if let Some(rule) = &report.rule {
@@ -367,7 +390,10 @@ async fn exec(client: &Client, rest: Vec<String>, json: bool) -> Result<ExitCode
         .await?;
 
     if json {
-        println!("{}", serde_json::to_string_pretty(&report).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).unwrap_or_default()
+        );
     } else if report.ran {
         if let Some(output) = &report.output {
             print!("{output}");
@@ -388,7 +414,9 @@ async fn exec(client: &Client, rest: Vec<String>, json: bool) -> Result<ExitCode
         );
         eprintln!("verdict {} in {} mode", report.verdict, report.mode);
         if report.verdict == "ask" {
-            eprintln!("an approval needs a person: approve it in the app, or set the policy to automatic");
+            eprintln!(
+                "an approval needs a person: approve it in the app, or set the policy to automatic"
+            );
         }
     }
     if report.ran {
@@ -412,7 +440,10 @@ async fn upload(client: &Client, rest: Vec<String>, json: bool) -> Result<ExitCo
     let session = pick_session(client, target.session, target.host).await?;
     let report = client.upload(&session, &remote, &content).await?;
     if json {
-        println!("{}", serde_json::to_string_pretty(&report).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).unwrap_or_default()
+        );
     } else {
         println!("wrote {} bytes to {}", report.written, report.path);
     }
@@ -434,7 +465,10 @@ async fn download(client: &Client, rest: Vec<String>, json: bool) -> Result<Exit
     std::fs::write(&local, &bytes)
         .map_err(|error| Failure::Other(format!("cannot write {}: {error}", local.display())))?;
     if json {
-        println!("{}", serde_json::to_string_pretty(&blob).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&blob).unwrap_or_default()
+        );
     } else {
         println!("read {} bytes from {}", bytes.len(), blob.path);
     }

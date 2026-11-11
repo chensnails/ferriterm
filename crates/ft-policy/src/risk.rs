@@ -132,31 +132,166 @@ impl Assessment {
 }
 
 const READ_ONLY: &[&str] = &[
-    "ls", "ll", "la", "cat", "head", "tail", "less", "more", "grep", "egrep", "fgrep", "rg", "ag",
-    "ps", "top", "htop", "df", "du", "free", "uptime", "whoami", "id", "groups", "uname", "hostname",
-    "date", "cal", "echo", "printf", "pwd", "env", "printenv", "which", "type", "wc", "sort", "uniq",
-    "cut", "tr", "jq", "file", "stat", "diff", "cmp", "man", "help", "history", "tree", "lsof",
-    "netstat", "ss", "dig", "nslookup", "host", "nproc", "ulimit", "basename", "dirname", "realpath",
-    "readlink", "sha256sum", "md5sum", "cksum", "find",
+    "ls",
+    "ll",
+    "la",
+    "cat",
+    "head",
+    "tail",
+    "less",
+    "more",
+    "grep",
+    "egrep",
+    "fgrep",
+    "rg",
+    "ag",
+    "ps",
+    "top",
+    "htop",
+    "df",
+    "du",
+    "free",
+    "uptime",
+    "whoami",
+    "id",
+    "groups",
+    "uname",
+    "hostname",
+    "date",
+    "cal",
+    "echo",
+    "printf",
+    "pwd",
+    "env",
+    "printenv",
+    "which",
+    "type",
+    "wc",
+    "sort",
+    "uniq",
+    "cut",
+    "tr",
+    "jq",
+    "file",
+    "stat",
+    "diff",
+    "cmp",
+    "man",
+    "help",
+    "history",
+    "tree",
+    "lsof",
+    "netstat",
+    "ss",
+    "dig",
+    "nslookup",
+    "host",
+    "nproc",
+    "ulimit",
+    "basename",
+    "dirname",
+    "realpath",
+    "readlink",
+    "sha256sum",
+    "md5sum",
+    "cksum",
+    "find",
 ];
 
 const WRITE_LOW: &[&str] = &[
-    "mkdir", "touch", "ln", "tee", "zip", "gzip", "gunzip", "ssh-keygen", "base64", "curl",
-    "wget", "scp", "sftp", "translate",
+    "mkdir",
+    "touch",
+    "ln",
+    "tee",
+    "zip",
+    "gzip",
+    "gunzip",
+    "ssh-keygen",
+    "base64",
+    "curl",
+    "wget",
+    "scp",
+    "sftp",
+    "translate",
 ];
 
 const WRITE_MID: &[&str] = &[
-    "cp", "mv", "rm", "rmdir", "rsync", "tar", "unzip", "sed", "truncate", "kill", "pkill",
-    "killall", "npm", "yarn", "pnpm", "pip", "pip3", "cargo", "go", "gem", "apt", "apt-get", "yum",
-    "dnf", "apk", "brew", "pacman", "zypper", "docker", "podman", "kubectl", "helm", "terraform",
-    "make", "cmake", "python", "python3", "node", "bash", "sh", "zsh", "fish", "systemctl",
-    "service", "git", "mount", "umount", "dd",
+    "cp",
+    "mv",
+    "rm",
+    "rmdir",
+    "rsync",
+    "tar",
+    "unzip",
+    "sed",
+    "truncate",
+    "kill",
+    "pkill",
+    "killall",
+    "npm",
+    "yarn",
+    "pnpm",
+    "pip",
+    "pip3",
+    "cargo",
+    "go",
+    "gem",
+    "apt",
+    "apt-get",
+    "yum",
+    "dnf",
+    "apk",
+    "brew",
+    "pacman",
+    "zypper",
+    "docker",
+    "podman",
+    "kubectl",
+    "helm",
+    "terraform",
+    "make",
+    "cmake",
+    "python",
+    "python3",
+    "node",
+    "bash",
+    "sh",
+    "zsh",
+    "fish",
+    "systemctl",
+    "service",
+    "git",
+    "mount",
+    "umount",
+    "dd",
 ];
 
 const WRITE_HIGH: &[&str] = &[
-    "chown", "useradd", "userdel", "usermod", "groupadd", "passwd", "visudo", "crontab", "at",
-    "iptables", "ip6tables", "nft", "ufw", "firewall-cmd", "shutdown", "reboot", "poweroff", "halt",
-    "init", "telinit", "swapoff", "fdisk", "parted", "systemd-run", "nsenter",
+    "chown",
+    "useradd",
+    "userdel",
+    "usermod",
+    "groupadd",
+    "passwd",
+    "visudo",
+    "crontab",
+    "at",
+    "iptables",
+    "ip6tables",
+    "nft",
+    "ufw",
+    "firewall-cmd",
+    "shutdown",
+    "reboot",
+    "poweroff",
+    "halt",
+    "init",
+    "telinit",
+    "swapoff",
+    "fdisk",
+    "parted",
+    "systemd-run",
+    "nsenter",
 ];
 
 const FATAL_PROGRAMS: &[&str] = &["mkfs", "wipefs", "shred", "mke2fs"];
@@ -165,15 +300,43 @@ const FATAL_PROGRAMS: &[&str] = &["mkfs", "wipefs", "shred", "mke2fs"];
 const READ_ONLY_WITH_FLAGS: &[(&str, &[&str])] = &[
     ("find", &["-delete", "-exec", "-execdir", "-ok"]),
     ("tar", &["-c", "--create"]),
-    ("git", &["commit", "push", "reset", "clean", "checkout", "rebase", "merge"]),
-    ("docker", &["run", "rm", "rmi", "prune", "system", "start", "stop", "kill"]),
+    (
+        "git",
+        &[
+            "commit", "push", "reset", "clean", "checkout", "rebase", "merge",
+        ],
+    ),
+    (
+        "docker",
+        &[
+            "run", "rm", "rmi", "prune", "system", "start", "stop", "kill",
+        ],
+    ),
     ("kubectl", &["apply", "delete", "edit", "patch", "scale"]),
-    ("systemctl", &["start", "stop", "restart", "reload", "disable", "mask", "isolate"]),
+    (
+        "systemctl",
+        &[
+            "start", "stop", "restart", "reload", "disable", "mask", "isolate",
+        ],
+    ),
 ];
 
 const SYSTEM_ROOTS: &[&str] = &[
-    "/etc", "/boot", "/dev", "/sys", "/proc", "/usr", "/bin", "/sbin", "/lib", "/lib64", "/opt",
-    "/srv", "/var/lib", "/var/spool", "/root",
+    "/etc",
+    "/boot",
+    "/dev",
+    "/sys",
+    "/proc",
+    "/usr",
+    "/bin",
+    "/sbin",
+    "/lib",
+    "/lib64",
+    "/opt",
+    "/srv",
+    "/var/lib",
+    "/var/spool",
+    "/root",
 ];
 
 pub fn is_system_path(word: &str) -> bool {
@@ -195,7 +358,10 @@ fn is_system_root(word: &str) -> bool {
 }
 
 fn is_device(word: &str) -> bool {
-    word.starts_with("/dev/") && word != "/dev/null" && word != "/dev/stdout" && word != "/dev/stderr"
+    word.starts_with("/dev/")
+        && word != "/dev/null"
+        && word != "/dev/stdout"
+        && word != "/dev/stderr"
 }
 
 fn is_root_target(word: &str) -> bool {
@@ -229,10 +395,9 @@ fn is_secret(word: &str) -> bool {
 
 fn has_recursive_flag(segment: &Segment) -> bool {
     segment.has_any_flag(&["-r", "-R", "--recursive"])
-        || segment
-            .rest()
-            .iter()
-            .any(|word| word.starts_with('-') && word.contains('r') && word.len() <= 5 && word.starts_with("-r"))
+        || segment.rest().iter().any(|word| {
+            word.starts_with('-') && word.contains('r') && word.len() <= 5 && word.starts_with("-r")
+        })
 }
 
 fn base_of(segment: &Segment) -> Assessment {
@@ -246,7 +411,10 @@ fn base_of(segment: &Segment) -> Assessment {
     if program.is_empty() {
         return Assessment::default();
     }
-    if FATAL_PROGRAMS.iter().any(|fatal| program.starts_with(fatal)) {
+    if FATAL_PROGRAMS
+        .iter()
+        .any(|fatal| program.starts_with(fatal))
+    {
         assessment.risk = Risk::R4;
         assessment.hard = true;
         assessment.reasons = vec![Reason::DiskDevice];
@@ -277,8 +445,20 @@ fn base_of(segment: &Segment) -> Assessment {
     }
     if matches!(
         program.as_str(),
-        "apt" | "apt-get" | "yum" | "dnf" | "apk" | "brew" | "pacman" | "zypper" | "pip" | "pip3"
-            | "npm" | "yarn" | "pnpm" | "gem"
+        "apt"
+            | "apt-get"
+            | "yum"
+            | "dnf"
+            | "apk"
+            | "brew"
+            | "pacman"
+            | "zypper"
+            | "pip"
+            | "pip3"
+            | "npm"
+            | "yarn"
+            | "pnpm"
+            | "gem"
     ) {
         assessment.note(Reason::PackageInstall);
     }
@@ -313,7 +493,11 @@ fn grade_segment(segment: &Segment) -> Assessment {
         assessment.note(Reason::Elevated);
         let mut rest: Vec<String> = segment.rest().to_vec();
         // Drop su/sudo option words so the wrapped program is first.
-        while rest.first().map(|word| word.starts_with('-')).unwrap_or(false) {
+        while rest
+            .first()
+            .map(|word| word.starts_with('-'))
+            .unwrap_or(false)
+        {
             rest.remove(0);
         }
         if let Some(command) = rest.first() {
@@ -454,7 +638,10 @@ fn grade_command(command: &Command) -> Assessment {
         if program == "curl" || program == "wget" {
             saw_download = true;
         } else if saw_download
-            && matches!(program.as_str(), "sh" | "bash" | "zsh" | "dash" | "python" | "python3" | "perl" | "ruby")
+            && matches!(
+                program.as_str(),
+                "sh" | "bash" | "zsh" | "dash" | "python" | "python3" | "perl" | "ruby"
+            )
         {
             assessment.note(Reason::RemotePipe);
             assessment.risk = Risk::R4;
@@ -551,7 +738,10 @@ mod tests {
     fn home_root_delete_is_fatal() {
         assert!(grade("rm -rf ~").hard);
         assert!(grade("rm -rf ~/").hard);
-        assert!(!grade("rm -rf ~/build").hard, "a subdirectory is recoverable");
+        assert!(
+            !grade("rm -rf ~/build").hard,
+            "a subdirectory is recoverable"
+        );
     }
 
     #[test]
@@ -643,12 +833,16 @@ mod tests {
     #[test]
     fn permission_changes_are_high() {
         assert!(grade("chmod -R 777 /var/www").risk >= Risk::R3);
-        assert!(grade("chown -R www-data /srv").reasons.contains(&Reason::PrivilegeChange));
+        assert!(grade("chown -R www-data /srv")
+            .reasons
+            .contains(&Reason::PrivilegeChange));
     }
 
     #[test]
     fn service_control_is_flagged() {
-        assert!(grade("systemctl stop nginx").reasons.contains(&Reason::ServiceControl));
+        assert!(grade("systemctl stop nginx")
+            .reasons
+            .contains(&Reason::ServiceControl));
     }
 
     #[test]

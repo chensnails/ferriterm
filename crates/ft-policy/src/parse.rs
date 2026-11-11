@@ -128,7 +128,9 @@ pub fn collapse(text: &str) -> String {
 }
 
 pub fn parse(input: &str) -> Command {
-    Command { segments: split(input) }
+    Command {
+        segments: split(input),
+    }
 }
 
 fn split(input: &str) -> Vec<Segment> {
