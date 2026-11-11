@@ -28,6 +28,13 @@ const PASSWORD = "ferriterm-test";
 // Printed only by the fixture, so seeing it proves the command reached the
 // server; the client-side echo of the typed bytes cannot fake it.
 const SERVER_PROOF = "Ferriterm-TestShell loopback 0.1";
+const SHELL_PROMPT = "test@loopback:~$ ";
+
+// xterm renders to a canvas; with screenReaderMode the buffer is mirrored into
+// this accessibility tree, which is the only text a driver can read back.
+const A11Y_TEXT =
+  "const tree = document.querySelector('.xterm-accessibility-tree');" +
+  "return tree ? tree.textContent : '';";
 
 const log = (message) => console.log(`e2e: ${message}`);
 
@@ -87,6 +94,18 @@ async function run(session) {
   log("trusting the fixture host key");
   await session.click(await session.waitForElement('[data-testid="hostkey-accept"]', 30_000));
 
+  log("waiting for the shell prompt");
+  // Writes go straight to the backend session; sending before the channel is
+  // up would drop the keystrokes, so wait for the fixture's own prompt.
+  await waitFor(
+    "the loopback shell prompt",
+    async () => {
+      const text = await session.execute(A11Y_TEXT);
+      return text.includes(SHELL_PROMPT) ? text : null;
+    },
+    { timeoutMs: 30_000 },
+  );
+
   log("typing into the terminal");
   const textarea = await session.waitForElement(".xterm-helper-textarea", 20_000);
   await session.sendKeys(textarea, "uname");
@@ -95,10 +114,7 @@ async function run(session) {
   const screen = await waitFor(
     "the fixture's uname output",
     async () => {
-      const text = await session.execute(
-        "const tree = document.querySelector('.xterm-accessibility-tree');" +
-          "return tree ? tree.textContent : '';",
-      );
+      const text = await session.execute(A11Y_TEXT);
       return text.includes(SERVER_PROOF) ? text : null;
     },
     { timeoutMs: 30_000 },
