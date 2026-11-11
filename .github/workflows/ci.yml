@@ -53,14 +53,18 @@ jobs:
 
   e2e:
     name: End-to-end (WebDriver)
-    runs-on: ubuntu-latest
+    # tauri-driver drives WebKitWebDriver, and the ubuntu-latest migration to
+    # 26.04 dropped the webkit2gtk-driver package that provides it.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
       - name: Install webview and WebDriver dependencies
         run: |
-          sudo apt-get update
+          # Runner DNS occasionally drops the archive mirror; the image's
+          # package lists are still usable, so retry before giving up.
+          sudo apt-get update || sudo apt-get update || true
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
             libxdo-dev libssl-dev webkit2gtk-driver xvfb
@@ -121,7 +125,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Pinned for the same reason as the e2e job: Ubuntu 26.04 no longer
+        # carries the WebKitGTK 4.1 development packages this build needs.
+        os: [ubuntu-24.04, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
@@ -130,7 +136,7 @@ jobs:
       - name: Install Linux webview dependencies
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
+          sudo apt-get update || sudo apt-get update || true
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
             libxdo-dev libssl-dev
