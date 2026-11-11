@@ -154,8 +154,8 @@ function scopeOf(value: bigint, version: IpVersion): AddressScope {
     if (value >> 32n === 0xffffn) return scopeOf(value & 0xffffffffn, 4);
     if (value === 1n) return "loopback";
     if (value >> 120n === 0xffn) return "multicast";
-    if (value >> 118n === 0x3fn) return "linkLocal"; // fe80::/10
-    if (value >> 125n === 0x1fn) return "private"; // fc00::/7
+    if (value >> 118n === 0x3fan) return "linkLocal"; // fe80::/10
+    if (value >> 121n === 0x7en) return "private"; // fc00::/7
     return "public";
   }
   const first = Number(value >> 24n);
