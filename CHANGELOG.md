@@ -8,6 +8,14 @@ package version in `src-tauri/tauri.conf.json`.
 
 ### Added
 
+- Built-in AI assistant (bring your own key): OpenAI-compatible and Anthropic
+  endpoints, streaming chat, natural-language-to-command with an explicit
+  insert step, and failure explanations. Providers and their models are managed
+  in Settings → AI; API keys live in the credential vault under `ai:<id>` and
+  are never returned to the interface. Terminal context is opt-in (none / last
+  command / selection / screen), command output is off by default, and secrets
+  are redacted in Rust before a request leaves the machine. Works with Qwen,
+  DeepSeek, GLM, Kimi and Ollama through their OpenAI-compatible endpoints.
 - Engineering assessment and phased remediation roadmap
   (`docs/assessment-2026-11-10.md`).
 - LICENSE (GPL-3.0-only), README, CONTRIBUTING and this changelog.

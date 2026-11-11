@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { TRANSFER_TAB, useAppStore } from "../store";
-import { FilesIcon, ListIcon, LogIcon } from "./icons";
+import { FilesIcon, ListIcon, LogIcon, SparkleIcon } from "./icons";
 import { RailButton } from "./ui";
 
 /**
@@ -14,6 +14,8 @@ export function RightStrip() {
   const toggleCommands = useAppStore((s) => s.toggleCommands);
   const execLogOpen = useAppStore((s) => s.execLogOpen);
   const toggleExecLog = useAppStore((s) => s.toggleExecLog);
+  const aiOpen = useAppStore((s) => s.aiOpen);
+  const toggleAi = useAppStore((s) => s.toggleAi);
   const activeId = useAppStore((s) => s.activeId);
   const openTransfer = useAppStore((s) => s.openTransfer);
   const closeTransfer = useAppStore((s) => s.closeTransfer);
@@ -57,6 +59,13 @@ export function RightStrip() {
           onClick={toggleExecLog}
         >
           <LogIcon size={18} />
+        </RailButton>
+        <RailButton
+          label={t("ai.toggle")}
+          active={aiOpen}
+          onClick={toggleAi}
+        >
+          <SparkleIcon size={18} />
         </RailButton>
       </div>
     </nav>

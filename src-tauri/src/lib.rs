@@ -1,3 +1,4 @@
+mod ai;
 mod commands;
 mod logging;
 mod net_tools;
@@ -196,6 +197,15 @@ pub fn run() {
             net_tools::net_tool_start,
             net_tools::net_tool_cancel,
             net_tools::geoip_lookup,
+            ai::ai_list_providers,
+            ai::ai_save_provider,
+            ai::ai_delete_provider,
+            ai::ai_presets,
+            ai::ai_test_provider,
+            ai::ai_chat,
+            ai::ai_chat_stream,
+            ai::ai_generate_command,
+            ai::ai_explain,
         ])
         .run(tauri::generate_context!())
         .expect("error while running ferriterm");

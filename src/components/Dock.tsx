@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { useAppStore, type DockCardId } from "../store";
 import { CommandRail } from "./CommandRail";
 import { ExecutionLog } from "./ExecutionLog";
+import { AiPanel } from "./AiPanel";
 import { IconButton, Island, PanelHeader } from "./ui";
 import { CloseIcon } from "./icons";
 
@@ -33,9 +34,11 @@ export function Dock() {
   const commandsOpen = useAppStore((s) => s.commandsOpen);
   const monitorOpen = useAppStore((s) => s.monitorOpen);
   const execLogOpen = useAppStore((s) => s.execLogOpen);
+  const aiOpen = useAppStore((s) => s.aiOpen);
   const toggleCommands = useAppStore((s) => s.toggleCommands);
   const toggleMonitor = useAppStore((s) => s.toggleMonitor);
   const toggleExecLog = useAppStore((s) => s.toggleExecLog);
+  const toggleAi = useAppStore((s) => s.toggleAi);
   const clearExecLog = useAppStore((s) => s.clearExecLog);
   const logCount = useAppStore((s) => s.execLog.length);
 
@@ -43,6 +46,7 @@ export function Dock() {
   if (commandsOpen) openIds.push("commands");
   if (monitorOpen) openIds.push("monitor");
   if (execLogOpen) openIds.push("log");
+  if (aiOpen) openIds.push("ai");
 
   if (openIds.length === 0) return null;
 
@@ -50,6 +54,7 @@ export function Dock() {
     commands: toggleCommands,
     monitor: toggleMonitor,
     log: toggleExecLog,
+    ai: toggleAi,
   };
 
   const trackDrag = (
@@ -108,6 +113,10 @@ export function Dock() {
         </button>
       ),
       body: <ExecutionLog />,
+    },
+    ai: {
+      title: t("ai.title"),
+      body: <AiPanel />,
     },
   };
 

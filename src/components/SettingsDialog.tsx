@@ -27,6 +27,7 @@ import { DEV_VERSION } from "../version";
 import { detectLanguage } from "../i18n";
 import { Modal } from "./Modal";
 import { CredentialVault } from "./CredentialVault";
+import { SettingsAi } from "./SettingsAi";
 import { ShortcutEditor } from "./ShortcutEditor";
 import { VersionHistory } from "./VersionHistory";
 import { UpdatePanel } from "./UpdatePanel";
@@ -61,6 +62,7 @@ import {
   RefreshIcon,
   SearchIcon,
   SlidersIcon,
+  SparkleIcon,
   TerminalIcon,
   ThemeIcon,
   UploadIcon,
@@ -71,6 +73,7 @@ const SETTINGS_CATEGORIES = [
   "appearance",
   "credentials",
   "terminal",
+  "ai",
   "keyboard",
   "transfer",
   "plugins",
@@ -85,6 +88,7 @@ const CATEGORY_ICONS: Record<SettingsCategory, typeof SlidersIcon> = {
   appearance: ThemeIcon,
   credentials: KeyIcon,
   terminal: TerminalIcon,
+  ai: SparkleIcon,
   keyboard: KeyboardIcon,
   transfer: FilesIcon,
   plugins: PuzzleIcon,
@@ -1043,6 +1047,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             </>
           )}
           {category === "credentials" && <CredentialVault />}
+          {category === "ai" && <SettingsAi />}
           {category === "terminal" && (
             <>
         <SettingGroup

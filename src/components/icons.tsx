@@ -440,3 +440,11 @@ export function TrashIcon({ size = 14 }: { size?: number }) {
 }
 
 
+
+export function SparkleIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M8 1.8l1.3 3.4a2 2 0 0 0 1.2 1.2l3.4 1.3-3.4 1.3a2 2 0 0 0-1.2 1.2L8 13.6l-1.3-3.4a2 2 0 0 0-1.2-1.2L2.1 7.7l3.4-1.3a2 2 0 0 0 1.2-1.2z" />
+    </svg>
+  );
+}

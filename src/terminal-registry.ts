@@ -9,6 +9,9 @@ export interface TerminalHandle {
   insert(text: string): void;
   find(query: string, backwards?: boolean, regex?: boolean): SearchResult;
   resetSearch(): void;
+  /** Last `max` visible/buffered lines, newest last. Used for AI context. */
+  screenLines(max: number): string[];
+  selectionText(): string;
 }
 
 const handles = new Map<string, TerminalHandle>();

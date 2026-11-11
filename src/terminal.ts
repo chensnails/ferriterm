@@ -419,6 +419,24 @@ export class TerminalView implements TerminalHandle {
     this.focus();
   }
 
+  /** Last `max` lines ending at the cursor; blank lines are kept so the model
+      sees the same layout the user does. */
+  screenLines(max: number): string[] {
+    const buffer = this.term.buffer.active;
+    const end = Math.min(buffer.length - 1, buffer.baseY + buffer.cursorY);
+    const start = Math.max(0, end - Math.max(1, max) + 1);
+    const lines: string[] = [];
+    for (let index = start; index <= end; index += 1) {
+      const line = buffer.getLine(index);
+      lines.push(line ? line.translateToString(true) : "");
+    }
+    return lines;
+  }
+
+  selectionText(): string {
+    return this.term.getSelection();
+  }
+
   // Reconstruct the line the user is typing from raw terminal input so history
   // and the execution log do not need shell integration.
   private trackInput(data: string) {

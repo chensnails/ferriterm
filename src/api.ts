@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 export const isTauri =
@@ -1137,4 +1137,178 @@ export function onNetToolDone(
   cb: (event: NetToolDone) => void,
 ): Promise<UnlistenFn> {
   return listen<NetToolDone>(netToolDoneEvent, (e) => cb(e.payload));
+}
+
+// ------------------------------------------------------------------- AI (BYOK)
+
+export type AiKind = "openai" | "anthropic";
+export type AiScope = "none" | "command" | "selection" | "screen";
+
+/** Provider as returned to the UI; the API key itself never leaves Rust. */
+export interface AiProvider {
+  id: string;
+  name: string;
+  kind: AiKind;
+  baseUrl: string;
+  model: string;
+  timeoutSecs: number;
+  temperature: number;
+  maxTokens: number;
+  fastModel: string;
+  preset: string;
+  hasKey: boolean;
+}
+
+export type AiProviderInput = Omit<AiProvider, "hasKey">;
+
+export interface AiPreset {
+  id: string;
+  name: string;
+  kind: AiKind;
+  baseUrl: string;
+  model: string;
+}
+
+export interface AiReply {
+  text: string;
+  latencyMs: number;
+  model: string;
+}
+
+export interface AiCommandReply {
+  command: string;
+  explanation: string;
+  latencyMs: number;
+  model: string;
+}
+
+export interface AiChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AiContext {
+  selection?: string | null;
+  lastCommand?: string | null;
+  screen: string[];
+  scope: AiScope;
+  lines: number;
+  sendOutput: boolean;
+  redact: boolean;
+}
+
+/** Settings persisted under the `aiSettings` key. */
+export interface AiSettings {
+  enabled: boolean;
+  redact: boolean;
+  scope: AiScope;
+  screenLines: number;
+  sendOutput: boolean;
+  deniedHosts: string;
+  firstSendConfirmed: boolean;
+  nlPrefix: string;
+}
+
+export const DEFAULT_AI_SETTINGS: AiSettings = {
+  enabled: true,
+  redact: true,
+  scope: "screen",
+  screenLines: 40,
+  sendOutput: false,
+  deniedHosts: "",
+  firstSendConfirmed: false,
+  nlPrefix: "#",
+};
+
+export function parseAiSettings(raw: string | undefined): AiSettings {
+  if (!raw) return { ...DEFAULT_AI_SETTINGS };
+  try {
+    return { ...DEFAULT_AI_SETTINGS, ...(JSON.parse(raw) as Partial<AiSettings>) };
+  } catch {
+    return { ...DEFAULT_AI_SETTINGS };
+  }
+}
+
+export function aiListProviders(): Promise<AiProvider[]> {
+  return invoke<AiProvider[]>("ai_list_providers");
+}
+
+export function aiPresets(): Promise<AiPreset[]> {
+  return invoke<AiPreset[]>("ai_presets");
+}
+
+export function aiSaveProvider(provider: AiProviderInput): Promise<AiProvider> {
+  return invoke<AiProvider>("ai_save_provider", { provider });
+}
+
+export function aiDeleteProvider(id: string): Promise<void> {
+  return invoke<void>("ai_delete_provider", { id });
+}
+
+export function aiTestProvider(id: string): Promise<AiReply> {
+  return invoke<AiReply>("ai_test_provider", { id });
+}
+
+export function aiChat(
+  providerId: string,
+  messages: AiChatMessage[],
+  context: AiContext | null,
+  system?: string,
+): Promise<AiReply> {
+  return invoke<AiReply>("ai_chat", { providerId, messages, context, system });
+}
+
+/** Streaming chat: `onDelta` receives each fragment as it arrives. */
+export function aiChatStream(
+  providerId: string,
+  messages: AiChatMessage[],
+  context: AiContext | null,
+  system: string | undefined,
+  onDelta: (delta: string) => void,
+): Promise<AiReply> {
+  const channel = new Channel<{ delta: string }>();
+  channel.onmessage = (event) => onDelta(event.delta);
+  return invoke<AiReply>("ai_chat_stream", {
+    providerId,
+    messages,
+    context,
+    system,
+    channel,
+  });
+}
+
+export function aiGenerateCommand(
+  providerId: string,
+  request: string,
+  options: {
+    host?: string | null;
+    shell?: string | null;
+    context: AiContext | null;
+  },
+): Promise<AiCommandReply> {
+  return invoke<AiCommandReply>("ai_generate_command", {
+    providerId,
+    request,
+    host: options.host ?? null,
+    shell: options.shell ?? null,
+    context: options.context,
+  });
+}
+
+export function aiExplain(
+  providerId: string,
+  command: string,
+  code: number,
+  host: string | null,
+  outputTail: string,
+  context: AiContext | null,
+): Promise<AiReply> {
+  return invoke<AiReply>("ai_explain", {
+    providerId,
+    command,
+    code,
+    host,
+    outputTail,
+    context,
+  });
 }

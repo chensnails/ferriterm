@@ -249,7 +249,7 @@ export type SidebarView = "hosts" | "tools";
 export type NetToolId = "ping" | "geoip" | "ipcalc";
 
 /** Companion panels that live in the right dock. */
-export type DockCardId = "commands" | "monitor" | "log";
+export type DockCardId = "commands" | "monitor" | "log" | "ai";
 
 export const DOCK_WIDTH_MIN = 252;
 export const DOCK_WIDTH_MAX = 560;
@@ -288,6 +288,7 @@ const DOCK_CARD_DEFAULT_H: Record<DockCardId, number> = {
   commands: 300,
   monitor: 296,
   log: 208,
+  ai: 340,
 };
 
 function clampDockWidth(width: number): number {
@@ -371,6 +372,11 @@ interface AppState {
   execLog: ExecLogEntry[];
   execLogOpen: boolean;
   toggleExecLog: () => void;
+  aiOpen: boolean;
+  toggleAi: () => void;
+  /** Bumped whenever providers or their keys change, so the panel refetches. */
+  aiConfigVersion: number;
+  bumpAiConfig: () => void;
   clearExecLog: () => void;
   logEvent: (text: string) => void;
   broadcastTargets: string[];
@@ -711,6 +717,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   commandHistory: [],
   execLog: [],
   execLogOpen: false,
+  aiOpen: false,
+  aiConfigVersion: 0,
   layoutRestored: false,
   theme: "dark",
   themeVersion: 0,
@@ -795,11 +803,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (single) {
           api.setSetting("commandsOpen", "0").catch(() => {});
           api.setSetting("execLogOpen", "0").catch(() => {});
+          api.setSetting("aiOpen", "0").catch(() => {});
         }
       }
       return {
         monitorOpen: open,
-        ...(single ? { commandsOpen: false, execLogOpen: false } : {}),
+        ...(single ? { commandsOpen: false, execLogOpen: false, aiOpen: false } : {}),
       };
     }),
   setMonitorTarget: (monitorTarget) => set({ monitorTarget }),
@@ -1097,11 +1106,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (single) {
           api.setSetting("monitorOpen", "0").catch(() => {});
           api.setSetting("execLogOpen", "0").catch(() => {});
+          api.setSetting("aiOpen", "0").catch(() => {});
         }
       }
       return {
         commandsOpen: open,
-        ...(single ? { monitorOpen: false, execLogOpen: false } : {}),
+        ...(single ? { monitorOpen: false, execLogOpen: false, aiOpen: false } : {}),
       };
     }),
   toggleSidebar: () =>
@@ -1351,11 +1361,32 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (single) {
           api.setSetting("commandsOpen", "0").catch(() => {});
           api.setSetting("monitorOpen", "0").catch(() => {});
+          api.setSetting("aiOpen", "0").catch(() => {});
         }
       }
       return {
         execLogOpen: open,
-        ...(single ? { commandsOpen: false, monitorOpen: false } : {}),
+        ...(single ? { commandsOpen: false, monitorOpen: false, aiOpen: false } : {}),
+      };
+    }),
+
+  toggleAi: () =>
+    set((s) => {
+      const open = !s.aiOpen;
+      const single = s.dockSingleCard && open;
+      if (isTauri) {
+        api.setSetting("aiOpen", open ? "1" : "0").catch(() => {});
+        if (single) {
+          api.setSetting("commandsOpen", "0").catch(() => {});
+          api.setSetting("monitorOpen", "0").catch(() => {});
+          api.setSetting("execLogOpen", "0").catch(() => {});
+        }
+      }
+      return {
+        aiOpen: open,
+        ...(single
+          ? { commandsOpen: false, monitorOpen: false, execLogOpen: false }
+          : {}),
       };
     }),
 
@@ -1702,6 +1733,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       reduceMotion,
       dockSingleCard,
       execLogOpen: (settings.execLogOpen ?? "0") === "1",
+      aiOpen: (settings.aiOpen ?? "0") === "1",
       transferConcurrency: clampTransferConcurrency(
         Number(settings.transferConcurrency),
       ),
@@ -1754,6 +1786,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   bumpCommandLibrary: () =>
     set((s) => ({ commandLibraryVersion: s.commandLibraryVersion + 1 })),
+  bumpAiConfig: () =>
+    set((s) => ({ aiConfigVersion: s.aiConfigVersion + 1 })),
 
   setStatus: (text, isError = false) => {
     set({ status: { text, isError } });
