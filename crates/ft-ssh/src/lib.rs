@@ -671,16 +671,45 @@ fn auth_failed(hop: &JumpHop) -> String {
     )
 }
 
+#[cfg(any(unix, windows))]
+type DynAgent = russh::keys::agent::client::AgentClient<
+    Box<dyn russh::keys::agent::client::AgentStream + Send + Unpin>,
+>;
+
 #[cfg(unix)]
+async fn open_agent() -> Result<DynAgent, String> {
+    use russh::keys::agent::client::AgentClient;
+
+    AgentClient::connect_env()
+        .await
+        .map(|agent| agent.dynamic())
+        .map_err(|e| format!("ssh-agent unavailable (SSH_AUTH_SOCK): {e}"))
+}
+
+/// The Windows OpenSSH agent listens on a named pipe; Pageant is the common
+/// alternative. Trying both keeps the Agent option usable instead of always
+/// failing on this platform.
+#[cfg(windows)]
+async fn open_agent() -> Result<DynAgent, String> {
+    use russh::keys::agent::client::AgentClient;
+
+    match AgentClient::connect_named_pipe(r"\\.\pipe\openssh-ssh-agent").await {
+        Ok(agent) => Ok(agent.dynamic()),
+        Err(pipe_err) => match AgentClient::connect_pageant().await {
+            Ok(agent) => Ok(agent.dynamic()),
+            Err(pageant_err) => Err(format!(
+                "ssh-agent unavailable (OpenSSH named pipe: {pipe_err}; Pageant: {pageant_err})"
+            )),
+        },
+    }
+}
+
+#[cfg(any(unix, windows))]
 async fn authenticate_agent(
     handle: &mut client::Handle<SshHandler>,
     username: &str,
 ) -> Result<bool, String> {
-    use russh::keys::agent::client::AgentClient;
-
-    let mut agent = AgentClient::connect_env()
-        .await
-        .map_err(|e| format!("ssh-agent unavailable (SSH_AUTH_SOCK): {e}"))?;
+    let mut agent = open_agent().await?;
     if let Some(binding) = handle.agent_session_binding() {
         agent.bind_session(binding, false).await.ok();
     }
@@ -710,7 +739,7 @@ async fn authenticate_agent(
     Ok(false)
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 async fn authenticate_agent(
     _handle: &mut client::Handle<SshHandler>,
     _username: &str,
