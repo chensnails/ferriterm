@@ -347,7 +347,7 @@ mod tests {
             stream.write_all(b"login: ").unwrap();
             let mut seen = Vec::new();
             let mut buf = [0u8; 64];
-            let deadline = std::time::Instant::now() + Duration::from_secs(5);
+            let deadline = std::time::Instant::now() + Duration::from_secs(15);
             while std::time::Instant::now() < deadline {
                 let n = stream.read(&mut buf).unwrap();
                 if n == 0 {
@@ -382,23 +382,24 @@ mod tests {
         write_raw(&registry, "telnet-1", b"root\xff").await.unwrap();
         resize(&registry, "telnet-1", 100, 30).await.unwrap();
 
-        // Shared CI runners can schedule the reader thread well after the
-        // handshake, so wait on a deadline instead of a fixed second.
-        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        // Shared CI runners can schedule the reader task well after the
+        // handshake. Poll on tokio's timer, not a blocking sleep, or a
+        // single-threaded runtime cannot run the reader while we wait.
+        let deadline = std::time::Instant::now() + Duration::from_secs(15);
         while std::time::Instant::now() < deadline {
             if sink.data.lock().unwrap().ends_with(b"ok\r\n") {
                 break;
             }
-            std::thread::sleep(Duration::from_millis(10));
+            tokio::time::sleep(Duration::from_millis(10)).await;
         }
         assert_eq!(sink.data.lock().unwrap().as_slice(), b"login: ok\r\n");
         close(&registry, "telnet-1").await.unwrap();
         server.join().unwrap();
-        for _ in 0..100 {
+        for _ in 0..200 {
             if sink.closed.load(Ordering::Relaxed) {
                 break;
             }
-            std::thread::sleep(Duration::from_millis(10));
+            tokio::time::sleep(Duration::from_millis(10)).await;
         }
         assert!(sink.closed.load(Ordering::Relaxed));
     }
