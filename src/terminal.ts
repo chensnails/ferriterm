@@ -136,6 +136,27 @@ export class TerminalView implements TerminalHandle {
     this.term.open(container);
     try {
       const webgl = new WebglAddon();
+      // Disposing a WebGL addon twice throws: the first pass tears down its
+      // renderer, and the AddonManager's dispose on close then walks into the
+      // missing renderer ("reading '_isDisposed'"). A lost context already
+      // disposes the addon, so make the call idempotent for the dispose that
+      // follows when the tab closes.
+      const disposeWebgl = webgl.dispose.bind(webgl);
+      let webglDisposed = false;
+      webgl.dispose = () => {
+        if (webglDisposed) return;
+        webglDisposed = true;
+        // WebglAddon.dispose() never calls super.dispose(), so the inherited
+        // isDisposed flag stays false and xterm's guard in _wrappedAddonDispose
+        // ("if (addon.isDisposed) return") never kicks in. Setting it keeps
+        // that guard honest instead of relying on our wrapper alone.
+        (webgl as unknown as { _isDisposed: boolean })._isDisposed = true;
+        try {
+          disposeWebgl();
+        } catch {
+          // The context is already gone; nothing left to release.
+        }
+      };
       webgl.onContextLoss(() => webgl.dispose());
       this.term.loadAddon(webgl);
     } catch {
@@ -783,6 +804,9 @@ export class TerminalView implements TerminalHandle {
   }
 
   dispose() {
+    // React may run the panel's cleanup more than once (a remount, or a lazy
+    // chunk arriving late); tearing the same terminal down twice throws.
+    if (this.disposed) return;
     this.disposed = true;
     window.clearTimeout(this.keywordTimer);
     window.clearTimeout(this.reconnectTimer);
