@@ -62,10 +62,12 @@ jobs:
 
       - name: Install webview and WebDriver dependencies
         run: |
-          # Runner DNS occasionally drops the archive mirror; the image's
-          # package lists are still usable, so retry before giving up.
-          sudo apt-get update || sudo apt-get update || true
-          sudo apt-get install -y \
+          # apt hangs on the Azure mirror's IPv6 addresses on this runner
+          # ("Ign:" per package); pin IPv4 and fail fast instead of stalling.
+          opts=(-o Acquire::ForceIPv4=true -o Acquire::Retries=3
+                -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20)
+          timeout 300 sudo apt-get "${opts[@]}" update
+          timeout 900 sudo apt-get "${opts[@]}" install -y \
             libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
             libxdo-dev libssl-dev webkit2gtk-driver xvfb
 
@@ -136,8 +138,10 @@ jobs:
       - name: Install Linux webview dependencies
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update || sudo apt-get update || true
-          sudo apt-get install -y \
+          opts=(-o Acquire::ForceIPv4=true -o Acquire::Retries=3
+                -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20)
+          timeout 300 sudo apt-get "${opts[@]}" update
+          timeout 900 sudo apt-get "${opts[@]}" install -y \
             libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
             libxdo-dev libssl-dev
 
