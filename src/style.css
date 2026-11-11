@@ -3077,25 +3077,161 @@ mark {
   gap: 2px;
 }
 
+.command-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.command-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-muted);
+}
+
+.command-search:focus-within {
+  border-color: var(--accent);
+}
+
+.command-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--font-ui-sm);
+  outline: none;
+}
+
+.command-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+  height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  font-size: var(--font-ui-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.command-tool-btn:hover {
+  border-color: var(--accent);
+}
+
+.command-tool-btn.primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--fg-on-accent);
+}
+
+.command-tool-btn.icon-only {
+  width: var(--control-h);
+  padding: 0;
+}
+
+.command-library-head,
 .command-group-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-1);
   padding: 0 var(--space-1);
+  color: var(--fg-muted);
   font-size: 11px;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
+}
+
+.command-library-head {
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--divider);
+}
+
+.command-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1) 0;
+  border: 0;
+  background: transparent;
   color: var(--fg-muted);
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-align: left;
+  cursor: pointer;
+}
+
+.command-group-toggle:hover {
+  color: var(--fg-primary);
+}
+
+.command-group-toggle > span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-caret {
+  display: inline-block;
+  flex: 0 0 auto;
+  font-size: 10px;
+  transition: transform var(--motion-fast);
+}
+
+.command-group-toggle[aria-expanded="true"] .command-caret {
+  transform: rotate(90deg);
+}
+
+.command-count {
+  flex: 0 0 auto;
+  min-width: var(--space-4);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  color: var(--fg-muted);
+  font-size: 10px;
+  text-align: center;
 }
 
 .command-item {
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  border-radius: var(--radius-md);
+  transition: background var(--motion-fast);
+}
+
+.command-item.inserted,
+.command-history-item.inserted {
+  background: var(--selected-bg);
 }
 
 .command-insert {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   flex: 1;
+  min-width: 0;
   padding: var(--space-1) var(--space-2);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
@@ -3112,6 +3248,35 @@ mark {
   border-color: var(--border);
 }
 
+.command-item-name,
+.command-item-preview {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-item-preview {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.command-var-badge {
+  flex: 0 0 auto;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.command-empty.ui-empty-state,
+.command-history-empty.ui-empty-state {
+  padding: var(--space-3) var(--space-2);
+}
+
 .rail-mini {
   width: 18px;
   height: 18px;
@@ -3124,51 +3289,51 @@ mark {
 }
 
 .rail-mini:hover {
-  color: var(--danger);
+  color: var(--fg-primary);
   background: var(--bg-elevated);
 }
 
-.rail-tools {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  flex: 0 0 auto;
+.command-manager-group-actions .rail-mini:last-child:hover {
+  color: var(--danger);
 }
 
-.rail-foot {
+/* Editing half: list on the left, editor on the right. */
+.command-manager {
+  display: grid;
+  grid-template-columns: minmax(0, 0.42fr) minmax(0, 1fr);
+  gap: var(--space-3);
+  min-height: 0;
+}
+
+.command-manager-side {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-2);
-  border-top: 1px solid var(--border);
+  min-width: 0;
+  min-height: 0;
+  padding-right: var(--space-2);
+  border-right: 1px solid var(--divider);
 }
 
-.rail-form {
+.command-manager-side-head {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  align-items: center;
+  justify-content: space-between;
+  color: var(--fg-muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
 }
 
-.rail-form input,
-.rail-form select {
+.command-manager-add,
+.command-manager-new-group,
+.command-manager-group-create button,
+.command-empty .ui-empty-action button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
   height: var(--control-h);
   padding: 0 var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-base);
-  color: var(--fg-primary);
-  font-size: var(--font-ui-sm);
-  font-family: inherit;
-  outline: none;
-}
-
-.rail-form input:focus,
-.rail-form select:focus {
-  border-color: var(--accent);
-}
-
-.rail-form button {
-  height: var(--control-h);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg-elevated);
@@ -3177,15 +3342,244 @@ mark {
   cursor: pointer;
 }
 
-.rail-form button.primary {
-  border-color: transparent;
-  background: var(--accent);
-  color: var(--fg-on-accent);
+.command-manager-add:hover,
+.command-manager-new-group:hover,
+.command-manager-group-create button:hover,
+.command-empty .ui-empty-action button:hover {
+  border-color: var(--accent);
 }
 
-.rail-form button:disabled {
-  opacity: var(--disabled-opacity);
-  cursor: not-allowed;
+.command-manager-add {
+  width: var(--control-h);
+  padding: 0;
+}
+
+.command-manager-new-group {
+  justify-content: flex-start;
+  width: 100%;
+  flex: 0 0 auto;
+}
+
+.command-manager-group-create {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.command-manager-group-create input {
+  flex: 1 1 100%;
+  height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--font-ui-sm);
+}
+
+.command-manager-group-create input:focus {
+  border-color: var(--accent);
+}
+
+.command-manager-groups {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.command-manager-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.command-manager-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-md);
+}
+
+.command-manager-group-head.active {
+  background: var(--selected-bg);
+}
+
+.command-manager-group-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1);
+  border: 0;
+  background: transparent;
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--font-ui-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.command-manager-group-name > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-manager-group-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.command-manager-commands {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: var(--space-2);
+}
+
+.command-manager-commands .hint {
+  padding: 0 var(--space-2);
+}
+
+.command-manager-command {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--font-ui-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.command-manager-command:hover {
+  background: var(--hover-bg);
+}
+
+.command-manager-command.active {
+  background: var(--selected-bg);
+}
+
+.command-manager-cmd-mark {
+  flex: 0 0 auto;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.command-manager-cmd-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-manager-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 0;
+}
+
+.command-manager-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.command-manager-editor-head h3 {
+  margin: 0;
+  font-size: var(--font-ui-sm);
+  font-weight: 600;
+}
+
+.command-manager-form {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.command-manager-form .field textarea {
+  min-height: 120px;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.command-manager-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.command-manager-preview-label {
+  color: var(--fg-muted);
+  font-size: 11px;
+}
+
+.command-manager-tips {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--fg-muted);
+  font-size: 11px;
+}
+
+.command-manager-vars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.command-manager-vars code {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
+.command-manager-notice {
+  margin-right: auto;
+  color: var(--success);
+  font-size: var(--font-ui-sm);
+}
+
+@media (max-width: 700px) {
+  .command-manager {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .command-manager-side {
+    max-height: 40vh;
+    padding-right: 0;
+    padding-bottom: var(--space-2);
+    border-right: 0;
+    border-bottom: 1px solid var(--divider);
+  }
+
+  .command-manager-groups {
+    max-height: 26vh;
+  }
 }
 
 .palette-backdrop {
@@ -7812,7 +8206,10 @@ body.dock-resizing-y * {
   .tree-empty-actions button,
   .net-actions button,
   .sync-actions button,
-  .rail-form button,
+  .command-tool-btn,
+  .command-manager-add,
+  .command-manager-new-group,
+  .command-manager-command,
   .tag-create button,
   .transfer-head-tools button
 ):active:not(:disabled):not(.primary):not(.danger) {
