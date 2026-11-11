@@ -8513,6 +8513,35 @@ body.dock-resizing-y * {
   color: var(--accent);
 }
 
+/* Approval card: the command is the centrepiece, so it gets mono type on the
+   base surface and wraps rather than scrolls sideways. */
+.approve-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.approve-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.approve-command {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  line-height: var(--line-ui);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .ai-field-area {
   height: auto;
   padding: var(--space-1) var(--space-2);

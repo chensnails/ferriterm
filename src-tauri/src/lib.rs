@@ -2,6 +2,7 @@ mod ai;
 mod commands;
 mod logging;
 mod net_tools;
+mod policy;
 mod updater;
 
 use std::sync::Arc;
@@ -207,6 +208,11 @@ pub fn run() {
             ai::ai_chat_stream,
             ai::ai_generate_command,
             ai::ai_explain,
+            policy::policy_get,
+            policy::policy_save,
+            policy::policy_evaluate,
+            policy::policy_add_rule,
+            policy::policy_remove_rule,
         ])
         .run(tauri::generate_context!())
         .expect("error while running ferriterm");

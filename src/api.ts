@@ -1343,3 +1343,87 @@ export function aiExplain(
     context,
   });
 }
+
+// ------------------------------------------------------------------ policy
+
+/** How much rope the non-human execution paths get. */
+export type PolicyMode = "auto" | "ask" | "plan";
+export type PolicyVerdict = "allow" | "ask" | "deny";
+export type PolicyEffect = "allow" | "ask" | "deny";
+export type PolicyRisk = "r0" | "r1" | "r2" | "r3" | "r4";
+
+export type PolicyReason =
+  | "rootDelete"
+  | "systemPath"
+  | "elevated"
+  | "recursive"
+  | "remotePipe"
+  | "secretFile"
+  | "diskDevice"
+  | "forkBomb"
+  | "privilegeChange"
+  | "serviceControl"
+  | "packageInstall"
+  | "bulkDelete"
+  | "writeRedirect"
+  | "unknown";
+
+export interface PolicyRule {
+  id: string;
+  /** Glob over the whole command line. */
+  pattern: string;
+  effect: PolicyEffect;
+  /** Glob over host names, comma separated. Empty matches every host. */
+  host: string;
+  note: string;
+  builtin: boolean;
+}
+
+export interface PolicyConfig {
+  mode: PolicyMode;
+  rules: PolicyRule[];
+}
+
+export interface PolicyDecision {
+  verdict: PolicyVerdict;
+  risk: PolicyRisk;
+  reasons: PolicyReason[];
+  rule: string | null;
+  mode: PolicyMode;
+  /** Irreversible: no rule can allow it. */
+  hard: boolean;
+}
+
+export function policyGet(): Promise<PolicyConfig> {
+  return invoke<PolicyConfig>("policy_get");
+}
+
+export function policySave(config: PolicyConfig): Promise<PolicyConfig> {
+  return invoke<PolicyConfig>("policy_save", { config });
+}
+
+export function policyEvaluate(
+  command: string,
+  host: string,
+  elevated: boolean,
+): Promise<PolicyDecision> {
+  return invoke<PolicyDecision>("policy_evaluate", { command, host, elevated });
+}
+
+export function policyAddRule(
+  pattern: string,
+  effect: PolicyEffect,
+  host?: string,
+  note?: string,
+): Promise<PolicyConfig> {
+  return invoke<PolicyConfig>("policy_add_rule", {
+    pattern,
+    effect,
+    host: host ?? null,
+    note: note ?? null,
+  });
+}
+
+export function policyRemoveRule(id: string): Promise<PolicyConfig> {
+  return invoke<PolicyConfig>("policy_remove_rule", { id });
+}

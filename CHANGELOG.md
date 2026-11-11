@@ -8,6 +8,12 @@ package version in `src-tauri/tauri.conf.json`.
 
 ### Added
 
+- The assistant's command card can now run a command, not only paste it. Run
+  goes through the approval policy first: allowed commands execute, higher-risk
+  ones open a card showing the literal line, its risk level and the reasons it
+  was flagged, with once / this session / always-allow answers. "Insert" leaves
+  the line at the prompt without pressing Enter, so pasting stays a preview.
+  Always-allow writes an exact-match rule scoped to that host.
 - Command approval policy (`ft-policy`): a shell line is split into simple
   commands, graded R0 (read only) to R4 (fatal) from its program name plus the
   modifiers that make the same program dangerous — recursion, `sudo`, system

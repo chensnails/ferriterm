@@ -1402,6 +1402,49 @@
     "title": "AI 助手",
     "toggle": "AI 助手",
     "topP": "Top P",
-    "you": "你"
+    "you": "你",
+    "run": "执行"
+  },
+  "policy": {
+    "approve": {
+      "title": "执行这条命令？",
+      "subtitle": "这是助手为 {host} 生成的命令。",
+      "localHost": "本机",
+      "deny": "不执行",
+      "once": "仅本次",
+      "session": "本会话",
+      "always": "永久允许",
+      "hint": "只批准这一条命令，其他命令仍会再次询问。「永久允许」会为该主机新增一条精确匹配的规则。"
+    },
+    "risk": {
+      "r0": "只读",
+      "r1": "新建文件",
+      "r2": "修改文件",
+      "r3": "高风险",
+      "r4": "破坏性"
+    },
+    "reason": {
+      "rootDelete": "删除根目录或系统目录",
+      "systemPath": "涉及系统路径",
+      "elevated": "以提权方式执行",
+      "recursive": "递归操作",
+      "remotePipe": "把下载内容直接交给 shell",
+      "secretFile": "读写凭据文件",
+      "diskDevice": "写入块设备",
+      "forkBomb": "自我复制的单行命令",
+      "privilegeChange": "修改归属或账号",
+      "serviceControl": "启停系统服务",
+      "packageInstall": "安装或卸载软件包",
+      "bulkDelete": "批量删除文件",
+      "writeRedirect": "覆盖系统文件",
+      "unknown": "无法识别的程序"
+    },
+    "denied": "被策略拦截：{reasons}。请改写命令或先调整策略。",
+    "deniedFatal": "这条命令不可撤销，因此不会自动执行。",
+    "mode": {
+      "auto": "自动",
+      "ask": "写入前询问",
+      "plan": "仅规划"
+    }
   }
 }

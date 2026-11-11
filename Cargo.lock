@@ -1486,6 +1486,7 @@ dependencies = [
  "ft-import",
  "ft-monitor",
  "ft-plugin",
+ "ft-policy",
  "ft-pty",
  "ft-security",
  "ft-serial",

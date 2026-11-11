@@ -15,6 +15,7 @@ import {
   DEFAULT_AI_SETTINGS,
 } from "../api";
 import { terminalHandle } from "../terminal-registry";
+import { runGuarded } from "../policy";
 import { useAppStore } from "../store";
 import { EmptyState, ErrorState, Notice } from "./ui";
 import { SparkleIcon } from "./icons";
@@ -212,14 +213,50 @@ export function AiPanel() {
     }
   };
 
+  // Typing the line into the terminal without the newline leaves it at the
+  // prompt: the person still presses Enter. That keeps "insert" a preview and
+  // leaves "run" as the only path that actually executes, which is the path
+  // the policy gate guards.
   const insertDraft = () => {
     if (!draft) return;
     const target = activeId ? terminalHandle(activeId) : null;
     if (target) {
-      target.insert(`${draft.command}\n`);
+      target.insert(draft.command);
       setDraft(null);
     } else {
       setError(t("ai.noSession"));
+    }
+  };
+
+  const runDraft = async () => {
+    if (!draft) return;
+    const target = activeId ? terminalHandle(activeId) : null;
+    if (!target) {
+      setError(t("ai.noSession"));
+      return;
+    }
+    const command = draft.command;
+    setError(null);
+    const outcome = await runGuarded(command, {
+      host: title,
+      elevated: false,
+      run: () => {
+        target.insert(`${command}\n`);
+        setDraft(null);
+      },
+    });
+    if (outcome.status === "denied") {
+      setError(
+        outcome.decision.hard
+          ? t("policy.deniedFatal")
+          : t("policy.denied", {
+              reasons: outcome.decision.reasons
+                .map((reason) => t(`policy.reason.${reason}`))
+                .join("、"),
+            }),
+      );
+    } else if (outcome.status === "failed") {
+      setError(outcome.message);
     }
   };
 
@@ -342,12 +379,11 @@ export function AiPanel() {
               <p className="ai-draft-note">{draft.explanation}</p>
             )}
             <div className="ai-draft-actions plugin-actions">
-              <button
-                type="button"
-                className="primary"
-                onClick={insertDraft}
-              >
+              <button type="button" onClick={insertDraft}>
                 {t("ai.insert")}
+              </button>
+              <button type="button" className="primary" onClick={() => void runDraft()}>
+                {t("ai.run")}
               </button>
               <button type="button" onClick={() => setDraft(null)}>
                 {t("ai.discard")}

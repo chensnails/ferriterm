@@ -27,7 +27,9 @@ export function PromptDialog() {
     return () => window.clearTimeout(id);
   }, [request]);
 
-  if (!request) return null;
+  // The approve prompt has its own dialog; this one only owns the two
+  // questions the file pane asks.
+  if (!request || request.kind === "approve") return null;
 
   const cancel = () => settle(request.kind === "text" ? null : false);
   const confirm = () => settle(request.kind === "text" ? value.trim() : true);

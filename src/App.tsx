@@ -13,6 +13,7 @@ import { TerminalArea } from "./components/TerminalArea";
 import { BrowserBanner } from "./components/BrowserBanner";
 import { BroadcastDialog } from "./components/BroadcastDialog";
 import { CloseConfirmDialog } from "./components/CloseConfirmDialog";
+import { ApproveDialog } from "./components/ApproveDialog";
 import { CommandPalette } from "./components/CommandPalette";
 import { ConnectForm } from "./components/ConnectForm";
 import { HostKeyPrompt } from "./components/HostKeyPrompt";
@@ -297,6 +298,7 @@ export default function App() {
       <ShortcutsDialog />
       <CloseConfirmDialog />
       <PromptDialog />
+      <ApproveDialog />
       <Suspense fallback={null}>
         {settingsOpen && (
           <SettingsDialog onClose={() => setSettingsOpen(false)} />

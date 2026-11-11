@@ -469,9 +469,9 @@ fn grade_command(command: &Command) -> Assessment {
         assessment.note(Reason::ForkBomb);
     }
 
-    if assessment.reasons.is_empty() {
-        assessment.note(Reason::Unknown);
-    }
+    // `Unknown` is set by the grader for programs it cannot place; an empty
+    // reason list for a known program is normal (`rm` is just a file write),
+    // so it must not be refilled here.
     assessment
 }
 
@@ -606,6 +606,13 @@ mod tests {
         let assessment = grade("cat ~/.ssh/id_rsa");
         assert!(assessment.reasons.contains(&Reason::SecretFile));
         assert!(assessment.risk >= Risk::R1);
+    }
+
+    #[test]
+    fn known_programs_carry_no_unknown_reason() {
+        let assessment = grade("rm -f /tmp/gate-probe");
+        assert!(!assessment.reasons.contains(&Reason::Unknown));
+        assert_eq!(assessment.risk, Risk::R2);
     }
 
     #[test]

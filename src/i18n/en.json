@@ -1402,6 +1402,49 @@
     "title": "AI assistant",
     "toggle": "AI assistant",
     "topP": "Top P",
-    "you": "You"
+    "you": "You",
+    "run": "Run"
+  },
+  "policy": {
+    "approve": {
+      "title": "Run this command?",
+      "subtitle": "The assistant generated it for {host}.",
+      "localHost": "this machine",
+      "deny": "Do not run",
+      "once": "Once",
+      "session": "This session",
+      "always": "Always allow",
+      "hint": "Only this exact command is approved; anything else asks again. Always-allow adds a rule for this host."
+    },
+    "risk": {
+      "r0": "Read only",
+      "r1": "Creates files",
+      "r2": "Writes files",
+      "r3": "High risk",
+      "r4": "Destructive"
+    },
+    "reason": {
+      "rootDelete": "Deletes a root or system directory",
+      "systemPath": "Touches a system path",
+      "elevated": "Runs with elevated privileges",
+      "recursive": "Recursive operation",
+      "remotePipe": "Pipes a download into a shell",
+      "secretFile": "Reads or writes a credential file",
+      "diskDevice": "Writes to a block device",
+      "forkBomb": "Self-replicating one-liner",
+      "privilegeChange": "Changes ownership or accounts",
+      "serviceControl": "Starts or stops a service",
+      "packageInstall": "Installs or removes packages",
+      "bulkDelete": "Deletes many files",
+      "writeRedirect": "Overwrites a system file",
+      "unknown": "Unrecognised program"
+    },
+    "denied": "Blocked by policy: {reasons}. Edit the command or adjust the policy first.",
+    "deniedFatal": "This command is irreversible, so it is never run automatically.",
+    "mode": {
+      "auto": "Auto",
+      "ask": "Ask before writes",
+      "plan": "Plan only"
+    }
   }
 }

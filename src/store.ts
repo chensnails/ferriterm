@@ -13,6 +13,7 @@ import {
   type SshAlgorithms,
   type SshPreset,
   type SshSecuritySettings,
+  type PolicyDecision,
 } from "./api";
 import {
   DEFAULT_SSH_SECURITY,
@@ -228,7 +229,20 @@ export interface TextPrompt {
   placeholder?: string;
 }
 
-export type AppPrompt = ConfirmPrompt | TextPrompt;
+export type AppPrompt = ConfirmPrompt | TextPrompt | ApprovePrompt;
+
+/** How long an approval lasts. `always` writes a rule; the others are memory
+    only, so a session cannot quietly widen what future sessions may run. */
+export type ApprovalChoice = "once" | "session" | "always";
+
+/** The command gate. Shown when the policy answers "ask" — never for a
+    command the person typed themselves. */
+export interface ApprovePrompt {
+  kind: "approve";
+  command: string;
+  host: string;
+  decision: PolicyDecision;
+}
 
 interface PendingPrompt {
   request: AppPrompt;
@@ -407,6 +421,11 @@ interface AppState {
     request: Omit<TextPrompt, "kind" | "value"> & { value?: string },
   ) => Promise<string | null>;
   settlePrompt: (value: string | boolean | null) => void;
+  askApprove: (request: {
+    command: string;
+    host: string;
+    decision: PolicyDecision;
+  }) => Promise<ApprovalChoice | null>;
   clearStatus: () => void;
   connectRetry: { hostId: string; error: string } | null;
   reportConnectError: (hostId: string, error: string) => void;
@@ -1827,6 +1846,21 @@ export const useAppStore = create<AppState>((set, get) => ({
         appPrompt: {
           request: { ...request, kind: "text", value: request.value ?? "" },
           settle: (value) => resolve(typeof value === "string" ? value : null),
+        },
+      });
+    }),
+
+  askApprove: (request) =>
+    new Promise<ApprovalChoice | null>((resolve) => {
+      set({
+        appPrompt: {
+          request: { ...request, kind: "approve" },
+          settle: (value) =>
+            resolve(
+              value === "once" || value === "session" || value === "always"
+                ? value
+                : null,
+            ),
         },
       });
     }),
