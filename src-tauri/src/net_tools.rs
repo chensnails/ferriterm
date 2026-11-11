@@ -276,10 +276,13 @@ pub fn net_tool_cancel(state: State<'_, Arc<NetToolState>>, id: String) -> Resul
     }
     #[cfg(windows)]
     {
+        use std::os::windows::process::CommandExt;
         let _ = std::process::Command::new("taskkill")
             .args(["/PID", &pid.to_string(), "/T", "/F"])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
+            // No console of our own: without this the kill flashes a window.
+            .creation_flags(0x0800_0000)
             .status();
     }
     #[cfg(not(windows))]

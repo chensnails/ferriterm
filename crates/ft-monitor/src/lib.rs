@@ -614,12 +614,21 @@ fn numbers<T: std::str::FromStr>(line: &str) -> Vec<T> {
 }
 
 fn run_probe(program: &str, args: &[&str]) -> Option<String> {
-    let mut child = Command::new(program)
+    let mut command = Command::new(program);
+    command
         .args(args)
+        .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .ok()?;
+        .stderr(Stdio::null());
+    // The GUI build owns no console, so any helper that would normally attach
+    // to one gets a fresh console window instead — visible as a black frame
+    // flashing up on every cache miss. Probes run silently.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000);
+    }
+    let mut child = command.spawn().ok()?;
     let deadline = Instant::now() + GPU_PROBE_TIMEOUT;
     loop {
         match child.try_wait() {

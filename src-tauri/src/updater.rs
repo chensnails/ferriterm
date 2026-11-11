@@ -262,8 +262,16 @@ fn install(app: &AppHandle, artifact: &Path, dir: &Path) -> Result<String, Strin
         artifact.display().to_string().replace('\'', "''"),
         extracted.display().to_string().replace('\'', "''"),
     );
-    let status = std::process::Command::new("powershell")
-        .args(["-NoProfile", "-Command", &script])
+    let mut command = std::process::Command::new("powershell");
+    command.args(["-NoProfile", "-Command", &script]);
+    // Same reason as the monitor probes: this build has no console, so the
+    // expand step would otherwise pop one onto the screen mid-update.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000);
+    }
+    let status = command
         .status()
         .map_err(|e| format!("failed to expand the update archive: {e}"))?;
     if !status.success() {
