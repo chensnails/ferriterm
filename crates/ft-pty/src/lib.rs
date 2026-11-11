@@ -90,16 +90,20 @@ fn expand_home(path: &str) -> String {
     } else {
         std::env::var("HOME")
     };
+    expand_with_home(path, home.as_deref().ok())
+}
+
+fn expand_with_home(path: &str, home: Option<&str>) -> String {
     match home {
-        Ok(home) if path == "~" => home,
-        Ok(home) => match path.strip_prefix("~/") {
-            Some(rest) => std::path::Path::new(&home)
+        Some(home) if path == "~" => home.to_string(),
+        Some(home) => match path.strip_prefix("~/") {
+            Some(rest) => std::path::Path::new(home)
                 .join(rest)
                 .to_string_lossy()
                 .into_owned(),
             None => path.to_string(),
         },
-        Err(_) => path.to_string(),
+        None => path.to_string(),
     }
 }
 
@@ -143,4 +147,48 @@ pub async fn kill(registry: &SessionRegistry, id: &str) -> Result<(), String> {
         let _ = s.child.kill();
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(windows)]
+    const HOME: &str = "C:\\Users\\me";
+    #[cfg(not(windows))]
+    const HOME: &str = "/home/me";
+
+    #[test]
+    fn expands_bare_tilde_to_home() {
+        assert_eq!(expand_with_home("~", Some(HOME)), HOME);
+    }
+
+    #[test]
+    fn expands_path_below_home() {
+        let expanded = expand_with_home("~/src/app", Some(HOME));
+        assert_eq!(
+            expanded,
+            std::path::Path::new(HOME)
+                .join("src/app")
+                .to_string_lossy()
+                .into_owned()
+        );
+    }
+
+    #[test]
+    fn leaves_paths_alone_without_a_home() {
+        assert_eq!(expand_with_home("~/src", None), "~/src");
+        assert_eq!(expand_with_home("/tmp", None), "/tmp");
+    }
+
+    #[test]
+    fn only_expands_a_leading_bare_tilde() {
+        assert_eq!(expand_with_home("~other/src", Some(HOME)), "~other/src");
+        assert_eq!(expand_with_home("/srv/~/x", Some(HOME)), "/srv/~/x");
+    }
+
+    #[test]
+    fn default_shell_is_never_empty() {
+        assert!(!default_shell().trim().is_empty());
+    }
 }
