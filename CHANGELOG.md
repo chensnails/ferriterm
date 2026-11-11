@@ -8,6 +8,13 @@ package version in `src-tauri/tauri.conf.json`.
 
 ### Added
 
+- `ferriterm-cli mcp` speaks MCP on stdin and stdout, so an editor or an agent
+  can launch it as a child process and call `list_hosts`, `list_sessions` and
+  `run_command`. `run_command` is the same `/v1/exec` route as everything else —
+  same policy engine, same audit chain — and an `ask` verdict comes back as a
+  refusal that says which rule or risk stopped it and that an approval needs a
+  person at the window. Failures are tool results with `isError` rather than
+  JSON-RPC errors, because the sentence is what a model actually reads.
 - A local control service and `ferriterm-cli`: a token-guarded API on loopback
   that lets a script or an agent list hosts and sessions, grade a command,
   run it, and move files. The port is picked by the kernel at each launch and

@@ -8,6 +8,8 @@
 //! Flags are long-form only, and they stop at the first word that is not one,
 //! which is what lets `exec ls -la` mean what it looks like.
 
+mod mcp;
+
 use std::process::ExitCode;
 
 use ft_agent::client::{Client, ClientError};
@@ -48,7 +50,7 @@ async fn main() -> ExitCode {
     outcome
 }
 
-enum Failure {
+pub(crate) enum Failure {
     Usage(String),
     Other(String),
 }
@@ -79,6 +81,7 @@ Commands
   exec   <command>           grade a command and run it when the gate allows
   upload <local> <remote>    write a file through the session
   download <remote> <local>  read a file through the session
+  mcp                        speak MCP on stdin and stdout for an agent
 
 Options
   --session <id>    act on this session (see `sessions`)
@@ -90,6 +93,11 @@ Options
 
 The command is what follows the flags, so `exec ls -la` needs no quoting.
 `exec` exits 3 when the policy refused the command, 0 when it ran.
+
+`mcp` runs until stdin closes and writes nothing but JSON-RPC replies, so it is
+meant to be launched by an agent rather than typed at. It offers list_hosts,
+list_sessions and run_command, and `run_command` is graded by the same policy
+engine and recorded in the same chain as `exec`.
 
 Environment
   FERRITERM_AGENT  path to an endpoint file, for a second profile
@@ -140,6 +148,12 @@ async fn run(args: Vec<String>) -> Result<ExitCode, Failure> {
         return Ok(ExitCode::from(EXIT_ERROR));
     };
 
+    if command == "mcp" {
+        // Started by an agent that may well arrive before the app does, so the
+        // handshake is answered even when no endpoint file exists yet.
+        return mcp::serve(endpoint_override).await;
+    }
+
     let endpoint = load_endpoint(endpoint_override.as_deref())?;
     let client = Client::new(&endpoint);
 
@@ -155,7 +169,7 @@ async fn run(args: Vec<String>) -> Result<ExitCode, Failure> {
     }
 }
 
-fn load_endpoint(explicit: Option<&str>) -> Result<Endpoint, Failure> {
+pub(crate) fn load_endpoint(explicit: Option<&str>) -> Result<Endpoint, Failure> {
     match explicit {
         Some(path) => Endpoint::load(std::path::Path::new(path)).map_err(Failure::Other),
         None => {
@@ -429,7 +443,7 @@ async fn download(client: &Client, rest: Vec<String>, json: bool) -> Result<Exit
 
 // ----------------------------------------------------------------- helpers
 
-fn join(parts: &[String]) -> Result<String, Failure> {
+pub(crate) fn join(parts: &[String]) -> Result<String, Failure> {
     if parts.is_empty() {
         return Err(Failure::Usage("a command is required".to_string()));
     }
@@ -440,7 +454,7 @@ fn join(parts: &[String]) -> Result<String, Failure> {
 /// matched against label, address and `user@host`; with neither, a single open
 /// session is the obvious answer and more than one is an error rather than a
 /// guess.
-async fn pick_session(
+pub(crate) async fn pick_session(
     client: &Client,
     session: Option<String>,
     host: Option<String>,
@@ -486,7 +500,7 @@ async fn pick_session(
 
 /// Pads to a column width counted in character cells, so a Chinese host name
 /// and an ASCII one still line up.
-fn pad(text: &str, width: usize) -> String {
+pub(crate) fn pad(text: &str, width: usize) -> String {
     let used: usize = text
         .chars()
         .map(|ch| if ch as u32 > 0x2E80 { 2 } else { 1 })
@@ -498,7 +512,7 @@ fn pad(text: &str, width: usize) -> String {
     out
 }
 
-fn risk_label(risk: &str) -> String {
+pub(crate) fn risk_label(risk: &str) -> String {
     match risk {
         "r0" => "R0 read-only".to_string(),
         "r1" => "R1 writes".to_string(),
@@ -511,7 +525,7 @@ fn risk_label(risk: &str) -> String {
 
 /// Turns the engine's camelCase reason names into words: `recursiveDelete`
 /// reads better as "recursive delete" in a terminal.
-fn reasons(list: &[String]) -> String {
+pub(crate) fn reasons(list: &[String]) -> String {
     if list.is_empty() {
         return "no flags".to_string();
     }

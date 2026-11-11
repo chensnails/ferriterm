@@ -13,4 +13,4 @@ path = "src/main.rs"
 ft-agent.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-tokio = { workspace = true, features = ["rt", "macros", "net", "io-util", "time"] }
+tokio = { workspace = true, features = ["rt", "macros", "net", "io-util", "io-std", "time"] }

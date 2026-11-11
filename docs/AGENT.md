@@ -9,9 +9,8 @@ service exposes, how it authenticates, and what it deliberately refuses to do.
 The assistant inside the app can propose a command, but so can an agent outside
 it. Rather than give each of them its own path into the machine, they all go
 through one service that applies the same policy engine and writes to the same
-audit chain as the assistant's run button. A command run from the CLI is
-indistinguishable in the audit log from one run in the window, apart from where
-it came from.
+audit chain as the assistant's run button. The CLI and the MCP server below are
+two clients of that service, not two implementations of it.
 
 ## Reaching it
 
@@ -125,6 +124,57 @@ the remote path is absolute:
 MSYS_NO_PATHCONV=1 ferriterm-cli exec rm -f /tmp/probe
 ```
 
+## As MCP
+
+`ferriterm-cli mcp` speaks MCP on stdin and stdout, one JSON-RPC message per
+line, so an editor or an agent can launch it as a child process:
+
+```json
+{
+  "mcpServers": {
+    "ferriterm": {
+      "command": "ferriterm-cli",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+It offers three tools, and no more:
+
+| Tool | Reaches |
+| --- | --- |
+| `list_hosts` | saved hosts, and which one has a session open |
+| `list_sessions` | live connections, with the id `run_command` takes |
+| `run_command` | one command line, graded and then run — or refused |
+
+`run_command` is not a second implementation of anything. It calls the same
+`/v1/exec` route, so it is graded by the same engine and recorded in the same
+chain as the run button in the window. The refusal semantics are the service's:
+in `ask` mode it does not run, and the answer says which rule or risk stopped it
+and that an approval needs a person at the window.
+
+Nothing but replies is ever written to stdout — a stray line would corrupt the
+stream for the whole session — so all diagnostics go to stderr, and the process
+exits when stdin closes.
+
+Failures are tool results with `isError: true`, not JSON-RPC errors, because the
+text is what a model reads before deciding what to do next: "2 sessions are
+open; pass --host or --session" is actionable in a way that `-32603` is not.
+Only an unknown tool name or method is a protocol error.
+
+Protocol revisions `2025-06-18`, `2025-03-26` and `2024-11-05` are answered in
+their own dialect; anything else gets `2025-06-18` and the client decides.
+
+Check it without a client:
+
+```console
+$ printf '%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}' \
+  '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+| ferriterm-cli mcp
+```
+
 ## Verifying it
 
 `cargo test -p ft-agent` covers the HTTP layer against a mock backend: auth
@@ -137,8 +187,22 @@ and printed; `exec rm -f …` in ask mode refused and left the file in place;
 `upload`/`download` round-tripped 26 bytes; the audit view then showed all ten
 records with the chain reporting "complete".
 
+`cargo test -p ferriterm-cli` covers the MCP envelope without a process or an
+app: initialize in the client's revision and the fallback, silence for
+`notifications/initialized`, `ping`, an unknown method, the tool list, an
+unknown tool, a missing `command`, and a tool call with no reachable app. The
+last one asserts the `isError` text mentions the endpoint file, because that is
+the sentence a person reads when they forgot to start the app.
+
 ## Known edges
 
+- The audit chain records what was decided, not who asked: a command run from
+  the window, the CLI and an agent all look alike apart from the timestamp. An
+  `origin` field would fix that and is worth adding before the service stops
+  being a one-person convenience.
+- The MCP surface has no file transfer on purpose. Writing a file is a write,
+  so it belongs behind the same gate as everything else; an agent that needs one
+  can redirect inside `run_command` and be graded for it.
 - The fork-bomb detector reads the raw line before parsing, so
   `echo ':(){ :|:& };:'` is graded R4 even though it only prints. That is the
   conservative side of the trade, and it is why the line is shown verbatim in
