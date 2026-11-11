@@ -101,9 +101,19 @@ jobs:
           bash testenv/setup.sh
           cargo build -p ferriterm --examples
 
+          # The debug binary loads devUrl, so serve the frontend the way
+          # `tauri dev` would, with VITE_E2E=1 for the terminal a11y tree.
+          VITE_E2E=1 npm run dev -- --strictPort &
+          vite=$!
           ./target/debug/examples/loopback_sshd &
           fixture=$!
-          trap 'kill "$fixture" 2>/dev/null || true' EXIT
+          trap 'kill "$fixture" "$vite" 2>/dev/null || true' EXIT
+
+          for _ in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://localhost:5173; then break; fi
+            sleep 1
+          done
+          curl -fsS -o /dev/null http://localhost:5173
 
           sleep 2
           xvfb-run -a env TAURI_WEBVIEW_AUTOMATION=true node e2e/smoke.mjs
