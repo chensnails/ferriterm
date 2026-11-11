@@ -483,6 +483,8 @@ export function HostTree() {
             <div
               className={rowClass}
               role="treeitem"
+              data-testid="host-row"
+              data-host-name={node.name}
               aria-expanded={node.isFolder ? open : undefined}
               aria-selected={selected}
               tabIndex={0}
@@ -589,6 +591,7 @@ export function HostTree() {
                     <IconButton
                       label={t("hosts.connect")}
                       size="sm"
+                      data-testid="host-connect"
                       disabled={!isTauri}
                       onClick={(e) => {
                         e.stopPropagation();

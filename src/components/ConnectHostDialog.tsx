@@ -171,6 +171,7 @@ export function ConnectHostDialog({
             type="submit"
             form="connect-host-form"
             className="primary"
+            data-testid="connect-submit"
             disabled={busy}
           >
             {t("connectHost.submit")}
@@ -301,6 +302,7 @@ export function ConnectHostDialog({
                 <input
                   autoFocus
                   type="password"
+                  data-testid="connect-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={t("connectHost.passwordPlaceholder")}

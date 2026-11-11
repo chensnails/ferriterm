@@ -236,6 +236,7 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
             type="submit"
             form="host-dialog-form"
             className="primary"
+            data-testid="host-save"
             disabled={saving}
           >
             {saving ? t("hostDialog.saving") : t("hostDialog.save")}
@@ -252,6 +253,7 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
             </span>
             <input
               autoFocus
+              data-testid="host-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={t("hostDialog.namePlaceholder")}
@@ -285,6 +287,7 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
                 <label className="field">
                   <span>{t("hostDialog.host")}</span>
                   <input
+                    data-testid="host-address"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     placeholder={t("connect.hostPlaceholder")}
@@ -297,6 +300,7 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
                       type="number"
                       min={1}
                       max={65535}
+                      data-testid="host-port"
                       value={port}
                       onChange={(e) => setPort(e.target.value)}
                     />
@@ -305,6 +309,7 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
                     <label className="field grow">
                       <span>{t("hostDialog.username")}</span>
                       <input
+                        data-testid="host-username"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         placeholder={t("connect.usernamePlaceholder")}

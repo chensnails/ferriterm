@@ -108,6 +108,9 @@ export class TerminalView implements TerminalHandle {
     const appearance = currentAppearance();
     this.term = new Terminal({
       allowProposedApi: true,
+      // The WebDriver smoke test asserts on terminal output, and a WebGL canvas
+      // exposes none; the accessibility tree mirrors the buffer as text.
+      screenReaderMode: import.meta.env.VITE_E2E === "1",
       cursorBlink: appearance.cursorBlink,
       cursorStyle: appearance.cursorStyle,
       fontSize: appearance.fontSize,

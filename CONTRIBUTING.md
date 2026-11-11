@@ -48,6 +48,27 @@ node tools/ui_lint.mjs
 - Commits follow `type(scope): summary` (feat, fix, docs, chore, refactor,
   test); keep one logical change per commit.
 
+### End-to-end smoke test
+
+CI drives the real app through `tauri-driver`, which only supports Linux and
+Windows. The flow creates a host, connects to the loopback fixture, trusts its
+host key and checks the command output in the terminal. On Linux:
+
+```sh
+cargo install tauri-driver --locked
+bash testenv/setup.sh
+cargo build -p ferriterm --examples
+
+./target/debug/examples/loopback_sshd &
+VITE_E2E=1 npm run build && cargo build -p ferriterm
+TAURI_WEBVIEW_AUTOMATION=true xvfb-run -a npm run e2e
+```
+
+The app writes to an isolated data directory per run, and screenshots plus the
+page source of a failure land in `e2e-artifacts/` (gitignored). Run the build
+with `VITE_E2E=1` before `npm run e2e`; without it xterm renders to a canvas
+that WebDriver cannot read.
+
 ## Reporting bugs and security issues
 
 Open a GitHub issue with reproduction steps, platform and build label

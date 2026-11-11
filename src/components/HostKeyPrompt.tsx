@@ -64,6 +64,7 @@ export function HostKeyPrompt() {
           <button
             type="button"
             className="primary"
+            data-testid="hostkey-accept"
             onClick={() => void respond(true, true)}
           >
             {t("hostKey.accept")}

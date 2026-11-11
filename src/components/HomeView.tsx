@@ -27,6 +27,7 @@ export function HomeView() {
           </button>
           <button
             className="home-action"
+            data-testid="home-new-host"
             disabled={!isTauri}
             onClick={requestNewHost}
           >

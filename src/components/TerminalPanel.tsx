@@ -141,6 +141,7 @@ export function TerminalPanel({
       <div
         ref={containerRef}
         className={`terminal-panel${pane ? ` pane-${pane}` : ""}`}
+        data-testid="terminal"
         onPointerDown={() =>
           useAppStore.getState().setFocusedSession(session.id)
         }
