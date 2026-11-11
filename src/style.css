@@ -399,6 +399,87 @@
   color-scheme: light;
 }
 
+[data-theme="termius-light"] {
+  --bg-base: #f5fbfa;
+  --bg-panel: #ffffff;
+  --bg-elevated: #e9f5f3;
+  --border: #cfe8e3;
+  --fg-primary: #163b36;
+  --fg-muted: #5d7e78;
+  --fg-on-accent: #ffffff;
+  --accent: #0ea5a0;
+  --accent-hover: #0b8a86;
+  --danger: #e5484d;
+  --warning: #b26a06;
+  --success: #0f8a52;
+  --selection: #0ea5a040;
+  --overlay: rgb(0 0 0 / 0.42);
+  --shadow-panel: 0 12px 32px rgb(14 80 75 / 0.16);
+  --tag-blue: #1f7ae0;
+  --tag-green: #0f8a52;
+  --tag-amber: #a9700a;
+  --tag-red: #e23b3b;
+  --tag-purple: #7c4dd6;
+  --tag-cyan: #0e9bb0;
+  --tag-pink: #d23a86;
+  --tag-gray: #5f7a74;
+  color-scheme: light;
+}
+
+[data-theme="iterm2-light"] {
+  --bg-base: #ffffff;
+  --bg-panel: #f6f6fa;
+  --bg-elevated: #eceaf6;
+  --border: #dcd9ec;
+  --fg-primary: #2b2b35;
+  --fg-muted: #6c6a7c;
+  --fg-on-accent: #ffffff;
+  --accent: #6e56cf;
+  --accent-hover: #5a44b8;
+  --danger: #d83a3a;
+  --warning: #a86a00;
+  --success: #1a8a4f;
+  --selection: #6e56cf3a;
+  --overlay: rgb(0 0 0 / 0.42);
+  --shadow-panel: 0 12px 32px rgb(40 30 80 / 0.16);
+  --tag-blue: #3b6fe0;
+  --tag-green: #178a4f;
+  --tag-amber: #a86a00;
+  --tag-red: #e23b3b;
+  --tag-purple: #7a4fd0;
+  --tag-cyan: #0e9bb0;
+  --tag-pink: #d23a86;
+  --tag-gray: #6b6880;
+  color-scheme: light;
+}
+
+[data-theme="atom-one-light"] {
+  --bg-base: #fafafa;
+  --bg-panel: #f0f0f2;
+  --bg-elevated: #e8e8ec;
+  --border: #dcdce1;
+  --fg-primary: #383a42;
+  --fg-muted: #8b8d98;
+  --fg-on-accent: #ffffff;
+  --accent: #4078f2;
+  --accent-hover: #2f63e0;
+  --danger: #e45649;
+  --warning: #c18401;
+  --success: #50a14f;
+  --selection: #4078f240;
+  --overlay: rgb(0 0 0 / 0.4);
+  --shadow-panel: 0 12px 32px rgb(40 50 90 / 0.14);
+  --tag-blue: #3b7bf0;
+  --tag-green: #3f9d4a;
+  --tag-amber: #c18401;
+  --tag-red: #e45649;
+  --tag-purple: #a626a4;
+  --tag-cyan: #0184bc;
+  --tag-pink: #d16fd0;
+  --tag-gray: #8b8d98;
+  color-scheme: light;
+}
+
 * {
   box-sizing: border-box;
   scrollbar-width: thin;

@@ -39,6 +39,14 @@ export function ThemeGallery({
     tokens?: Record<string, string>,
   ) => {
     const active = theme === id;
+    const previewTheme =
+      tokens && Object.keys(tokens).length > 0
+        ? base === "light"
+          ? "light"
+          : base === "dark"
+            ? "dark"
+            : base
+        : id;
     return (
       <button
         key={id}
@@ -49,7 +57,7 @@ export function ThemeGallery({
       >
         <span
           className="theme-card-preview"
-          data-theme={base === "light" ? "light" : base === "dark" ? "dark" : base}
+          data-theme={previewTheme}
           style={cardStyle(tokens)}
           aria-hidden
         >
