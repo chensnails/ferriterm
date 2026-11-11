@@ -4,6 +4,7 @@ description = "Virtual filesystem for local and SFTP paths"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
 
 [dependencies]
 ft-core.workspace = true

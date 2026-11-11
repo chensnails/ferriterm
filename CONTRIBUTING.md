@@ -29,6 +29,9 @@ npm run build
 node tools/ui_lint.mjs
 ```
 
+- Adding or bumping a dependency also means `cargo deny check` (install once
+  with `cargo install cargo-deny`); it enforces the policy in `deny.toml` for
+  licenses, RustSec advisories and registry sources.
 - UI changes must be exercised in a running app (dev or release), not only
   typechecked. Include a screenshot for visual changes.
 - User-visible strings go through i18n: add the key to both `src/i18n/en.json`

@@ -34,6 +34,17 @@ jobs:
       - name: Typecheck and build
         run: npm run build
 
+  deny:
+    name: Dependency policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: taiki-e/install-action@cargo-deny
+
+      - run: cargo deny check
+
   backend:
     name: Backend (${{ matrix.os }})
     strategy:

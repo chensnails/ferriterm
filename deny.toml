@@ -1,0 +1,57 @@
+# Supply-chain policy, enforced by `cargo deny check` in CI. A new dependency
+# that is vulnerable, yanked, fetched from outside crates.io or licensed
+# incompatibly fails the build instead of landing silently.
+
+[advisories]
+# Vulnerabilities and unsoundness are errors. The unmaintained warning is limited
+# to our own crates: an old transitive crate in the Tauri/GTK stack should not
+# turn every build red.
+unmaintained = "workspace"
+unsound = "all"
+ignore = [
+    # glib 0.18 is pinned by the Tauri 2 GTK 0.18 stack; the fix needs GTK 0.20
+    # (tauri 2 still builds against 0.18), so this is not actionable here.
+    { id = "RUSTSEC-2024-0429", reason = "glib 0.18 pinned by Tauri's GTK stack; fixed only in glib 0.20" },
+    # russh 0.65 pins rsa to exactly =0.10.0-rc.18, so the stable 0.10.0 patch
+    # cannot be selected until russh bumps its requirement. We use RSA for
+    # client-side signing of host-key checks, never for decryption, which is the
+    # sidechannel the Marvin advisory describes.
+    { id = "RUSTSEC-2023-0071", reason = "rsa version pinned by russh 0.65; client-side signing only, no RSA decryption" },
+]
+
+[licenses]
+# Allow list rather than deny list: the project ships GPL-3.0-only, so every
+# dependency must be permissive or GPL-compatible. Unknown licenses fail.
+confidence-threshold = 0.93
+allow = [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "CDLA-Permissive-2.0",
+    "GPL-3.0-only",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Zlib",
+]
+exceptions = []
+
+[bans]
+# Duplicate transitive versions are common and usually intentional; report them
+# without failing. Workspace members depend on each other by path only, so the
+# wildcard check would flag every internal edge; versions come from
+# [workspace.package] and are kept in sync by tools/sync-version.mjs.
+multiple-versions = "warn"
+wildcards = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

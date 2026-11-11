@@ -4,6 +4,7 @@ description = "SQLite persistence: hosts, tags, credential references, settings"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
 
 [dependencies]
 rusqlite.workspace = true

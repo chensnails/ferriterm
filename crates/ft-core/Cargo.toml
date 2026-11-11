@@ -4,6 +4,7 @@ description = "Terminal session lifecycle, registry, and event-sink abstraction"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
 
 [dependencies]
 tokio.workspace = true

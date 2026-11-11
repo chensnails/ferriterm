@@ -4,6 +4,7 @@ description = "Cross-platform SSH terminal client (Rust + Tauri + xterm.js)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
 
 [lib]
 name = "ferriterm_lib"

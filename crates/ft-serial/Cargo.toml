@@ -4,6 +4,7 @@ description = "Local serial-port sessions for Ferriterm"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
 
 [dependencies]
 ft-core.workspace = true

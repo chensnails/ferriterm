@@ -4,6 +4,7 @@ description = "Bring-your-own-key AI client for Ferriterm (OpenAI-compatible and
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
 
 [dependencies]
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "stream"] }

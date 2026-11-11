@@ -4,6 +4,7 @@ description = "Local system monitor sampling for the floating monitor panel"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
 
 [dependencies]
 serde.workspace = true

@@ -4,6 +4,7 @@ description = "Transfer queue and directory sync over any VFS"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
 
 [dependencies]
 ft-vfs.workspace = true
