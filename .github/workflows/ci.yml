@@ -32,11 +32,23 @@ jobs:
         run: npm run build
 
   backend:
-    name: Backend (fmt + clippy + tests + smoke)
-    runs-on: macos-latest
-    timeout-minutes: 40
+    name: Backend (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Linux webview dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
+            libxdo-dev libssl-dev
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -54,15 +66,18 @@ jobs:
         run: cargo test --workspace
 
       - name: Loopback SSH smoke tests
+        shell: bash
         run: |
           set -euo pipefail
           bash testenv/setup.sh
           cargo build -p ferriterm --examples
 
-          ./target/debug/examples/loopback_sshd &
+          server=./target/debug/examples/loopback_sshd
+          if [ -f "$server.exe" ]; then server="$server.exe"; fi
+          "$server" &
           SERVER_PID=$!
           trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
 
           sleep 2
-          ./target/debug/examples/ssh_smoke
-          ./target/debug/examples/ft_ssh_smoke
+          cargo run -q -p ferriterm --example ssh_smoke
+          cargo run -q -p ferriterm --example ft_ssh_smoke
