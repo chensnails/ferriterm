@@ -8446,6 +8446,73 @@ body.dock-resizing-y * {
   min-width: 0;
 }
 
+/* Model field: the listbox belongs to the app because the WebView paints a
+   native <datalist> popup with its own colours, radius and type scale. */
+.ai-combo {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-combo .ai-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-combo-popup {
+  position: fixed;
+  z-index: 320;
+  display: flex;
+  flex-direction: column;
+  /* Whole rows only: a scrollport that ends mid-line reads as a clipped list. */
+  max-height: calc(var(--row-h) * 8 + var(--space-1) * 2 + 2px);
+  min-width: 200px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-panel);
+}
+
+/* The popup is portalled to <body>, so it keeps the global thin scrollbar
+   instead of the platform one. */
+
+/* Not enough room below the field: grow upwards instead. */
+.ai-combo-popup.flip {
+  transform: translateY(-100%);
+}
+
+.ai-combo-option {
+  flex: 0 0 auto;
+  width: 100%;
+  height: var(--row-h);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  line-height: var(--row-h);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.ai-combo-option.active {
+  background: var(--hover-bg);
+}
+
+.ai-combo-option.selected {
+  background: var(--menu-sel-bg);
+  color: var(--accent);
+}
+
 .ai-field-area {
   height: auto;
   padding: var(--space-1) var(--space-2);
