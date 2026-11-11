@@ -1,3 +1,4 @@
+mod agent;
 mod ai;
 mod commands;
 mod logging;
@@ -15,6 +16,9 @@ pub fn run() {
     // One registry, cloned into both the managed state and the transfer
     // resolver: a second copy would leave resumed jobs looking at an empty map.
     let sessions = SessionRegistry::default();
+    // Shared by the window and the control service, so both call a session by
+    // the same host name.
+    let labels = Arc::new(commands::SessionLabels::default());
     let remote_monitor = Arc::new(ft_monitor::RemoteMonitor::default());
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -42,7 +46,8 @@ pub fn run() {
             app.manage(store.clone());
             app.manage(Arc::new(ft_security::CredentialStore::new(dir.clone())));
             app.manage(ft_sync::BackupStore::new(dir.join("backups")));
-            app.manage(ft_policy::AuditLog::new(dir.join("audit")));
+            let audit = ft_policy::AuditLog::new(dir.join("audit"));
+            app.manage(audit.clone());
             app.manage(ft_plugin::PluginRegistry::new(dir.join("plugins")));
             app.manage(ft_core::RecorderRegistry::new(dir.join("recordings")));
             let sftp = Arc::new(ft_vfs::SftpRegistry::default());
@@ -57,11 +62,24 @@ pub fn run() {
             app.manage(commands::SshRuntimeState::new(
                 Arc::new(ft_ssh::KnownHostsStore::new(dir.join("ssh"))),
                 Arc::new(ft_ssh::ForwardRegistry::default()),
-                store,
-                sftp,
+                store.clone(),
+                sftp.clone(),
                 transfers.clone(),
                 remote_monitor,
+                labels.clone(),
             ));
+            // Bound here rather than later so the endpoint file exists before
+            // anything can look for it. A failure costs the CLI, not the app.
+            if let Err(err) = agent::start(
+                &dir,
+                sessions.clone(),
+                labels.clone(),
+                store.clone(),
+                sftp.clone(),
+                audit.clone(),
+            ) {
+                tracing::warn!(error = %err, "control service unavailable");
+            }
             let updates = transfers.subscribe();
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -221,8 +239,15 @@ pub fn run() {
             policy::policy_audit_path,
             policy::policy_preview,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running ferriterm");
+        .build(tauri::generate_context!())
+        .expect("error while building ferriterm")
+        .run(|_app, event| {
+            // The endpoint file holds a token that dies with this process, so
+            // it should not outlive it either.
+            if let tauri::RunEvent::Exit = event {
+                agent::clear_endpoint();
+            }
+        });
 }
 
 /// Forward broadcast events to a sink until the sender is dropped. A slow

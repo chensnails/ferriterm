@@ -71,6 +71,57 @@ impl<T> PromptQueue<T> {
 pub type HostKeyState = PromptQueue<HostKeyDecision>;
 pub type KeyboardInteractiveState = PromptQueue<Option<Vec<String>>>;
 
+/// What a live session is connected to.
+///
+/// The interface names sessions with its own tab titles, which the backend
+/// never sees; the agent service needs that name back, because a rule scoped to
+/// "web-1" and an audit record reading "web-1" have to mean the same host as
+/// the label a person reads in the window.
+#[derive(Debug, Clone)]
+pub struct SessionLabel {
+    pub label: String,
+    pub host: String,
+    pub port: u16,
+    pub username: String,
+}
+
+#[derive(Default)]
+pub struct SessionLabels {
+    inner: StdMutex<HashMap<String, SessionLabel>>,
+}
+
+impl SessionLabels {
+    pub fn remember(&self, session: &str, label: SessionLabel) {
+        if let Ok(mut map) = self.inner.lock() {
+            map.insert(session.to_string(), label);
+        }
+    }
+
+    pub fn forget(&self, session: &str) {
+        if let Ok(mut map) = self.inner.lock() {
+            map.remove(session);
+        }
+    }
+
+    pub fn get(&self, session: &str) -> Option<SessionLabel> {
+        self.inner
+            .lock()
+            .ok()
+            .and_then(|map| map.get(session).cloned())
+    }
+
+    /// Every live session, ordered by label so repeated calls read the same.
+    pub fn list(&self) -> Vec<(String, SessionLabel)> {
+        let mut all: Vec<(String, SessionLabel)> = self
+            .inner
+            .lock()
+            .map(|map| map.iter().map(|(id, label)| (id.clone(), label.clone())).collect())
+            .unwrap_or_default();
+        all.sort_by(|left, right| left.1.label.cmp(&right.1.label));
+        all
+    }
+}
+
 #[derive(Clone)]
 pub struct SshRuntimeState {
     host_keys: HostKeyState,
@@ -81,6 +132,7 @@ pub struct SshRuntimeState {
     sftp: Arc<ft_vfs::SftpRegistry>,
     transfers: ft_transfer::TransferManager,
     remote: Arc<ft_monitor::RemoteMonitor>,
+    labels: Arc<SessionLabels>,
 }
 
 impl SshRuntimeState {
@@ -91,6 +143,7 @@ impl SshRuntimeState {
         sftp: Arc<ft_vfs::SftpRegistry>,
         transfers: ft_transfer::TransferManager,
         remote: Arc<ft_monitor::RemoteMonitor>,
+        labels: Arc<SessionLabels>,
     ) -> Self {
         Self {
             host_keys: HostKeyState::default(),
@@ -101,7 +154,14 @@ impl SshRuntimeState {
             sftp,
             transfers,
             remote,
+            labels,
         }
+    }
+
+    /// The map from session id to the host a person sees, shared with the
+    /// agent service so both name a session the same way.
+    pub fn labels(&self) -> Arc<SessionLabels> {
+        self.labels.clone()
     }
 
     /// Reclaims everything a session was holding when it went away, whether it
@@ -111,6 +171,7 @@ impl SshRuntimeState {
         self.forwards.stop_session(session_id).await;
         self.sftp.invalidate(session_id).await;
         self.remote.forget(session_id);
+        self.labels.forget(session_id);
         self.transfers
             .pause_session(session_id, "the session closed; resume after reconnecting")
             .await;
@@ -248,6 +309,15 @@ pub async fn ssh_connect(
         .with_credentials(provider)
         .with_cleanup(Arc::new(runtime.inner().clone()));
     let host_id = args.host_id.clone();
+    // Captured before `args` moves into the connect call: the agent service
+    // has to name this session the way the window does, or a rule scoped to a
+    // host would never match what an agent asks for.
+    let connected = SessionLabel {
+        label: String::new(),
+        host: args.host.clone(),
+        port: args.port,
+        username: args.username.clone(),
+    };
     let audit_target = args
         .host_id
         .clone()
@@ -269,6 +339,24 @@ pub async fn ssh_connect(
         tracing::warn!(session = %id, target = %audit_target, %detail, "ssh connect failed");
     }
     result?;
+    let label = match &host_id {
+        Some(host_id) => runtime
+            .store
+            .list_hosts()
+            .ok()
+            .and_then(|hosts| hosts.into_iter().find(|host| &host.id == host_id))
+            .map(|host| host.name)
+            .filter(|name| !name.trim().is_empty())
+            .unwrap_or_else(|| format!("{}@{}", connected.username, connected.host)),
+        None => format!("{}@{}", connected.username, connected.host),
+    };
+    runtime.labels().remember(
+        &id,
+        SessionLabel {
+            label,
+            ..connected
+        },
+    );
     if let Some(host_id) = host_id {
         auto_start_forwards(&app, &state, &runtime, &host_id, &id).await;
     }

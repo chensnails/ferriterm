@@ -1,0 +1,16 @@
+[package]
+name = "ferriterm-cli"
+description = "Command line access to a running Ferriterm: hosts, sessions, gated exec, file transfer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "ferriterm-cli"
+path = "src/main.rs"
+
+[dependencies]
+ft-agent.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt", "macros", "net", "io-util", "time"] }

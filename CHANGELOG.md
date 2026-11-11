@@ -8,6 +8,14 @@ package version in `src-tauri/tauri.conf.json`.
 
 ### Added
 
+- A local control service and `ferriterm-cli`: a token-guarded API on loopback
+  that lets a script or an agent list hosts and sessions, grade a command,
+  run it, and move files. The port is picked by the kernel at each launch and
+  the token is minted then too, so neither can be guessed or reused; both live
+  in `agent.json`, readable only by this user and removed on exit. `exec` goes
+  through the same policy engine and the same audit chain as the assistant's
+  run button — an `ask` verdict from the CLI is not a prompt but a refusal,
+  because there is nobody to ask. Files move over the session's SFTP channel.
 - Every routing decision is now recorded in a hash-chained audit log:
   `%APPDATA%/<app>/audit/audit-YYYYMM.jsonl`, one line per evaluation with the
   command, host, risk, reasons, matched rule, verdict, the answer the person
@@ -116,6 +124,9 @@ package version in `src-tauri/tauri.conf.json`.
 
 ### Fixed
 
+- Settings → Security refreshed its audit view when the month changed but not
+  when new records landed, so a command run from the CLI left the list and its
+  count behind the chain's own answer. Verifying now reloads both.
 - A confirmation asked from inside Settings now appears on top of it instead of
   underneath: dialogs share one z-index in the stylesheet, so they are stacked
   by mount order and only the topmost one answers Escape. Closing a confirm no

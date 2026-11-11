@@ -48,7 +48,9 @@ impl PolicyConfig {
     }
 }
 
-fn load(store: &Store) -> Result<PolicyConfig, String> {
+/// The policy in force. Shared with the agent service, which must grade a
+/// command with exactly the rules the interface shows.
+pub(crate) fn load(store: &Store) -> Result<PolicyConfig, String> {
     let raw = store
         .get_setting(POLICY_KEY)
         .map_err(|err| err.to_string())?;
@@ -82,6 +84,25 @@ pub fn policy_save(
     config.rules.retain(|rule| !rule.pattern.trim().is_empty());
     persist(&store, &config)?;
     Ok(config)
+}
+
+/// Grade one command line against the stored policy. Shared with the agent
+/// service so both entry points answer with the same engine and the same rules.
+pub(crate) fn decide(
+    store: &Store,
+    command: &str,
+    host: &str,
+    elevated: bool,
+) -> Result<Decision, String> {
+    let config = load(store)?;
+    Ok(ft_policy::evaluate(
+        &config.to_policy(),
+        command,
+        &Context {
+            host: host.to_string(),
+            elevated,
+        },
+    ))
 }
 
 /// Grade one command line. The answer is advisory to the caller: honour it.
@@ -159,9 +180,8 @@ fn now_secs() -> u64 {
 
 /// Append one decision to the chain. Written for every verdict, including the
 /// ones that never ran, because "what almost ran" is worth keeping.
-#[tauri::command]
-pub fn policy_record(
-    audit: State<'_, AuditLog>,
+pub(crate) fn record_decision(
+    audit: &AuditLog,
     entry: AuditInput,
 ) -> Result<AuditEntry, String> {
     let mut record = AuditEntry {
@@ -185,6 +205,16 @@ pub fn policy_record(
     // keeps checking.
     let _ = audit.prune(AUDIT_MONTHS_KEPT);
     Ok(record)
+}
+
+/// The command wrapper: the interface records what the person chose, the agent
+/// service records what it was told to do, and both land in the same file.
+#[tauri::command]
+pub fn policy_record(
+    audit: State<'_, AuditLog>,
+    entry: AuditInput,
+) -> Result<AuditEntry, String> {
+    record_decision(&audit, entry)
 }
 
 #[tauri::command]

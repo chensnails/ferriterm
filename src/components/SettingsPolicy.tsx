@@ -122,6 +122,17 @@ export function SettingsPolicy() {
     try {
       const reports = await policyAuditVerify(month || undefined);
       setReport(reports[0] ?? null);
+      // Commands run by the agent and the CLI land in the same file while this
+      // page is open, so a verify also refreshes what is on screen. Otherwise
+      // the chain would report ten records above a list still showing three.
+      if (month) {
+        const [list, file] = await Promise.all([
+          policyAuditList(month),
+          policyAuditPath(month),
+        ]);
+        setEntries(list);
+        setWhere(file);
+      }
     } catch (err) {
       setError(String(err));
     } finally {

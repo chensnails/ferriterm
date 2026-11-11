@@ -69,6 +69,7 @@ examples provide a loopback SSH fixture used by CI and local smoke tests.
 
 - [docs/PRD.md](docs/PRD.md) — requirements and acceptance gates
 - [docs/UI_SPEC.md](docs/UI_SPEC.md) — interface specification
+- [docs/AGENT.md](docs/AGENT.md) — local control service and `ferriterm-cli`
 - [docs/RELEASING.md](docs/RELEASING.md) — release and signing handbook
 - [docs/assessment-2026-11-10.md](docs/assessment-2026-11-10.md) — engineering
   assessment and remediation roadmap

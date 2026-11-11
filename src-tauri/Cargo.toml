@@ -32,6 +32,7 @@ ft-vfs.workspace = true
 ft-transfer.workspace = true
 ft-ai.workspace = true
 ft-policy.workspace = true
+ft-agent.workspace = true
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "json"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
