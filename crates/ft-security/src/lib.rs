@@ -1248,10 +1248,21 @@ mod tests {
             .stderr(std::process::Stdio::null())
             .spawn()
             .unwrap();
-        std::thread::sleep(Duration::from_millis(300));
-        child.kill().unwrap();
-        let _ = child.wait();
         let store = CredentialStore::new(dir.clone());
+        // A slow runner may need longer than a fixed pause to reach the first
+        // write; wait for the vault to appear, then kill the writer mid-flight.
+        let vault = store.vault_path();
+        let deadline = std::time::Instant::now() + Duration::from_secs(10);
+        while !vault.exists() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the writer never produced a vault"
+            );
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        std::thread::sleep(Duration::from_millis(50));
+        let _ = child.kill();
+        let _ = child.wait();
         let value = store.get("k").unwrap().expect("entry survived the crash");
         assert!(value.starts_with("value-"));
         assert_eq!(store.status().entries, 1);
