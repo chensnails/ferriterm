@@ -2452,12 +2452,34 @@ mark {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   height: 100%;
   padding: var(--space-5);
   background: var(--bg-panel);
   color: var(--fg-primary);
+  text-align: center;
+}
+
+.ui-error-boundary > .ui-error-state-icon {
+  width: var(--space-5);
+  height: var(--space-5);
+}
+
+.ui-error-boundary > .ui-error-state-icon::before {
+  font-size: var(--fs-base);
+}
+
+.ui-error-boundary h2 {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+}
+
+.ui-error-boundary .hint {
+  max-width: 52ch;
+  line-height: var(--lh-loose);
 }
 
 .ui-error-detail {
@@ -2470,6 +2492,7 @@ mark {
   color: var(--danger);
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
+  text-align: left;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -2477,6 +2500,34 @@ mark {
 .ui-error-actions {
   display: flex;
   gap: var(--space-2);
+}
+
+.ui-error-actions button {
+  height: var(--button-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  transition: background var(--motion-fast), border-color var(--motion-fast);
+}
+
+.ui-error-actions button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: var(--hover-bg);
+}
+
+.ui-error-actions button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--fg-on-accent);
+  font-weight: 600;
+}
+
+.ui-error-actions button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
 }
 
 .about-update-actions {
@@ -3245,19 +3296,30 @@ mark {
   margin: 0;
   font-size: var(--font-ui-sm);
   color: var(--fg-muted);
+  line-height: var(--lh-loose);
+}
+
+/* Warnings were previously an unstyled `hint warn` pair: the word "warn" was
+   a no-op, so blocking plugin/desktop notices read like ordinary copy. */
+.hint.warn {
+  padding: var(--space-1) var(--space-2);
+  border-left: 2px solid var(--warning);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  color: var(--fg-primary);
 }
 
 /* Errors read as a state, not as one more line of copy: a tinted band with a
    danger edge. Plain red text disappeared next to ordinary hints. */
 .error-text {
   margin: 0;
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-2) var(--space-3);
   border-left: 2px solid var(--danger);
   border-radius: var(--radius-sm);
   background: var(--danger-bg);
-  color: var(--danger);
+  color: var(--fg-primary);
   font-size: var(--fs-sm);
-  line-height: var(--line-ui);
+  line-height: var(--lh-loose);
   word-break: break-word;
   overflow-wrap: anywhere;
 }
@@ -5731,46 +5793,188 @@ label.sync-action {
   flex: 1;
 }
 
+/* Three states share one rhythm and one accent edge, so a pane swapping
+   between loading / empty / error does not jump its content. */
 .ui-empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-1);
-  padding: var(--space-4) var(--space-3);
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-4);
   text-align: center;
 }
 
 .ui-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ic-lg);
+  height: var(--ic-lg);
+  margin-bottom: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--sub-bg);
   color: var(--fg-muted);
+}
+
+.ui-empty-title {
+  margin: 0;
+  color: var(--fg-primary);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+}
+
+.ui-empty-description {
+  margin: 0;
+  max-width: 44ch;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-loose);
 }
 
 .ui-empty-action {
   margin-top: var(--space-2);
 }
 
-.ui-notice {
-  padding: var(--space-2) var(--space-3);
-  border-left: 2px solid var(--accent);
-  border-radius: var(--radius-md);
-  background: var(--sub-bg);
+.ui-loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-3);
   color: var(--fg-muted);
   font-size: var(--fs-sm);
 }
 
+.ui-loading-spinner {
+  width: var(--ic-sm);
+  height: var(--ic-sm);
+  flex-shrink: 0;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: var(--radius-pill);
+  animation: ui-loading-spin 800ms linear infinite;
+}
+
+.ui-loading-label {
+  margin: 0;
+}
+
+@keyframes ui-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ui-error-state {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--danger) 38%, var(--border));
+  border-radius: var(--radius-md);
+  background: var(--danger-bg);
+}
+
+.ui-error-state-icon {
+  position: relative;
+  width: var(--ic-md);
+  height: var(--ic-md);
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  background: var(--danger);
+  color: var(--fg-on-accent);
+}
+
+.ui-error-state-icon::before {
+  content: "!";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ui-error-state-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.ui-error-state-title {
+  margin: 0;
+  color: var(--fg-primary);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.ui-error-state-detail {
+  margin: var(--space-1) 0 0;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-loose);
+  overflow-wrap: anywhere;
+}
+
+.ui-error-state-action {
+  flex-shrink: 0;
+}
+
+.ui-notice {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--sub-bg);
+  color: var(--fg-primary);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-loose);
+}
+
 .ui-notice.tone-warn {
   border-left-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, var(--sub-bg));
 }
 
 .ui-notice.tone-danger {
   border-left-color: var(--danger);
   background: var(--danger-bg);
-  color: var(--danger);
+  color: var(--fg-primary);
 }
 
 .ui-tip {
   color: var(--fg-muted);
   font-size: var(--fs-xs);
+  line-height: var(--lh-loose);
+}
+
+/* Compact hosts keep the shared state visuals without inheriting the roomy
+   padding meant for full panes. Double-class specificity beats the base rule. */
+.palette-empty.ui-empty-state,
+.exec-log-empty.ui-empty-state,
+.recordings-list-empty.ui-empty-state {
+  padding: var(--space-3);
+}
+
+.recordings-list-empty.ui-empty-state .ui-empty-title,
+.recordings-stage-empty.ui-empty-state .ui-empty-title {
+  font-size: var(--fs-sm);
+}
+
+.recordings-stage-empty.ui-empty-state {
+  flex: 1;
+  justify-content: center;
+}
+
+.file-loading.ui-loading-state {
+  padding: var(--space-3);
+}
+
+.recordings-error.ui-error-state {
+  margin: 0 var(--space-4) var(--space-3);
 }
 
 .ui-menu-item {

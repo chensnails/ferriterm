@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store";
+import { EmptyState } from "./ui";
 
 interface PaletteAction {
   id: string;
@@ -189,7 +190,7 @@ export function CommandPalette() {
         />
         <div className="palette-list" ref={listRef} role="listbox">
           {filtered.length === 0 && (
-            <p className="hint palette-empty">{t("palette.empty")}</p>
+            <EmptyState className="palette-empty" title={t("palette.empty")} />
           )}
           {filtered.map((action, index) => (
             <button

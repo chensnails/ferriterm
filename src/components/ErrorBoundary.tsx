@@ -23,6 +23,7 @@ class Boundary extends Component<{ children: ReactNode; labels: Labels }, { erro
     if (!this.state.error) return this.props.children;
     return (
       <div className="ui-error-boundary" role="alert">
+        <span className="ui-error-state-icon" aria-hidden />
         <h2>{this.props.labels.title}</h2>
         <p className="hint">{this.props.labels.detail}</p>
         <pre className="ui-error-detail">{this.state.error.message}</pre>

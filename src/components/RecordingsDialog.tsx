@@ -4,6 +4,7 @@ import { api, type CastFile, type RecordingMeta } from "../api";
 import { CastPlayer, type PlayerState } from "../cast";
 import { useAppStore } from "../store";
 import { Modal } from "./Modal";
+import { EmptyState, ErrorState, LoadingState } from "./ui";
 
 function formatTime(seconds: number) {
   const total = Math.max(0, Math.floor(seconds));
@@ -92,10 +93,14 @@ export function RecordingsDialog() {
       <div className="recordings-layout">
         <div className="recordings-list">
           {items === null && !error && (
-            <p className="hint">{t("recordings.loading")}</p>
+            <LoadingState label={t("recordings.loading")} />
           )}
           {items?.length === 0 && (
-            <p className="hint">{t("recordings.empty")}</p>
+            <EmptyState
+              className="recordings-list-empty"
+              title={t("common.emptyTitle")}
+              description={t("recordings.empty")}
+            />
           )}
           {items?.map((meta) => (
             <button
@@ -119,7 +124,12 @@ export function RecordingsDialog() {
           ))}
         </div>
         <div className="recordings-stage">
-          {!cast && <p className="hint">{t("recordings.select")}</p>}
+          {!cast && (
+            <EmptyState
+              className="recordings-stage-empty"
+              title={t("recordings.select")}
+            />
+          )}
           <div
             ref={hostRef}
             className="recordings-player"
@@ -171,9 +181,11 @@ export function RecordingsDialog() {
         </div>
       </div>
       {error && (
-        <p className="error-text" role="alert">
-          {error}
-        </p>
+        <ErrorState
+          className="recordings-error"
+          title={t("common.errorTitle")}
+          detail={error}
+        />
       )}
     </Modal>
   );

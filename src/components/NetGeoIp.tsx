@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { geoipLookup, isTauri, type GeoInfo } from "../api";
-import { Chip, Notice } from "./ui";
+import { Chip, EmptyState, ErrorState, LoadingState, Notice } from "./ui";
 
 export function NetGeoIp() {
   const { t } = useTranslation();
@@ -84,8 +84,19 @@ export function NetGeoIp() {
         </div>
       </div>
       {!isTauri && <Notice tone="warn">{t("tools.desktopOnly")}</Notice>}
-      {error && <Notice tone="danger">{error}</Notice>}
-      {info ? (
+      {error && (
+        <ErrorState
+          title={t("common.errorTitle")}
+          detail={error}
+        />
+      )}
+      {loading && !info && (
+        <LoadingState label={t("tools.geoip.loading")} />
+      )}
+      {!loading && !info && !error && (
+        <EmptyState title={t("tools.geoip.empty")} />
+      )}
+      {info && (
         <section className="geo-card">
           <header>
             <h3>{info.ip}</h3>
@@ -101,8 +112,6 @@ export function NetGeoIp() {
             ))}
           </dl>
         </section>
-      ) : (
-        <p className="hint">{t("tools.geoip.empty")}</p>
       )}
     </div>
   );

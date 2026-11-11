@@ -210,7 +210,9 @@
     "confirm": "确定",
     "loading": "加载中…",
     "optional": "可选",
-    "clear": "清空"
+    "clear": "清空",
+    "errorTitle": "出现问题",
+    "emptyTitle": "暂无内容"
   },
   "errors": {
     "boundaryTitle": "界面出现错误",

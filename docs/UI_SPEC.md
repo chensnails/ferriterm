@@ -127,6 +127,18 @@ These phases refine the existing baseline; they do not redefine it. Rulings:
 - **Theme scope.** S1–S4 touch `:root` (shared by all themes) plus the default
   `dark`/`light` blocks only. The 19 bundled themes inherit the shared rules
   and are not individually rewritten.
+- **Three-state kit (S2).** `EmptyState`, `Skeleton`, `LoadingState`,
+  `ErrorState` and `Notice` share one rhythm and one accent edge. An empty
+  state has a title/description hierarchy; loading uses a spinner plus a
+  spoken label (`role="status"`); recoverable errors use a tinted danger block
+  (`role="alert"`) with heading, detail and optional action. Full-screen
+  render failures keep `ErrorBoundary` but reuse the same icon and button
+  material. Panels must reuse these primitives instead of bare `hint` text for
+  real loading/empty/error states; prose hints stay prose.
+- **Warnings are not copy.** `.hint.warn` previously had no rule, so plugin and
+  desktop-shell blockers read like ordinary hints. It now carries a warning
+  edge and a tinted band; `.error-text` uses `--fg-primary` body text on a
+  danger band so long messages stay legible in every theme.
 
 ## 3. Component inventory
 

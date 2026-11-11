@@ -700,11 +700,61 @@ export function EmptyState({
   return (
     <div
       className={["ui-empty-state", className ?? ""].filter(Boolean).join(" ")}
+      role="status"
     >
       {icon && <div className="ui-empty-icon">{icon}</div>}
-      <p className="hint">{title}</p>
-      {description && <p className="hint">{description}</p>}
+      <p className="ui-empty-title">{title}</p>
+      {description && <p className="ui-empty-description">{description}</p>}
       {action && <div className="ui-empty-action">{action}</div>}
+    </div>
+  );
+}
+
+/** Indeterminate wait with a spoken label. Use `Skeleton` when the pane's row
+    shape is known; use this while an action is in flight. */
+export function LoadingState({
+  label,
+  className,
+}: {
+  label: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={["ui-loading-state", className ?? ""].filter(Boolean).join(" ")}
+      role="status"
+      aria-live="polite"
+    >
+      <span className="ui-loading-spinner" aria-hidden />
+      <span className="ui-loading-label">{label}</span>
+    </div>
+  );
+}
+
+/** Recoverable failure: a tinted block with a heading, detail and an optional
+    action. Reads as a state rather than one more line of ordinary copy. */
+export function ErrorState({
+  title,
+  detail,
+  action,
+  className,
+}: {
+  title: ReactNode;
+  detail?: ReactNode;
+  action?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={["ui-error-state", className ?? ""].filter(Boolean).join(" ")}
+      role="alert"
+    >
+      <span className="ui-error-state-icon" aria-hidden />
+      <div className="ui-error-state-copy">
+        <p className="ui-error-state-title">{title}</p>
+        {detail && <p className="ui-error-state-detail">{detail}</p>}
+      </div>
+      {action && <div className="ui-error-state-action">{action}</div>}
     </div>
   );
 }

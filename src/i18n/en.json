@@ -210,7 +210,9 @@
     "confirm": "Confirm",
     "loading": "Loading…",
     "optional": "Optional",
-    "clear": "Clear"
+    "clear": "Clear",
+    "errorTitle": "Something went wrong",
+    "emptyTitle": "Nothing here yet"
   },
   "errors": {
     "boundaryTitle": "The interface hit an error",

@@ -5,6 +5,7 @@ import { writeClipboardText } from "../clipboard";
 import { isRootPath, joinPath, parentPath } from "../paths";
 import { useAppStore } from "../store";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
+import { LoadingState } from "./ui";
 import {
   Chevron,
   EyeIcon,
@@ -437,7 +438,9 @@ export function FilePane({
             ))}
           </tbody>
         </table>
-        {loading && <p className="hint file-loading">{t("files.loading")}</p>}
+        {loading && (
+          <LoadingState className="file-loading" label={t("files.loading")} />
+        )}
       </div>
       {menu && (
         <ContextMenu
