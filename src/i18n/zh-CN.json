@@ -424,7 +424,6 @@
     }
   },
   "monitor": {
-    "open": "主机工具",
     "title": "主机工具",
     "cpu": "CPU",
     "memory": "内存",
@@ -1107,7 +1106,6 @@
     "tools": "网络工具箱",
     "sessions": "{count} 个会话",
     "split": "分屏",
-    "transferIdle": "无传输",
     "production": "生产",
     "focusTerminal": "回到终端",
     "monitor": "监控",

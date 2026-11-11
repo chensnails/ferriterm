@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { TRANSFER_TAB, useAppStore } from "../store";
-import { FilesIcon, ListIcon, LogIcon, PulseIcon } from "./icons";
+import { FilesIcon, ListIcon, LogIcon } from "./icons";
 import { RailButton } from "./ui";
 
 /**
@@ -12,8 +12,6 @@ export function RightStrip() {
   const { t } = useTranslation();
   const commandsOpen = useAppStore((s) => s.commandsOpen);
   const toggleCommands = useAppStore((s) => s.toggleCommands);
-  const monitorOpen = useAppStore((s) => s.monitorOpen);
-  const toggleMonitor = useAppStore((s) => s.toggleMonitor);
   const execLogOpen = useAppStore((s) => s.execLogOpen);
   const toggleExecLog = useAppStore((s) => s.toggleExecLog);
   const activeId = useAppStore((s) => s.activeId);
@@ -52,13 +50,6 @@ export function RightStrip() {
           onClick={toggleCommands}
         >
           <ListIcon size={18} />
-        </RailButton>
-        <RailButton
-          label={t("monitor.open")}
-          active={monitorOpen}
-          onClick={toggleMonitor}
-        >
-          <PulseIcon size={18} />
         </RailButton>
         <RailButton
           label={t("log.toggle")}

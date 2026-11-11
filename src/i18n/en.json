@@ -424,7 +424,6 @@
     }
   },
   "monitor": {
-    "open": "Host tools",
     "title": "Host tools",
     "cpu": "CPU",
     "memory": "Memory",
@@ -1107,7 +1106,6 @@
     "tools": "Network tools",
     "sessions": "{count, plural, =0 {No sessions} one {# session} other {# sessions}}",
     "split": "Split",
-    "transferIdle": "No transfers",
     "production": "Prod",
     "focusTerminal": "Back to the terminal",
     "monitor": "Monitor",

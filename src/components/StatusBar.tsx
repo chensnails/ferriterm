@@ -1,16 +1,15 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { formatBytes } from "../format";
 import { TRANSFER_TAB, useAppStore } from "../store";
 import { ContextMenu } from "./ContextMenu";
-import { FilesIcon, LogIcon, SplitIcon } from "./icons";
+import { SplitIcon } from "./icons";
 import { StatusMonitor } from "./StatusMonitor";
 
 /**
- * Bottom status bar. Left cell mirrors where you are, the middle cell carries
- * the last message, the right cell mirrors the transfer queue and the log.
- * Every cell is also the shortcut into the panel that owns it, so the three
- * columns and the dock stay in step instead of being separate islands.
+ * Bottom status bar. The left cell mirrors where you are, the middle one
+ * carries the last message, and the right one is the live monitor readout.
+ * Companion panels have a single entry point in the right tool strip; the
+ * readout doubles as the shortcut into the monitor card.
  */
 export function StatusBar() {
   const { t } = useTranslation();
@@ -18,12 +17,8 @@ export function StatusBar() {
   const activeId = useAppStore((s) => s.activeId);
   const splitId = useAppStore((s) => s.splitId);
   const status = useAppStore((s) => s.status);
-  const transfers = useAppStore((s) => s.transfers);
   const sidebarView = useAppStore((s) => s.sidebarView);
   const activate = useAppStore((s) => s.activate);
-  const openTransfer = useAppStore((s) => s.openTransfer);
-  const execLogOpen = useAppStore((s) => s.execLogOpen);
-  const toggleExecLog = useAppStore((s) => s.toggleExecLog);
   const clearStatus = useAppStore((s) => s.clearStatus);
   const statusMonitor = useAppStore((s) => s.statusMonitor);
   const setStatusMonitor = useAppStore((s) => s.setStatusMonitor);
@@ -31,11 +26,6 @@ export function StatusBar() {
 
   const open = sessions.filter((session) => !session.closed);
   const current = sessions.find((session) => session.id === activeId);
-  const running = transfers.filter((job) => job.status === "running");
-  const queued = transfers.filter(
-    (job) => job.status === "pending" || job.status === "paused",
-  );
-  const speed = running.reduce((total, job) => total + job.speed, 0);
 
   const label = current
     ? current.title
@@ -100,42 +90,6 @@ export function StatusBar() {
 
       <div className="statusbar-group end">
         <StatusMonitor />
-        <button
-          type="button"
-          className={`statusbar-item ${running.length > 0 ? "busy" : ""}`}
-          onClick={() => openTransfer()}
-          title={t("transfer.open")}
-        >
-          <FilesIcon size={13} />
-          {running.length > 0 ? (
-            <>
-              <span className="statusbar-item-label">
-                {t("transfer.statActive", { n: running.length })}
-              </span>
-              {speed > 0 && (
-                <span className="statusbar-mono">
-                  {formatBytes(speed)}
-                  {t("transfer.perSecond")}
-                </span>
-              )}
-            </>
-          ) : (
-            <span className="statusbar-item-label">
-              {queued.length > 0
-                ? t("transfer.statWaiting", { n: queued.length })
-                : t("status.transferIdle")}
-            </span>
-          )}
-        </button>
-        <button
-          type="button"
-          className={`statusbar-item ${execLogOpen ? "active" : ""}`}
-          onClick={toggleExecLog}
-          title={t("log.toggle")}
-        >
-          <LogIcon size={13} />
-          <span className="statusbar-item-label">{t("log.title")}</span>
-        </button>
       </div>
 
       {menu && (

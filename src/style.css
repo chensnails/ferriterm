@@ -6128,15 +6128,6 @@ label.sync-action {
   color: var(--fg-primary);
 }
 
-.statusbar-item.active {
-  background: var(--selected-bg);
-  color: var(--fg-primary);
-}
-
-.statusbar-item.busy {
-  color: var(--accent);
-}
-
 .statusbar-dot {
   width: var(--status-dot);
   height: var(--status-dot);
@@ -6395,13 +6386,8 @@ label.sync-action {
   }
 }
 
-/* < 560: the two dock buttons keep their icons and lose their captions; the
-   tooltips and the dock headers already name them. */
+/* < 560: give the monitor readout back the horizontal space it needs. */
 @media (max-width: 560px) {
-  .statusbar-item-label {
-    display: none;
-  }
-
   .statusbar-item {
     padding: 0 var(--space-1);
   }
