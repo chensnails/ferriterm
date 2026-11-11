@@ -1,10 +1,16 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { agentCliPath, isTauri } from "../api";
+import {
+  agentCliPath,
+  agentServiceSet,
+  agentStatus,
+  isTauri,
+  type AgentStatus,
+} from "../api";
 import { writeClipboardText } from "../clipboard";
 import { CopyIcon } from "./icons";
-import { Notice, SettingGroup } from "./ui";
+import { Notice, SettingGroup, SettingRow, Switch } from "./ui";
 
 /**
  * Settings → Agent: what an external agent needs in order to use this app.
@@ -15,12 +21,19 @@ import { Notice, SettingGroup } from "./ui";
  * editor. So this page hands over the two facts that are actually hard to get
  * right, the binary's real path and the shape of an entry, and lets the person
  * put them where their client wants them.
+ *
+ * The switch at the top is the one thing this page does act on: it opens and
+ * closes the loopback socket the CLI and the MCP server talk to, without
+ * touching the hosts, the rules or the audit chain behind it.
  */
 export function SettingsAgent() {
   const { t } = useTranslation();
   const [cliPath, setCliPath] = useState("ferriterm-cli");
   const [copied, setCopied] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const [status, setStatus] = useState<AgentStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [switchError, setSwitchError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isTauri) return;
@@ -29,6 +42,9 @@ export function SettingsAgent() {
     void agentCliPath()
       .then(setCliPath)
       .catch(() => {});
+    void agentStatus()
+      .then(setStatus)
+      .catch(() => {});
   }, []);
 
   const snippet = JSON.stringify(
@@ -36,7 +52,7 @@ export function SettingsAgent() {
     null,
     2,
   );
-  const status = `${cliPath} status`;
+  const statusCommand = `${cliPath} status`;
 
   const copy = async (key: string, text: string) => {
     try {
@@ -60,8 +76,52 @@ export function SettingsAgent() {
     </button>
   );
 
+  const toggleService = async (next: boolean) => {
+    setBusy(true);
+    setSwitchError(null);
+    try {
+      setStatus(await agentServiceSet(next));
+    } catch (err) {
+      setSwitchError(String(err));
+      // Whatever happened, the page should show what the backend believes.
+      void agentStatus()
+        .then(setStatus)
+        .catch(() => {});
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const serviceState = status?.running
+    ? t("agent.settings.serviceOn", { port: status.port })
+    : status
+      ? t("agent.settings.serviceOff")
+      : t("agent.settings.serviceUnknown");
+
   return (
     <>
+      <SettingGroup
+        title={t("agent.settings.serviceGroup")}
+        hint={t("agent.settings.serviceHint")}
+      >
+        <SettingRow
+          title={t("agent.settings.serviceTitle")}
+          hint={t("agent.settings.serviceDetail")}
+          current={serviceState}
+        >
+          <Switch
+            checked={status?.enabled ?? false}
+            disabled={busy || !isTauri || status === null}
+            label={t("agent.settings.serviceTitle")}
+            onChange={(next) => void toggleService(next)}
+          />
+        </SettingRow>
+        {status?.enabled && !status.running && (
+          <Notice tone="danger">{t("agent.settings.serviceFailed")}</Notice>
+        )}
+        {switchError && <Notice tone="danger">{switchError}</Notice>}
+      </SettingGroup>
+
       <SettingGroup
         title={t("agent.settings.cliGroup")}
         hint={t("agent.settings.cliHint")}
@@ -90,10 +150,10 @@ export function SettingsAgent() {
         hint={t("agent.settings.verifyHint")}
       >
         <div className="agent-block agent-block-stack">
-          <code className="agent-code">{status}</code>
+          <code className="agent-code">{statusCommand}</code>
           <div className="agent-block-foot">
             <span className="hint">{t("agent.settings.verifyFoot")}</span>
-            {copyButton("status", status)}
+            {copyButton("status", statusCommand)}
           </div>
         </div>
         {failed && <Notice tone="danger">{t("agent.settings.copyFailed")}</Notice>}

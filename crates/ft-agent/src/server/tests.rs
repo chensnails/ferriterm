@@ -148,6 +148,24 @@ async fn start(token: &str) -> (Arc<Mock>, Endpoint) {
 }
 
 #[tokio::test]
+async fn rebinding_keeps_the_token_and_prefers_the_old_port() {
+    let (first, listener) = Agent::bind().expect("bind");
+    let port = first.port;
+    drop(listener);
+    let (again, listener) = Agent::rebind(port, "kept".to_string()).expect("rebind");
+    assert_eq!(again.token, "kept");
+    assert_eq!(again.port, port, "a free port is reused, not replaced");
+
+    // A port somebody else grabbed meanwhile is not fatal: serving moves to a
+    // fresh one and the token still stands.
+    let (held, _held_listener) = Agent::bind().expect("bind");
+    let held_port = held.port;
+    let (moved, _listener) = Agent::rebind(held_port, "kept".to_string()).expect("rebind");
+    assert_eq!(moved.token, "kept");
+    assert_ne!(moved.port, held_port);
+}
+
+#[tokio::test]
 async fn health_carries_the_service_version() {
     let (_backend, endpoint) = start("secret").await;
     let health = Client::new(&endpoint).health().await.unwrap();

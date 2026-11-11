@@ -1505,6 +1505,14 @@
   },
   "agent": {
     "settings": {
+      "serviceGroup": "控制服务",
+      "serviceHint": "CLI 和 MCP 客户端访问的那个回环接口。关掉会关闭监听并删除 endpoint 文件；主机、规则和审计链原样保留。",
+      "serviceTitle": "接受本地连接",
+      "serviceDetail": "关闭期间新连接一律被拒绝。重新打开会沿用原来的端口和 token，之前配置好的客户端不用改。",
+      "serviceOn": "监听中 · 端口 {port}",
+      "serviceOff": "已停止",
+      "serviceUnknown": "未知",
+      "serviceFailed": "开关是打开的，但没有在监听——端口未能绑定。详情见日志。",
       "cliGroup": "命令行工具",
       "cliHint": "MCP 服务就是这个可执行文件。外部 Agent 需要绝对路径，所以这里显示的是实际会运行的路径，不是猜的。",
       "copy": "复制",

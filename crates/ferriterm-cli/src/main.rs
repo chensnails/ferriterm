@@ -175,7 +175,9 @@ pub(crate) fn load_endpoint(explicit: Option<&str>) -> Result<Endpoint, Failure>
         None => {
             let (path, endpoint) = discover_endpoint().map_err(|error| {
                 Failure::Other(format!(
-                    "{error}\nIs Ferriterm running? The endpoint file is written when it starts."
+                    "{error}\nIs Ferriterm running with its control service switched on?\n\
+                     The endpoint file is written when the app starts listening and removed \
+                     when it stops — Settings → Agents has the switch."
                 ))
             })?;
             let _ = path;
@@ -363,6 +365,7 @@ async fn exec(client: &Client, rest: Vec<String>, json: bool) -> Result<ExitCode
             session,
             command,
             timeout_ms: target.timeout_ms,
+            origin: Some("cli".to_string()),
         })
         .await?;
 

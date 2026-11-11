@@ -8,6 +8,12 @@ package version in `src-tauri/tauri.conf.json`.
 
 ### Added
 
+- Settings → Agents can switch the control service off without closing the app.
+  The switch ends the listener and deletes the endpoint file, so the CLI fails
+  immediately and says why instead of waiting on a dead port; hosts, rules and
+  the audit chain are untouched. Turning it back on reuses the port and token
+  from before, so a client configured a minute ago still works. The choice lives
+  in `agent:enabled` and is applied before the window appears.
 - Settings → Agents collects what an external agent needs: the CLI's real path
   and a ready `mcpServers` entry, each with a copy button. Nothing is written to
   anyone else's configuration — every MCP client keeps it in a different file,
@@ -136,6 +142,9 @@ package version in `src-tauri/tauri.conf.json`.
 
 ### Fixed
 
+- The GPU probe and the updater no longer flash a console window: both spawn
+  helper processes (`powershell`, `tar`, `taskkill`) without a window, which a
+  console-less GUI build would otherwise pop onto the screen on every probe.
 - Settings → Security refreshed its audit view when the month changed but not
   when new records landed, so a command run from the CLI left the list and its
   count behind the chain's own answer. Verifying now reloads both.

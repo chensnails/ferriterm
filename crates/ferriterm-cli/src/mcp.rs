@@ -556,6 +556,6 @@ mod tests {
         let text = reply["result"]["content"][0]["text"]
             .as_str()
             .unwrap_or_default();
-        assert!(text.contains("Is Ferriterm running?"), "text was {text}");
+        assert!(text.contains("switched on"), "text was {text}");
     }
 }

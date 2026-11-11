@@ -1505,6 +1505,14 @@
   },
   "agent": {
     "settings": {
+      "serviceGroup": "Control service",
+      "serviceHint": "The loopback interface the CLI and MCP clients talk to. Switching it off closes the socket and deletes the endpoint file; hosts, rules and the audit chain stay exactly as they are.",
+      "serviceTitle": "Accept local connections",
+      "serviceDetail": "New connections are refused while this is off. Turning it back on reuses the same port and token, so a client configured before still works.",
+      "serviceOn": "Listening on port {port}",
+      "serviceOff": "Stopped",
+      "serviceUnknown": "Unknown",
+      "serviceFailed": "The switch is on but nothing is listening — the port could not be bound. The log has the details.",
       "cliGroup": "Command line tool",
       "cliHint": "The MCP server is this binary. An agent needs its absolute path, so this is the path that actually runs, not a guess.",
       "copy": "Copy",

@@ -9,8 +9,9 @@
 //! arrives from an agent is not a special case, which is what makes the audit
 //! log worth reading.
 
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, OnceLock};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use ft_agent::protocol::{
@@ -32,10 +33,11 @@ const EXEC_CAP: usize = 256 * 1024;
 const FILE_CAP: u64 = 24 * 1024 * 1024;
 /// Longest a remote command may run, whatever the client asks for.
 const MAX_TIMEOUT_MS: u64 = 600_000;
-
-/// Path of the endpoint file this process wrote, so it can be removed on the
-/// way out instead of leaving a token behind.
-static ENDPOINT_FILE: OnceLock<PathBuf> = OnceLock::new();
+/// Settings key holding whether the service should be listening at all.
+pub const ENABLED_KEY: &str = "agent:enabled";
+/// How long a stop waits for the serving thread to let go of the port before
+/// giving up and leaving it to finish on its own.
+const STOP_TIMEOUT: Duration = Duration::from_secs(2);
 
 struct AgentBackend {
     sessions: SessionRegistry,
@@ -336,67 +338,263 @@ fn reason_labels(reasons: &[ft_policy::Reason]) -> Vec<String> {
         .collect()
 }
 
-/// Starts the service on a worker thread with its own runtime.
-///
-/// A dedicated thread keeps the agent independent of the UI runtime: a stall in
-/// the window cannot stop an agent mid-command, and the port is bound before
-/// `setup` returns so the endpoint file is never a lie.
-pub fn start(
-    dir: &Path,
+/// What the settings page shows about the service.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentStatus {
+    /// Whether the service is meant to be listening, as stored in settings.
+    pub enabled: bool,
+    /// Whether it is listening right now. These differ only when a bind failed.
+    pub running: bool,
+    /// The port it answers on; `0` while stopped.
+    pub port: u16,
+}
+
+/// Everything the service needs from the running app, held for its lifetime.
+struct Deps {
     sessions: SessionRegistry,
     labels: Arc<SessionLabels>,
     store: Arc<ft_store::Store>,
     sftp: Arc<ft_vfs::SftpRegistry>,
     audit: ft_policy::AuditLog,
-) -> Result<(), String> {
-    let (agent, listener) = ft_agent::server::Agent::bind().map_err(|err| err.to_string())?;
-    let endpoint = agent.endpoint(env!("CARGO_PKG_VERSION"));
-    let path = endpoint.save(dir)?;
-    let _ = ENDPOINT_FILE.set(path.clone());
+}
 
-    let backend = AgentBackend {
-        sessions,
-        labels,
-        store,
-        sftp,
-        audit,
-    };
-    let port = agent.port;
-    let token = agent.token.clone();
-    let version = env!("CARGO_PKG_VERSION").to_string();
+struct Running {
+    port: u16,
+    /// Dropping or firing this ends `serve`.
+    stop: Option<tokio::sync::oneshot::Sender<()>>,
+    /// Set by the serving thread just before it exits, so a stop can wait for
+    /// the listener to be released instead of guessing with a sleep.
+    finished: Arc<AtomicBool>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
 
-    std::thread::Builder::new()
-        .name("ferriterm-agent".to_string())
-        .spawn(move || {
-            let built = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build();
-            let runtime = match built {
-                Ok(runtime) => runtime,
-                Err(err) => {
-                    tracing::error!(error = %err, "the agent runtime could not start");
-                    return;
-                }
-            };
-            let served = runtime.block_on(ft_agent::server::serve(
-                listener,
-                Arc::new(backend),
-                token,
-                version,
-                std::future::pending::<()>(),
-            ));
-            if let Err(err) = served {
-                tracing::error!(error = %err, "the agent service stopped");
+#[derive(Default)]
+struct Inner {
+    running: Option<Running>,
+    /// Credentials of the last run. Kept across an off/on switch so a client
+    /// that was handed a token before the switch can keep using it after.
+    credentials: Option<(u16, String)>,
+}
+
+/// The control service as a managed piece of the app: it can be switched off
+/// and on from settings without restarting the window.
+pub struct AgentService {
+    dir: PathBuf,
+    deps: Deps,
+    inner: Mutex<Inner>,
+}
+
+impl AgentService {
+    pub fn new(
+        dir: PathBuf,
+        sessions: SessionRegistry,
+        labels: Arc<SessionLabels>,
+        store: Arc<ft_store::Store>,
+        sftp: Arc<ft_vfs::SftpRegistry>,
+        audit: ft_policy::AuditLog,
+    ) -> Self {
+        Self {
+            dir,
+            deps: Deps {
+                sessions,
+                labels,
+                store,
+                sftp,
+                audit,
+            },
+            inner: Mutex::new(Inner::default()),
+        }
+    }
+
+    pub fn enabled(&self) -> bool {
+        self.deps
+            .store
+            .get_setting(ENABLED_KEY)
+            .ok()
+            .flatten()
+            .map(|value| value != "0")
+            .unwrap_or(true)
+    }
+
+    pub fn status(&self) -> AgentStatus {
+        let port = self
+            .inner
+            .lock()
+            .ok()
+            .and_then(|inner| inner.running.as_ref().map(|running| running.port))
+            .unwrap_or(0);
+        AgentStatus {
+            enabled: self.enabled(),
+            running: port != 0,
+            port,
+        }
+    }
+
+    /// Starts listening, or does nothing when it already is.
+    pub fn start(&self) -> Result<(), String> {
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| "the control service state is poisoned".to_string())?;
+        if inner.running.is_some() {
+            return Ok(());
+        }
+        let reused = inner.credentials.clone();
+        let (agent, listener) = match &reused {
+            Some((port, token)) => {
+                ft_agent::server::Agent::rebind(*port, token.clone()).map_err(bind_error)?
             }
-        })
-        .map_err(|err| format!("cannot start the agent thread: {err}"))?;
+            None => ft_agent::server::Agent::bind().map_err(bind_error)?,
+        };
+        let path = agent
+            .endpoint(env!("CARGO_PKG_VERSION"))
+            .save(&self.dir)
+            .map_err(|err| format!("cannot write the endpoint file: {err}"))?;
+        let port = agent.port;
+        inner.credentials = Some((port, agent.token.clone()));
+        let token = agent.token;
 
-    tracing::info!(
-        port,
-        endpoint = %path.display(),
-        "control service listening on loopback"
-    );
-    Ok(())
+        let backend = Arc::new(AgentBackend {
+            sessions: self.deps.sessions.clone(),
+            labels: self.deps.labels.clone(),
+            store: self.deps.store.clone(),
+            sftp: self.deps.sftp.clone(),
+            audit: self.deps.audit.clone(),
+        });
+        let (stop, stopped) = tokio::sync::oneshot::channel();
+        let finished = Arc::new(AtomicBool::new(false));
+        let flag = finished.clone();
+        let version = env!("CARGO_PKG_VERSION").to_string();
+        let spawned = std::thread::Builder::new()
+            .name("ferriterm-agent".to_string())
+            .spawn(move || {
+                let built = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build();
+                let runtime = match built {
+                    Ok(runtime) => runtime,
+                    Err(err) => {
+                        tracing::error!(error = %err, "the agent runtime could not start");
+                        flag.store(true, Ordering::SeqCst);
+                        return;
+                    }
+                };
+                let served = runtime.block_on(ft_agent::server::serve(
+                    listener,
+                    backend,
+                    token,
+                    version,
+                    async move {
+                        let _ = stopped.await;
+                    },
+                ));
+                if let Err(err) = served {
+                    tracing::error!(error = %err, "the agent service stopped");
+                }
+                flag.store(true, Ordering::SeqCst);
+            });
+        let thread = match spawned {
+            Ok(thread) => thread,
+            Err(err) => {
+                // A thread we could not start is a service that is not there,
+                // so the endpoint file must not claim otherwise.
+                let _ = std::fs::remove_file(&path);
+                return Err(format!("cannot start the agent thread: {err}"));
+            }
+        };
+        inner.running = Some(Running {
+            port,
+            stop: Some(stop),
+            finished,
+            thread: Some(thread),
+        });
+        tracing::info!(
+            port,
+            endpoint = %path.display(),
+            "control service listening on loopback"
+        );
+        Ok(())
+    }
+
+    /// Stops listening and removes the endpoint file. Credentials survive, so
+    /// switching straight back on reuses the port clients already know.
+    pub fn stop(&self) -> Result<(), String> {
+        let running = {
+            let mut inner = self
+                .inner
+                .lock()
+                .map_err(|_| "the control service state is poisoned".to_string())?;
+            inner.running.take()
+        };
+        let endpoint = ft_agent::Endpoint::path_in(&self.dir);
+        let Some(mut running) = running else {
+            let _ = std::fs::remove_file(endpoint);
+            return Ok(());
+        };
+        if let Some(stop) = running.stop.take() {
+            let _ = stop.send(());
+        }
+        // The serving thread owns the listener; wait for it to return so the
+        // port is free again before anyone tries to switch the service on.
+        let deadline = Instant::now() + STOP_TIMEOUT;
+        while !running.finished.load(Ordering::SeqCst) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        if running.finished.load(Ordering::SeqCst) {
+            if let Some(thread) = running.thread.take() {
+                let _ = thread.join();
+            }
+        } else {
+            tracing::warn!(
+                port = running.port,
+                "the control service did not stop in time"
+            );
+        }
+        let _ = std::fs::remove_file(endpoint);
+        tracing::info!(port = running.port, "control service stopped");
+        Ok(())
+    }
+
+    /// Persists the switch and matches the socket to it.
+    pub fn set_enabled(&self, enabled: bool) -> Result<AgentStatus, String> {
+        self.deps
+            .store
+            .set_setting(ENABLED_KEY, if enabled { "1" } else { "0" })
+            .map_err(|err| err.to_string())?;
+        if enabled {
+            self.start()?;
+        } else {
+            self.stop()?;
+        }
+        Ok(self.status())
+    }
+
+    /// Brings the socket in line with the stored switch, on startup.
+    pub fn start_if_enabled(&self) -> Result<(), String> {
+        if !self.enabled() {
+            tracing::info!("the control service is switched off in settings");
+            return Ok(());
+        }
+        self.start()
+    }
+}
+
+fn bind_error(err: std::io::Error) -> String {
+    format!("cannot bind the control service: {err}")
+}
+
+#[tauri::command]
+pub fn agent_status(service: tauri::State<'_, Arc<AgentService>>) -> AgentStatus {
+    service.status()
+}
+
+#[tauri::command]
+pub fn agent_service_set(
+    service: tauri::State<'_, Arc<AgentService>>,
+    enabled: bool,
+) -> Result<AgentStatus, String> {
+    service.set_enabled(enabled)
 }
 
 /// The CLI that speaks to this service, as an absolute path when it sits next
@@ -416,12 +614,4 @@ pub fn agent_cli_path() -> String {
         .filter(|path| path.exists())
         .map(|path| path.display().to_string())
         .unwrap_or_else(|| name.to_string())
-}
-
-/// Removes the endpoint file when the app exits cleanly, so the file never
-/// outlives the token it holds.
-pub fn clear_endpoint() {
-    if let Some(path) = ENDPOINT_FILE.get() {
-        let _ = std::fs::remove_file(path);
-    }
 }

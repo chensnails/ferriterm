@@ -68,18 +68,21 @@ pub fn run() {
                 remote_monitor,
                 labels.clone(),
             ));
-            // Bound here rather than later so the endpoint file exists before
-            // anything can look for it. A failure costs the CLI, not the app.
-            if let Err(err) = agent::start(
-                &dir,
+            // The service is managed rather than started once, so settings can
+            // switch it off without closing the window. A bind failure costs
+            // the CLI, not the app.
+            let service = Arc::new(agent::AgentService::new(
+                dir.clone(),
                 sessions.clone(),
                 labels.clone(),
                 store.clone(),
                 sftp.clone(),
                 audit.clone(),
-            ) {
+            ));
+            if let Err(err) = service.start_if_enabled() {
                 tracing::warn!(error = %err, "control service unavailable");
             }
+            app.manage(service);
             let updates = transfers.subscribe();
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -239,14 +242,17 @@ pub fn run() {
             policy::policy_audit_path,
             policy::policy_preview,
             agent::agent_cli_path,
+            agent::agent_status,
+            agent::agent_service_set,
         ])
         .build(tauri::generate_context!())
         .expect("error while building ferriterm")
-        .run(|_app, event| {
+        .run(|app, event| {
             // The endpoint file holds a token that dies with this process, so
             // it should not outlive it either.
             if let tauri::RunEvent::Exit = event {
-                agent::clear_endpoint();
+                let service = app.state::<std::sync::Arc<agent::AgentService>>();
+                let _ = service.stop();
             }
         });
 }

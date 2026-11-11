@@ -1489,6 +1489,23 @@ export function agentCliPath(): Promise<string> {
   return invoke<string>("agent_cli_path");
 }
 
+/** Whether the control service is meant to listen, and whether it does. */
+export type AgentStatus = {
+  enabled: boolean;
+  running: boolean;
+  /** Loopback port it answers on; 0 while stopped. */
+  port: number;
+};
+
+export function agentStatus(): Promise<AgentStatus> {
+  return invoke<AgentStatus>("agent_status");
+}
+
+/** Switches the control service on or off; the choice is persisted. */
+export function agentServiceSet(enabled: boolean): Promise<AgentStatus> {
+  return invoke<AgentStatus>("agent_service_set", { enabled });
+}
+
 export function policyAuditMonths(): Promise<string[]> {
   return invoke<string[]>("policy_audit_months");
 }

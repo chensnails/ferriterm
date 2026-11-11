@@ -77,6 +77,25 @@ impl Agent {
         ))
     }
 
+    /// Binds again with credentials that already exist.
+    ///
+    /// The service can be switched off and on from settings, and a client that
+    /// was handed a token before the switch should still be able to use it
+    /// afterwards. The previous port is tried first because scripts and agent
+    /// configs may have captured it; if something else claimed the number in
+    /// the meantime the kernel picks another and the caller reports whichever
+    /// port won.
+    pub fn rebind(port: u16, token: String) -> std::io::Result<(Self, StdListener)> {
+        let listener = match StdListener::bind(("127.0.0.1", port)) {
+            Ok(listener) => listener,
+            Err(err) if port == 0 => return Err(err),
+            Err(_) => StdListener::bind("127.0.0.1:0")?,
+        };
+        listener.set_nonblocking(true)?;
+        let port = listener.local_addr()?.port();
+        Ok((Self { port, token }, listener))
+    }
+
     /// Endpoint description, ready to be written next to the settings file.
     pub fn endpoint(&self, version: &str) -> Endpoint {
         Endpoint {

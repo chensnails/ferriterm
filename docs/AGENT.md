@@ -40,6 +40,21 @@ suggests checking `status`.
 Set `FERRITERM_AGENT` to point a client at a different endpoint file, and
 `FERRITERM_DATA_DIR` to relocate the data directory (useful for tests).
 
+## Switching it off
+
+Settings → Agents has a switch for the service itself. It is a socket, not a
+feature flag: turning it off ends `serve`, drops the listener and deletes the
+endpoint file, so `ferriterm-cli` immediately reports that nothing is listening
+instead of hanging on a dead port. Hosts, rules, audit records and the rest of
+the store are untouched — the switch only closes the door.
+
+Turning it back on rebinds the port it used before and reuses the same token.
+Both are held in memory while the service is off precisely so a client
+configured a minute ago keeps working; if something else claimed the port in
+the meantime the kernel picks another and the settings page shows the new
+number. The choice is stored under `agent:enabled` (`1`/`0`), defaulting to on,
+and is applied at startup before the window appears.
+
 ## Routes
 
 Every request needs `Authorization: Bearer <token>`; a wrong or missing token
