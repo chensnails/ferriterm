@@ -1111,6 +1111,7 @@
     "title": "Known hosts",
     "manage": "Manage known hosts",
     "hint": "Host keys are pinned on first connection. Remove an entry to trust the next key that server presents.",
+    "hashed": "Hashed entry",
     "empty": "No pinned host keys yet.",
     "remove": "Remove",
     "refresh": "Refresh"

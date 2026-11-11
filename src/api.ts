@@ -198,6 +198,8 @@ export interface KnownHostEntry {
   port: number;
   algorithm: string;
   fingerprint: string;
+  /** `host` is an opaque hash token because the line is hashed. */
+  hashed: boolean;
 }
 
 export interface AuditRecord {

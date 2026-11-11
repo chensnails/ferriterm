@@ -8,8 +8,11 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
+use data_encoding::BASE64_MIME;
+use hmac::{Hmac, KeyInit, Mac};
 use russh::keys::ssh_key::PublicKey;
 use russh::keys::{check_known_hosts_path, Error as KeyError};
+use sha1::Sha1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HostKeyStatus {
@@ -25,6 +28,9 @@ pub struct HostKeyEntry {
     pub port: u16,
     pub algorithm: String,
     pub fingerprint: String,
+    /// A hashed line hides the hostname; `host` then carries the hash token
+    /// itself, which is what removal must be given.
+    pub hashed: bool,
 }
 
 pub struct KnownHostsStore {
@@ -45,8 +51,9 @@ impl KnownHostsStore {
         &self.path
     }
 
-    /// Lists plain (non-hashed) entries from the app-managed file only; the
-    /// user's OpenSSH file stays read-only.
+    /// Lists entries from the app-managed file only; the user's OpenSSH file
+    /// stays read-only. Hashed lines are reported with the hash token as the
+    /// host because the hostname is not recoverable from them.
     pub fn entries(&self) -> io::Result<Vec<HostKeyEntry>> {
         let raw = match fs::read_to_string(&self.path) {
             Ok(raw) => raw,
@@ -57,9 +64,6 @@ impl KnownHostsStore {
         for line in raw.lines() {
             let trimmed = line.trim();
             if trimmed.is_empty() || trimmed.starts_with('#') {
-                continue;
-            }
-            if trimmed.starts_with("|1|") || trimmed.starts_with("|2|") {
                 continue;
             }
             let mut parts = trimmed.split_whitespace();
@@ -74,22 +78,33 @@ impl KnownHostsStore {
                 .map(|key| key.fingerprint(russh::keys::HashAlg::Sha256).to_string())
                 .unwrap_or_default();
             for name in names.split(',') {
-                let (host, port) = parse_host_field(name);
+                let hashed = is_hashed(name);
+                let (host, port) = if hashed {
+                    (name.to_string(), 22)
+                } else {
+                    parse_host_field(name)
+                };
                 entries.push(HostKeyEntry {
                     host,
                     port,
                     algorithm: key_type.to_string(),
                     fingerprint: fingerprint.clone(),
+                    hashed,
                 });
             }
         }
         Ok(entries)
     }
 
-    /// Drops every app-managed entry for `host`/`port`. Hashed lines and other
-    /// hosts are preserved.
+    /// Drops every app-managed entry for `host`/`port`, including a hashed line
+    /// that covers the same target. Passing the hash token reported by
+    /// [`Self::entries`] removes that line without knowing its hostname.
     pub fn remove(&self, host: &str, port: u16) -> io::Result<()> {
-        let host_field = host_field(host, port);
+        let host_field = if is_hashed(host) {
+            host.to_string()
+        } else {
+            host_field(host, port)
+        };
         let existing = match fs::read_to_string(&self.path) {
             Ok(raw) => raw,
             Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(()),
@@ -173,14 +188,44 @@ fn keeps_line(line: &str, host_field: &str) -> bool {
     if trimmed.is_empty() || trimmed.starts_with('#') {
         return true;
     }
-    // Hashed entries cannot be matched against a plain host name; keep them.
-    if trimmed.starts_with("|1|") || trimmed.starts_with("|2|") {
-        return true;
-    }
     match trimmed.split_whitespace().next() {
-        Some(names) => !names.split(',').any(|name| name == host_field),
+        Some(names) => !names.split(',').any(|name| name_matches(name, host_field)),
         None => true,
     }
+}
+
+fn is_hashed(name: &str) -> bool {
+    name.starts_with("|1|") || name.starts_with("|2|")
+}
+
+/// A line is replaced only when it pins the same target. Hashed names hide the
+/// hostname, so the comparison recomputes OpenSSH's HMAC-SHA1 (`|1|salt|hash`)
+/// over the candidate; the token itself matches verbatim for removal by hash.
+fn name_matches(name: &str, host_field: &str) -> bool {
+    if name == host_field {
+        return true;
+    }
+    name.starts_with("|1|") && hashed_name_matches(name, host_field)
+}
+
+fn hashed_name_matches(name: &str, host: &str) -> bool {
+    let mut parts = name.split('|');
+    let (Some(""), Some("1"), Some(salt), Some(expected)) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return false;
+    };
+    let Ok(salt) = BASE64_MIME.decode(salt.as_bytes()) else {
+        return false;
+    };
+    let Ok(expected) = BASE64_MIME.decode(expected.as_bytes()) else {
+        return false;
+    };
+    let Ok(mut mac) = Hmac::<Sha1>::new_from_slice(&salt) else {
+        return false;
+    };
+    mac.update(host.as_bytes());
+    mac.verify_slice(&expected).is_ok()
 }
 
 fn home_dir() -> Option<PathBuf> {
@@ -312,6 +357,77 @@ mod tests {
         assert!(raw.contains("# managed"));
         assert!(raw.contains("other.test,alias.test"));
         assert!(!raw.contains("OLD_KEY_FOR_EXAMPLE"));
+    }
+
+    const HASHED_LINE: &str = "|1|O33ESRMWPVkMYIwJ1Uw+n877jTo=|nuuC5vEqXlEZ/8BXQR7m619W6Ak= ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILIG2T/B0l0gaqj3puu510tu9N1OkQ4znY3LYuEm5zCF";
+
+    fn hashed_key() -> PublicKey {
+        PublicKey::from_openssh(
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILIG2T/B0l0gaqj3puu510tu9N1OkQ4znY3LYuEm5zCF",
+        )
+        .unwrap()
+    }
+
+    fn write_lines(store: &KnownHostsStore, lines: &str) {
+        fs::create_dir_all(store.path().parent().unwrap()).unwrap();
+        fs::write(store.path(), lines).unwrap();
+    }
+
+    #[test]
+    fn hashed_entries_are_listed_checked_and_replaced() {
+        let (_guard, store) = temp_store("hashed");
+        write_lines(&store, &format!("{HASHED_LINE}\n"));
+
+        let entries = store.entries().unwrap();
+        assert_eq!(entries.len(), 1);
+        assert!(entries[0].hashed);
+        assert_eq!(entries[0].port, 22);
+        assert!(entries[0].host.starts_with("|1|"));
+        assert!(entries[0].fingerprint.starts_with("SHA256:"));
+
+        // russh resolves the hash when checking; the entry is real trust.
+        assert_eq!(
+            store.check("example.com", 22, &hashed_key()),
+            HostKeyStatus::Trusted
+        );
+
+        store.remember("example.com", 22, &key(2)).unwrap();
+        let raw = fs::read_to_string(store.path()).unwrap();
+        assert!(!raw.contains("|1|"), "{raw}");
+        assert!(raw.starts_with("example.com "), "{raw}");
+        assert_eq!(
+            store.check("example.com", 22, &key(2)),
+            HostKeyStatus::Trusted
+        );
+    }
+
+    #[test]
+    fn hashed_entries_can_be_removed_by_token() {
+        let (_guard, store) = temp_store("hashed-remove");
+        write_lines(
+            &store,
+            &format!("{HASHED_LINE}\nother.test ssh-ed25519 OLD\n"),
+        );
+        let token = store.entries().unwrap()[0].host.clone();
+
+        store.remove(&token, 22).unwrap();
+        let raw = fs::read_to_string(store.path()).unwrap();
+        assert!(!raw.contains("|1|"), "{raw}");
+        assert!(raw.contains("other.test"), "{raw}");
+    }
+
+    #[test]
+    fn removing_another_host_keeps_the_hashed_line() {
+        let (_guard, store) = temp_store("hashed-keep");
+        write_lines(
+            &store,
+            &format!("{HASHED_LINE}\nother.test ssh-ed25519 OLD\n"),
+        );
+
+        store.remove("other.test", 22).unwrap();
+        let raw = fs::read_to_string(store.path()).unwrap();
+        assert!(raw.contains("|1|"), "{raw}");
+        assert!(!raw.contains("other.test"), "{raw}");
     }
 
     #[test]

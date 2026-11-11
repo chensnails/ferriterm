@@ -42,7 +42,11 @@ export function KnownHostsDialog({ onClose }: { onClose: () => void }) {
   };
 
   const target = (entry: KnownHostEntry) =>
-    entry.port === 22 ? entry.host : `[${entry.host}]:${entry.port}`;
+    entry.hashed
+      ? t("knownHosts.hashed")
+      : entry.port === 22
+        ? entry.host
+        : `[${entry.host}]:${entry.port}`;
 
   return (
     <Modal title={t("knownHosts.title")} onClose={onClose} className="known-hosts">
