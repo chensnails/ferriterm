@@ -85,6 +85,7 @@ Single main window:
 | `--font-mono` | `"Ferriterm JetBrains Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace` | terminal, paths (bundled latin subset) |
 | `--space-1..5` | `4, 8, 12, 16, 24px` | spacing scale |
 | `--radius-sm/md/lg` | `4, 6, 10px` | controls / cards / dialogs |
+| `--radius-pill` | `999px` | capsule badges and chips |
 | `--control-h` | `28px` | inputs |
 | `--button-h` | `30px` | buttons |
 | `--row-h` | `30px` | tree/table rows |
@@ -107,6 +108,25 @@ Single main window:
 | `--shadow-panel` | `0 8px 24px rgb(0 0 0 / .35)` | floating panels |
 | `--motion-fast` | `120ms ease-out` | hover/open transitions; disabled by reduce-motion setting |
 | `--motion-panel` | `160ms ease-out` | dialog entrance; disabled by reduce-motion setting |
+| `--disabled-opacity` | `0.5` | single disabled treatment for every control (baseline state token) |
+
+### 2.1 Visual polish phase (S1–S4)
+
+These phases refine the existing baseline; they do not redefine it. Rulings:
+
+- **One disabled state.** Every `:disabled` / `.disabled` rule uses
+  `--disabled-opacity`. Scattered `0.4`–`0.55` literals were retired so disabled
+  controls no longer read as different "kinds" of unavailable.
+- **No undefined tokens.** `--lh-ui` and `--bg-raised` were unresolved and
+  silently dropped their declarations; they now resolve to `--line-ui` and
+  `--bg-elevated`. `--split-ratio` is intentionally injected at runtime by
+  `TerminalArea.tsx` and is the only variable without a stylesheet definition.
+- **No sub-scale literals.** Badge typography/padding/radius and the two `3px`
+  theme-card radii now come from tokens; `::placeholder` no longer applies an
+  `0.8` alpha over `--fg-muted` (which dropped its contrast below 4.5:1).
+- **Theme scope.** S1–S4 touch `:root` (shared by all themes) plus the default
+  `dark`/`light` blocks only. The 19 bundled themes inherit the shared rules
+  and are not individually rewritten.
 
 ## 3. Component inventory
 

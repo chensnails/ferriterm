@@ -93,6 +93,7 @@
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 10px;
+  --radius-pill: 999px;
   --control-h: 28px;
   --button-h: 30px;
   --row-h: 30px;
@@ -132,6 +133,10 @@
   --selected-bg: rgb(127 127 127 / 0.2);
   --menu-sel-bg: rgb(127 127 127 / 0.26);
   --danger-bg: rgb(239 68 68 / 0.14);
+  /* One disabled treatment for every control: previously 0.4–0.55 literals
+     were scattered across 22 rules, so disabled buttons read as different
+     "kinds" of unavailable. */
+  --disabled-opacity: 0.5;
   --divider: var(--border);
   --sub-bg: var(--bg-elevated);
   --panel-header-h: 32px;
@@ -625,7 +630,6 @@
 
 ::placeholder {
   color: var(--fg-muted);
-  opacity: 0.8;
 }
 
 button {
@@ -769,7 +773,7 @@ body {
 }
 
 .icon-btn:disabled {
-  opacity: 0.4;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -862,7 +866,7 @@ body {
 }
 
 .actions button:disabled {
-  opacity: 0.5;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -996,7 +1000,7 @@ body {
 }
 
 .home-action:disabled {
-  opacity: 0.5;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -1324,7 +1328,7 @@ body {
 }
 
 .terminal-search .icon-btn:disabled {
-  opacity: 0.4;
+  opacity: var(--disabled-opacity);
   cursor: default;
 }
 
@@ -1725,7 +1729,7 @@ mark {
 }
 
 .tag-create button:disabled {
-  opacity: 0.5;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -2016,7 +2020,7 @@ mark {
 }
 
 .modal-foot button:disabled {
-  opacity: 0.5;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -2307,14 +2311,14 @@ mark {
 .theme-card-pill {
   flex: 1;
   height: 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   background: var(--accent);
   opacity: 0.85;
 }
 
 .theme-card-line {
   height: 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   background: var(--fg-muted);
   opacity: 0.45;
 }
@@ -2738,7 +2742,7 @@ mark {
 }
 
 .sync-actions button:disabled {
-  opacity: 0.5;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -3147,7 +3151,7 @@ mark {
 }
 
 .rail-form button:disabled {
-  opacity: 0.5;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -3253,7 +3257,7 @@ mark {
   background: var(--danger-bg);
   color: var(--danger);
   font-size: var(--fs-sm);
-  line-height: var(--lh-ui);
+  line-height: var(--line-ui);
   word-break: break-word;
   overflow-wrap: anywhere;
 }
@@ -3779,7 +3783,7 @@ mark {
 }
 
 .settings-tab:disabled {
-  opacity: 0.5;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -4165,7 +4169,7 @@ mark {
 }
 
 .transfer-head-tools button:disabled {
-  opacity: 0.5;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -4900,7 +4904,7 @@ label.sync-action {
 }
 
 .plugin-actions button:disabled {
-  opacity: 0.5;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -5137,7 +5141,7 @@ label.sync-action {
 }
 
 .ui-list-row.disabled {
-  opacity: 0.55;
+  opacity: var(--disabled-opacity);
 }
 
 .ui-list-row:focus-visible {
@@ -5265,7 +5269,7 @@ label.sync-action {
 }
 
 .ui-pill:disabled {
-  opacity: 0.45;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -5475,7 +5479,7 @@ label.sync-action {
 }
 
 .ui-setting-control > select.ui-select:disabled {
-  opacity: 0.45;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -5508,7 +5512,7 @@ label.sync-action {
 }
 
 .ui-setting-action:disabled {
-  opacity: 0.45;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -5638,7 +5642,7 @@ label.sync-action {
 }
 
 .ui-switch:disabled {
-  opacity: 0.45;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -5698,7 +5702,7 @@ label.sync-action {
 }
 
 .ui-segmented-item:disabled {
-  opacity: 0.5;
+  opacity: var(--disabled-opacity);
   cursor: default;
 }
 
@@ -5794,7 +5798,7 @@ label.sync-action {
 }
 
 .ui-menu-item:disabled {
-  opacity: 0.5;
+  opacity: var(--disabled-opacity);
   cursor: default;
 }
 
@@ -6419,7 +6423,7 @@ label.sync-action {
 .ui-rail-button:disabled {
   color: var(--fg-muted);
   background: transparent;
-  opacity: 0.42;
+  opacity: var(--disabled-opacity);
   cursor: default;
 }
 
@@ -6510,7 +6514,7 @@ label.sync-action {
 }
 
 .tree-empty-actions button:disabled {
-  opacity: 0.5;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -6854,7 +6858,7 @@ label.sync-action {
 }
 
 .net-actions button:disabled {
-  opacity: 0.5;
+  opacity: var(--disabled-opacity);
 }
 
 .net-console {
@@ -7273,13 +7277,13 @@ body.dock-resizing-y * {
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 0 6px;
+  padding: 0 var(--space-2);
   border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-raised, transparent);
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
   color: var(--fg-muted);
-  font-size: 10px;
-  line-height: 16px;
+  font-size: var(--fs-xs);
+  line-height: var(--space-4);
   white-space: nowrap;
 }
 
@@ -7462,7 +7466,7 @@ body.dock-resizing-y * {
 }
 
 .key-manager .plugin-actions button:disabled {
-  opacity: 0.5;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
