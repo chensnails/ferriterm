@@ -306,6 +306,67 @@ pub fn build_explain_prompt(command: &str, code: i32, host: &str, output_tail: &
     )
 }
 
+/// Drop whitespace and a dangling line-continuation backslash left behind by a
+/// truncated reply, so the draft lands as one executable line.
+fn trim_command(command: &str) -> String {
+    let mut out = command.trim().to_string();
+    while out.ends_with('\\') {
+        out.pop();
+        out = out.trim_end().to_string();
+    }
+    out
+}
+
+/// Read a JSON string value for `key` straight out of `source`, tolerating a
+/// truncated or otherwise unparsable document. Handles the standard escapes and
+/// returns whatever was read when the closing quote never arrives — which is the
+/// normal shape for reasoning models whose JSON gets cut off by `max_tokens`.
+fn salvage_json_string(source: &str, key: &str) -> Option<String> {
+    let needle = format!("\"{key}\"");
+    let mut from = 0;
+    while let Some(offset) = source[from..].find(&needle) {
+        let after = from + offset + needle.len();
+        from = after;
+        let rest = source[after..].trim_start();
+        let Some(rest) = rest.strip_prefix(':') else {
+            continue;
+        };
+        let rest = rest.trim_start();
+        let Some(rest) = rest.strip_prefix('"') else {
+            continue;
+        };
+        let mut out = String::new();
+        let mut chars = rest.chars();
+        while let Some(ch) = chars.next() {
+            match ch {
+                '\\' => match chars.next() {
+                    Some('n') => out.push('\n'),
+                    Some('t') => out.push('\t'),
+                    Some('r') => out.push('\r'),
+                    Some('u') => {
+                        let hex: String = chars.by_ref().take(4).collect();
+                        if let Some(decoded) =
+                            u32::from_str_radix(&hex, 16).ok().and_then(char::from_u32)
+                        {
+                            out.push(decoded);
+                        }
+                    }
+                    Some(other) => out.push(other),
+                    // Trailing backslash: the reply was cut mid-escape.
+                    None => {}
+                },
+                '"' => break,
+                _ => out.push(ch),
+            }
+        }
+        let value = out.trim().to_string();
+        if !value.is_empty() {
+            return Some(value);
+        }
+    }
+    None
+}
+
 /// Pull `{command, explanation}` out of a model reply (JSON, fenced code or the
 /// first non-empty line).
 pub fn extract_command(reply: &str) -> (String, String) {
@@ -332,19 +393,28 @@ pub fn extract_command(reply: &str) -> (String, String) {
         let body = rest.split_once('\n').map(|(_, tail)| tail).unwrap_or(rest);
         if let Some(close) = body.find("```") {
             return (
-                body[..close].trim().lines().next().unwrap_or("").to_string(),
+                trim_command(body[..close].trim().lines().next().unwrap_or("")),
                 String::new(),
             );
         }
     }
+    // Truncated JSON: the reply starts a `{...}` object but never closes it.
+    // Reasoning models hit this routinely once the token budget is spent.
+    if trimmed.starts_with('{') {
+        if let Some(command) = salvage_json_string(trimmed, "command") {
+            let explanation = salvage_json_string(trimmed, "explanation").unwrap_or_default();
+            return (trim_command(&command), explanation);
+        }
+    }
     (
-        trimmed
-            .lines()
-            .next()
-            .unwrap_or("")
-            .trim()
-            .trim_matches('`')
-            .to_string(),
+        trim_command(
+            trimmed
+                .lines()
+                .next()
+                .unwrap_or("")
+                .trim()
+                .trim_matches('`'),
+        ),
         String::new(),
     )
 }
@@ -693,6 +763,35 @@ AKIAABCDEFGHIJKLMNOP\n\
         );
         assert_eq!(extract_command("Sure:\n```bash\nls -la\n```").0, "ls -la");
         assert_eq!(extract_command("`uptime`").0, "uptime");
+    }
+
+    #[test]
+    fn salvages_a_command_from_truncated_json() {
+        // The exact shape a reasoning model produced: budget ran out mid-string.
+        let reply = "\n\n{\"command\": \"find . -maxdepth 1 -type f -printf '%s %p\\\\n' | sort -rn";
+        assert_eq!(
+            extract_command(reply).0,
+            "find . -maxdepth 1 -type f -printf '%s %p\\n' | sort -rn"
+        );
+
+        // Escape sequences still decode when the object is cut short.
+        assert_eq!(
+            extract_command("{\"command\": \"printf \\\"a\\\\tb\\\"").0,
+            "printf \"a\\tb\""
+        );
+
+        // A trailing continuation backslash never survives into the draft.
+        assert_eq!(extract_command("{\"command\": \"make \\").0, "make");
+
+        // An explanation that was emitted first is still picked up.
+        let with_explanation = "{\"explanation\": \"list files\", \"command\": \"ls\"";
+        assert_eq!(
+            extract_command(with_explanation),
+            ("ls".into(), "list files".into())
+        );
+
+        // Not JSON: the fenced and plain-line paths stay in charge.
+        assert_eq!(extract_command("run `df -h` please").0, "run `df -h` please");
     }
 
     #[test]

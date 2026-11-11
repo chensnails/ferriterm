@@ -269,7 +269,9 @@ pub async fn ai_generate_command(
         &key,
         ft_ai::COMMAND_SYSTEM_PROMPT,
         &user,
-        Some(512),
+        // Reasoning models spend part of the budget on `reasoning_content`
+        // before emitting the JSON, so keep this well above the reply size.
+        Some(2048),
     )
     .await
     .map_err(|err| err.to_string())?;
