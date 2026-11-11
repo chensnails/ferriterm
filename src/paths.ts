@@ -20,6 +20,8 @@ function isUncRoot(path: string): boolean {
 export function parentPath(path: string): string {
   const trimmed = path.replace(/[\\/]+$/, "");
   if (isUncRoot(trimmed)) return trimmed;
+  // The parent of a drive root is the same root, not the bare `C:` designator.
+  if (/^[A-Za-z]:[\\/]*$/.test(trimmed)) return path;
   const index = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
   if (index <= 0) return path.startsWith("/") ? "/" : trimmed;
   const parent = trimmed.slice(0, index);
