@@ -37,10 +37,7 @@ async fn main() -> ExitCode {
         }
         Err(Failure::Other(message)) => {
             if json {
-                println!(
-                    "{}",
-                    serde_json::json!({ "error": message }).to_string()
-                );
+                println!("{}", serde_json::json!({ "error": message }));
             } else {
                 eprintln!("ferriterm-cli: {message}");
             }

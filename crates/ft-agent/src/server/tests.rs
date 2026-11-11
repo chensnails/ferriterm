@@ -152,7 +152,7 @@ async fn rebinding_keeps_the_token_and_prefers_the_old_port() {
     let (first, listener) = Agent::bind().expect("bind");
     let port = first.port;
     drop(listener);
-    let (again, listener) = Agent::rebind(port, "kept".to_string()).expect("rebind");
+    let (again, _listener) = Agent::rebind(port, "kept".to_string()).expect("rebind");
     assert_eq!(again.token, "kept");
     assert_eq!(again.port, port, "a free port is reused, not replaced");
 

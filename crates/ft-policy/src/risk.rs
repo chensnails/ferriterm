@@ -191,7 +191,7 @@ pub fn is_system_path(word: &str) -> bool {
 /// not the same class of mistake as deleting `/etc/motd`.
 fn is_system_root(word: &str) -> bool {
     let trimmed = word.trim_end_matches('/');
-    SYSTEM_ROOTS.iter().any(|root| trimmed == *root)
+    SYSTEM_ROOTS.contains(&trimmed)
 }
 
 fn is_device(word: &str) -> bool {

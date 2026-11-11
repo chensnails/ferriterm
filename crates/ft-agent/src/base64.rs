@@ -4,7 +4,7 @@
 const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 pub fn encode(input: &[u8]) -> String {
-    let mut out = String::with_capacity((input.len() + 2) / 3 * 4);
+    let mut out = String::with_capacity(input.len().div_ceil(3) * 4);
     for chunk in input.chunks(3) {
         let b0 = chunk[0] as u32;
         let b1 = *chunk.get(1).unwrap_or(&0) as u32;
@@ -82,7 +82,7 @@ mod tests {
         for len in 0..12 {
             let slice = &sample[..len];
             let encoded = encode(slice);
-            assert_eq!(encoded.len(), (len + 2) / 3 * 4, "length {len}");
+            assert_eq!(encoded.len(), len.div_ceil(3) * 4, "length {len}");
             assert_eq!(decode(&encoded).unwrap(), slice, "length {len}");
         }
     }

@@ -295,6 +295,7 @@ pub async fn ai_generate_command(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // IPC signature mirrors the frontend payload
 pub async fn ai_explain(
     store: State<'_, Store>,
     credentials: State<'_, Credentials>,
