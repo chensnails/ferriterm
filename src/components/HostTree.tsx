@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri, type HostEntry, type HostInput } from "../api";
+import { writeClipboardText } from "../clipboard";
 import { planHostConnect } from "../connect";
 import { HostIcon } from "../host-icons";
 import { useAppStore } from "../store";
@@ -347,8 +348,7 @@ export function HostTree() {
   };
 
   const copyAddress = (node: HostEntry) => {
-    navigator.clipboard
-      .writeText(hostAddress(node))
+    writeClipboardText(hostAddress(node))
       .then(() => setStatus(t("hosts.copied")))
       .catch((err) => setStatus(String(err), true));
   };

@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri, type KeyCandidate, type SshKey } from "../api";
+import { readClipboardText, writeClipboardText } from "../clipboard";
 import { useAppStore } from "../store";
 import { Modal } from "./Modal";
 
@@ -179,7 +180,7 @@ export function KeyManagerDialog({ onClose }: { onClose: () => void }) {
   const pasteFromClipboard = async () => {
     setError("");
     try {
-      const text = await navigator.clipboard.readText();
+      const text = await readClipboardText();
       if (!text.trim()) {
         setMessage(t("keys.clipboardEmpty"));
         return;
@@ -193,7 +194,7 @@ export function KeyManagerDialog({ onClose }: { onClose: () => void }) {
 
   const copy = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await writeClipboardText(text);
       setMessage(t("keys.copied"));
     } catch (err) {
       setError(String(err));

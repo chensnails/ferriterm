@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { TerminalView } from "../terminal";
+import { readClipboardText, writeClipboardText } from "../clipboard";
 import i18n from "../i18n";
 import { useAppStore, type SessionMeta } from "../store";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
@@ -79,7 +80,7 @@ export function TerminalPanel({
         disabled: !selection,
         onSelect: () => {
           if (!selection) return;
-          navigator.clipboard.writeText(selection).catch((err) => {
+          writeClipboardText(selection).catch((err) => {
             useAppStore.getState().setStatus(String(err), true);
           });
         },
@@ -87,8 +88,7 @@ export function TerminalPanel({
       {
         label: t("terminal.paste"),
         onSelect: () => {
-          navigator.clipboard
-            .readText()
+          readClipboardText()
             .then((text) => {
               if (text) viewRef.current?.insert(text);
             })
@@ -149,8 +149,7 @@ export function TerminalPanel({
           useAppStore.getState().setFocusedSession(session.id);
           if (terminalRightClickPaste) {
             setMenu(null);
-            void navigator.clipboard
-              .readText()
+            void readClipboardText()
               .then((text) => {
                 if (text) viewRef.current?.insert(text);
               })

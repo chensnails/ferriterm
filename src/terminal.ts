@@ -5,10 +5,14 @@ import {
   type IMarker,
 } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { api, onClosed, onOutput, type SessionKind } from "./api";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { api, isTauri, onClosed, onOutput, type SessionKind } from "./api";
+import { writeClipboardText } from "./clipboard";
 import type { PendingConnect } from "./connect";
 import { connectAlgorithms } from "./ssh-algorithms";
 import {
@@ -112,8 +116,31 @@ export class TerminalView implements TerminalHandle {
       theme: terminalTheme(),
     });
     this.term.loadAddon(this.fit);
-    this.term.loadAddon(new WebLinksAddon());
+    this.term.loadAddon(new Unicode11Addon());
+    // Emoji and CJK use double-width cells; the default table is Unicode 6.
+    this.term.unicode.activeVersion = "11";
+    this.term.loadAddon(
+      new WebLinksAddon((event, uri) => {
+        // window.open is blocked inside the Tauri webview, so hand the link to
+        // the system browser instead of leaving dead-looking text.
+        event.preventDefault();
+        if (isTauri) {
+          void openUrl(uri).catch((err) => {
+            useAppStore.getState().setStatus(String(err), true);
+          });
+        } else {
+          window.open(uri, "_blank", "noopener");
+        }
+      }),
+    );
     this.term.open(container);
+    try {
+      const webgl = new WebglAddon();
+      webgl.onContextLoss(() => webgl.dispose());
+      this.term.loadAddon(webgl);
+    } catch {
+      // No WebGL (VM, remote desktop): xterm keeps its DOM renderer.
+    }
     this.fit.fit();
     registerTerminal(id, this);
 
@@ -162,7 +189,7 @@ export class TerminalView implements TerminalHandle {
       if (!useAppStore.getState().terminalAutoCopy) return;
       const text = this.term.getSelection();
       if (text) {
-        void navigator.clipboard.writeText(text).catch(() => {});
+        void writeClipboardText(text).catch(() => {});
       }
     });
     this.unlisten.push(() => selSub.dispose());
@@ -648,7 +675,7 @@ export class TerminalView implements TerminalHandle {
       const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
       const text = new TextDecoder().decode(bytes);
       if (text) {
-        void navigator.clipboard.writeText(text).catch(() => {
+        void writeClipboardText(text).catch(() => {
           useAppStore
             .getState()
             .setStatus(i18n.t("terminal.clipboardFailed"), true);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type VfsEntry } from "../api";
+import { writeClipboardText } from "../clipboard";
 import { isRootPath, joinPath, parentPath } from "../paths";
 import { useAppStore } from "../store";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
@@ -216,8 +217,7 @@ export function FilePane({
   };
 
   const copyPath = (entry: VfsEntry) => {
-    navigator.clipboard
-      .writeText(entry.path)
+    writeClipboardText(entry.path)
       .then(() => useAppStore.getState().setStatus(t("files.copied")))
       .catch((err) => onError(String(err)));
   };

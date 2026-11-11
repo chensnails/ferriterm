@@ -43,6 +43,12 @@ package version in `src-tauri/tauri.conf.json`.
   instead of being skipped.
 - CI runs the backend suite, clippy and the loopback SSH smoke tests on
   Linux, macOS and Windows.
+- Terminals use the Unicode 11 width table (correct emoji/CJK cell widths) and
+  the WebGL renderer when available, falling back to the DOM renderer. Links
+  open in the system browser through the opener plugin.
+- Clipboard reads and writes go through a shared helper that falls back to the
+  native clipboard when the webview denies `navigator.clipboard`, covering
+  terminal copy/paste, OSC 52, key import and copied host/path addresses.
 
 ### Fixed
 

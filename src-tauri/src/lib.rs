@@ -15,6 +15,8 @@ pub fn run() {
     let sessions = SessionRegistry::default();
     let remote_monitor = Arc::new(ft_monitor::RemoteMonitor::default());
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .manage(sessions.clone())
         .manage(ft_serial::SerialRegistry::default())
         .manage(ft_telnet::TelnetRegistry::default())

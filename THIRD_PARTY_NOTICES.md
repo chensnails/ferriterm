@@ -17,6 +17,8 @@ attribution. Versions reflect the current lockfiles.
 | --- | --- | --- | --- |
 | tauri | 2.12.5 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
 | tauri-build | 2.7.4 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
+| tauri-plugin-opener | 2.7.3 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
+| tauri-plugin-clipboard-manager | 2.5.0 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
 | russh | 0.65.1 | Apache-2.0 | https://github.com/Eugeny/russh |
 | portable-pty | 0.9.0 | MIT | https://github.com/wezterm/wezterm |
 | serial2 | 0.2.39 | MIT | https://github.com/de-vrije/serial2 |
@@ -59,8 +61,12 @@ listed above; no additional third-party crates are introduced.
 | intl-messageformat | 10.7.18 | BSD-3-Clause | https://github.com/formatjs/formatjs |
 | @xterm/xterm | 5.5.0 | MIT | https://github.com/xtermjs/xterm.js |
 | @xterm/addon-fit | 0.10.0 | MIT | https://github.com/xtermjs/xterm.js |
+| @xterm/addon-unicode11 | 0.9.0 | MIT | https://github.com/xtermjs/xterm.js |
+| @xterm/addon-webgl | 0.19.0 | MIT | https://github.com/xtermjs/xterm.js |
 | @xterm/addon-web-links | 0.11.0 | MIT | https://github.com/xtermjs/xterm.js |
 | @tauri-apps/api | 2.12.4 | Apache-2.0 OR MIT | https://github.com/tauri-apps/tauri |
+| @tauri-apps/plugin-opener | 2.7.3 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
+| @tauri-apps/plugin-clipboard-manager | 2.5.0 | Apache-2.0 OR MIT | https://github.com/tauri-apps/plugins-workspace |
 
 ### Build-time only (not shipped)
 
