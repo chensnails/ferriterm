@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
@@ -37,6 +38,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^4.7.0",
     "typescript": "^5.7.0",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vitest": "^5.1.0"
   }
 }

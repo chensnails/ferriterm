@@ -31,6 +31,12 @@ jobs:
       - name: Check version sync
         run: npm run version:check
 
+      - name: UI lint
+        run: npm run lint:ui
+
+      - name: Unit tests
+        run: npm test
+
       - name: Typecheck and build
         run: npm run build
 

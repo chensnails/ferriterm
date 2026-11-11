@@ -30,6 +30,7 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 npm run build
+npm test
 node tools/ui_lint.mjs
 ```
 
