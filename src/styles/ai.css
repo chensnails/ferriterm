@@ -1,0 +1,483 @@
+/* --------------------------------------------------------------- AI panel */
+
+.ai-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  height: 100%;
+  min-height: 0;
+  padding: var(--space-2);
+}
+
+.ai-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.ai-select,
+.ai-field {
+  height: var(--control-h);
+  min-width: 0;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--font-ui);
+}
+
+.ai-select {
+  max-width: 45%;
+}
+
+.ai-field {
+  width: 100%;
+}
+
+.ai-field-short {
+  max-width: var(--space-5);
+}
+
+.ai-model {
+  flex: 1;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-messages {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-1);
+}
+
+.ai-intro {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+  line-height: var(--line-ui);
+}
+
+.ai-message {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.ai-role {
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+}
+
+.ai-bubble {
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  line-height: var(--line-ui);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.ai-message.user .ai-bubble {
+  background: var(--bg-elevated);
+}
+
+.ai-draft {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.ai-draft-command {
+  margin: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  font-family: var(--font-mono);
+  font-size: var(--font-terminal);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.ai-draft-note {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+}
+
+.ai-draft-actions {
+  margin-top: var(--space-1);
+}
+
+.ai-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.ai-input {
+  width: 100%;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--font-ui);
+  line-height: var(--line-ui);
+  resize: none;
+}
+
+.ai-input:focus-visible,
+.ai-select:focus-visible,
+.ai-field:focus-visible {
+  border-color: var(--accent);
+}
+
+.ai-composer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.ai-hint {
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+}
+
+.ai-provider-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.ai-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+}
+
+.ai-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.ai-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+}
+
+.ai-form-wide {
+  grid-column: 1 / -1;
+}
+
+.ai-form-actions {
+  margin-top: var(--space-1);
+}
+
+.ai-model-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ai-model-row .ai-field {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Model field: the listbox belongs to the app because the WebView paints a
+   native <datalist> popup with its own colours, radius and type scale. */
+.ai-combo {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-combo .ai-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-combo-popup {
+  position: fixed;
+  z-index: 320;
+  display: flex;
+  flex-direction: column;
+  /* Whole rows only: a scrollport that ends mid-line reads as a clipped list. */
+  max-height: calc(var(--row-h) * 8 + var(--space-1) * 2 + 2px);
+  min-width: 200px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-panel);
+}
+
+/* The popup is portalled to <body>, so it keeps the global thin scrollbar
+   instead of the platform one. */
+
+/* Not enough room below the field: grow upwards instead. */
+.ai-combo-popup.flip {
+  transform: translateY(-100%);
+}
+
+.ai-combo-option {
+  flex: 0 0 auto;
+  width: 100%;
+  height: var(--row-h);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  line-height: var(--row-h);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.ai-combo-option.active {
+  background: var(--hover-bg);
+}
+
+.ai-combo-option.selected {
+  background: var(--menu-sel-bg);
+  color: var(--accent);
+}
+
+/* Approval card: the command is the centrepiece, so it gets mono type on the
+   base surface and wraps rather than scrolls sideways. */
+.approve-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.approve-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.approve-command {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  line-height: var(--line-ui);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Policy settings: one inline form, one hairline list for rules and one for
+   audit records. Both lists share a row shape so they read as the same kind
+   of data. */
+.policy-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+}
+
+.policy-form .ai-field {
+  flex: 1 1 10em;
+  width: auto;
+}
+
+.policy-form select.ai-field {
+  flex: 0 0 auto;
+  min-width: 6em;
+}
+
+.policy-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.policy-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-top: 1px solid var(--divider);
+}
+
+.policy-row:first-child {
+  border-top: 0;
+}
+
+.policy-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.policy-row-pattern {
+  color: var(--fg-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  line-height: var(--line-ui);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.policy-row-meta,
+.policy-row-time {
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+  line-height: var(--line-ui);
+}
+
+.policy-row-time {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+}
+
+.ai-field-area {
+  height: auto;
+  padding: var(--space-1) var(--space-2);
+  resize: vertical;
+  font-family: var(--font-mono);
+  line-height: 1.5;
+}
+
+.ai-advanced {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.ai-advanced > summary {
+  margin-bottom: 0;
+  color: var(--fg-primary);
+  font-size: var(--font-ui-sm);
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+}
+
+.ai-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ai-advanced > summary::before {
+  content: "+";
+  margin-right: var(--space-1);
+  color: var(--fg-muted);
+}
+
+.ai-advanced[open] > summary::before {
+  content: "\2212";
+}
+
+.ai-advanced[open] > summary {
+  margin-bottom: var(--space-2);
+}
+
+.ai-toggle-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-1) 0 var(--space-2);
+}
+
+.ai-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--fg-secondary);
+  font-size: var(--font-ui-sm);
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .ai-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Settings → Agent: the two things that are hard to get right on the other
+   side of an MCP configuration — the real binary path, and the entry shape. */
+.agent-block {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.agent-block-stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.agent-block-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.agent-code {
+  display: block;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  line-height: var(--line-ui);
+  /* A path or a JSON line can be longer than the panel. Wrapping keeps the
+     whole value readable; the copy button hands over the unwrapped text. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.agent-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+}

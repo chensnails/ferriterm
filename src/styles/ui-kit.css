@@ -1,0 +1,942 @@
+/* ---- UI kit: shared primitives for the design baseline ----
+   Sizes, radii and state colours come from the tokens above; views compose
+   these classes instead of re-declaring them. tools/ui_lint.mjs enforces it. */
+
+.ui-island {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--island-bg);
+  border: 1px solid var(--divider);
+  border-radius: var(--island-radius);
+  overflow: hidden;
+}
+
+.ui-island.plain {
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.ui-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  min-height: var(--panel-header-h);
+  padding: 0 var(--island-pad);
+  border-bottom: 1px solid var(--divider);
+}
+
+.ui-panel-header h3 {
+  margin: 0;
+  color: var(--fg-primary);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.ui-panel-header.compact {
+  min-height: 0;
+  padding: 0;
+  border-bottom: 0;
+}
+
+.ui-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ui-icon-button {
+  flex-shrink: 0;
+}
+
+.ui-icon-button.size-sm {
+  width: 22px;
+  height: 22px;
+}
+
+.ui-icon-button.size-md {
+  width: var(--control-h);
+  height: var(--control-h);
+}
+
+.ui-icon-button.size-lg {
+  width: var(--button-h);
+  height: var(--button-h);
+}
+
+.ui-dialog-header .ui-icon-button {
+  width: 22px;
+  height: 22px;
+}
+
+.ui-section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-1) var(--island-pad);
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui-section-header:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+.ui-section-caret {
+  width: var(--ic-xs);
+  flex-shrink: 0;
+}
+
+.ui-section-count {
+  margin-left: auto;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-h);
+  padding: var(--space-1) var(--island-pad);
+  border-radius: var(--radius-md);
+  color: var(--fg-primary);
+  cursor: default;
+}
+
+.ui-list-row[role="button"] {
+  cursor: pointer;
+}
+
+.ui-list-row:hover:not(.disabled) {
+  background: var(--hover-bg);
+}
+
+.ui-list-row.selected {
+  background: var(--selected-bg);
+}
+
+.ui-list-row.disabled {
+  opacity: var(--disabled-opacity);
+}
+
+.ui-list-row:focus-visible {
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
+}
+
+.ui-list-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--fg-muted);
+}
+
+.ui-list-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ui-list-title {
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-list-meta {
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.ui-list-row:hover .ui-row-actions,
+.ui-list-row:focus-within .ui-row-actions {
+  opacity: 1;
+}
+
+.ui-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--sub-bg);
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
+}
+
+.ui-chip.tone-info {
+  color: var(--accent);
+}
+
+.ui-chip.tone-warn {
+  color: var(--warning);
+}
+
+.ui-chip.tone-danger {
+  color: var(--danger);
+}
+
+/* Settings pill controls: capsule buttons replacing dropdowns. */
+.ui-pill-group {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+/* Horizontal pill strips stay swipeable without a visible scrollbar track. */
+.ui-pill-group::-webkit-scrollbar {
+  display: none;
+}
+
+.ui-pill-group.wrap {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+
+.ui-pill-heading {
+  flex: 0 0 100%;
+  padding: var(--space-1) var(--space-1) 0;
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+}
+
+.ui-pill {
+  flex: 0 0 auto;
+  height: calc(var(--control-h) - 4px);
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ui-pill:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+.ui-pill.active {
+  border-color: var(--accent);
+  background: var(--selected-bg);
+  color: var(--fg-primary);
+}
+
+.ui-pill:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
+}
+
+.ui-pill:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Checkbox grid for long option names (SSH algorithms). A grid reads as
+   "included / excluded" without turning 40 names into 40 buttons, and the
+   columns collapse on narrow panes instead of scrolling sideways. */
+.ui-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 1px var(--space-3);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+}
+
+.ui-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.ui-check:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+.ui-check:has(.ui-check-input:checked) {
+  color: var(--fg-primary);
+}
+
+.ui-check-input {
+  flex: 0 0 auto;
+  margin: 1px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.ui-check-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Date band that groups a time-ordered list into days. */
+.ui-day-separator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  list-style: none;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--fg-muted);
+}
+
+.ui-day-separator-label {
+  flex: 0 0 auto;
+}
+
+.ui-day-separator-line {
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--divider);
+}
+
+.ui-day-separator-count {
+  flex: 0 0 auto;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+/* Sticks to the top of whichever well scrolls (audit list, version timeline);
+   the fill matches that well so the band does not look like a floating card. */
+.ui-day-separator.sticky {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-base);
+}
+
+.ui-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-3) var(--space-1);
+  border-bottom: 1px solid var(--divider);
+}
+
+.ui-setting-row:last-child {
+  border-bottom: 0;
+}
+
+.ui-setting-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 auto;
+  /* The copy may fill the row, but never right up against the control: a
+     wrapped hint used to end flush with the select's edge. */
+  padding-right: var(--space-2);
+}
+
+.ui-setting-title {
+  font-size: var(--font-ui);
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--fg-primary);
+}
+
+.ui-setting-hint {
+  max-width: 100%;
+  font-size: var(--fs-sm);
+  line-height: var(--line-ui);
+  color: var(--fg-muted);
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.ui-setting-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 62%;
+}
+
+.ui-setting-control > input,
+.ui-setting-control > .password-field {
+  min-width: 0;
+  max-width: var(--settings-control-w);
+}
+
+/* One control surface for every settings control, whatever the wrapper: the
+   row controls used to fall back to the browser default (#3b3b3b fill with a
+   #858585 border) and read as a different material from the panel. */
+.ui-setting-control > input,
+.ui-setting-control > select,
+.settings-nav-search input {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--font-ui);
+  outline: none;
+  transition: border-color var(--motion-fast);
+}
+
+.ui-setting-control > input,
+.ui-setting-control > select {
+  height: var(--control-h);
+}
+
+.ui-setting-control > input:focus,
+.ui-setting-control > select:focus {
+  border-color: var(--accent);
+}
+
+/* Hover is the only feedback these fields had none of: the pointer needs to
+   know the box is editable before the click lands. */
+.ui-setting-control > input:hover:not(:disabled),
+.ui-setting-control > select:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--fg-muted) 55%, var(--border));
+}
+
+/* Numeric controls keep one width so the box never resizes with the copy
+   next to it (the flex row would otherwise shrink it). */
+.ui-setting-control > input[type="number"] {
+  flex: 0 0 auto;
+  width: var(--settings-label-w);
+  /* Numeric values line up on the right edge, the way counters are read. */
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-setting-control > select.ui-select {
+  flex: 0 0 auto;
+  width: var(--settings-label-w);
+  cursor: pointer;
+}
+
+.ui-setting-control > select.ui-select.wide {
+  width: var(--settings-control-w);
+}
+
+.ui-setting-control > select.ui-select:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
+}
+
+/* Secondary row actions ("restore sizes") used to fall through to the UA
+   button, which paints ButtonFace grey in dark mode and reads as a different
+   material from everything else in the pane. */
+.ui-setting-action {
+  flex: 0 0 auto;
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+.ui-setting-action:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.ui-setting-action.danger {
+  color: var(--danger);
+}
+
+.ui-setting-action.danger:hover:not(:disabled) {
+  border-color: var(--danger);
+}
+
+.ui-setting-action:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
+}
+
+.ui-setting-control > .ui-segmented {
+  flex: 0 0 auto;
+}
+
+/* The sidebar search keeps room for its magnifier icon. */
+.settings-nav .settings-nav-search input {
+  padding-left: calc(var(--space-2) * 2 + 14px);
+}
+
+.ui-setting-current {
+  flex: 0 0 auto;
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+}
+
+/* Long option lists move under the copy and use the full row width. */
+.ui-setting-row.stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.ui-setting-row.stack .ui-setting-control {
+  max-width: 100%;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+/* Flat section label with an optional group reset on the same line. The label
+   sits one step above row titles so a pane reads "title → rows → title"
+   instead of one undifferentiated list. */
+.ui-setting-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-top: var(--space-5);
+}
+
+.ui-setting-group:first-of-type {
+  padding-top: var(--space-1);
+}
+
+.ui-setting-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+  padding: 0 var(--space-1) var(--space-2);
+}
+
+.ui-setting-group-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  letter-spacing: 0;
+  color: var(--fg-primary);
+}
+
+.ui-setting-group-reset {
+  flex: 0 0 auto;
+  font-size: var(--fs-sm);
+  /* A secondary action: muted until hovered, so it never competes with the
+     row titles it sits next to. */
+  color: var(--fg-muted);
+}
+
+.ui-setting-group-reset:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.ui-setting-group-hint {
+  margin: 0;
+  padding: 0 var(--space-1) var(--space-2);
+  font-size: var(--fs-sm);
+  line-height: var(--line-ui);
+  color: var(--fg-muted);
+}
+
+.ui-setting-group-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* On/off switch: the state lives in the control, no extra value label. */
+.ui-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 21px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--fg-primary) 22%, transparent);
+  cursor: pointer;
+  transition: background var(--motion-fast);
+}
+
+.ui-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 15px;
+  height: 15px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-base);
+  transition: transform var(--motion-fast);
+}
+
+.ui-switch.on {
+  background: var(--accent);
+}
+
+.ui-switch.on .ui-switch-thumb {
+  transform: translateX(17px);
+  background: var(--fg-on-accent);
+}
+
+.ui-switch:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ui-switch:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
+}
+
+/* Narrow windows: stack the label above the control and let pills wrap. */
+@media (max-width: 620px) {
+  .ui-setting-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ui-setting-control {
+    max-width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .ui-pill-group {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}
+
+/* The strip shares the input material (outlined on the panel colour) so it
+   reads as a control rather than as a second, dimmer button row. */
+.ui-segmented {
+  display: inline-flex;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+}
+
+.ui-segmented-item {
+  height: calc(var(--control-h) - 6px);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition:
+    background var(--motion-fast),
+    color var(--motion-fast);
+}
+
+.ui-segmented-item:hover {
+  background: var(--hover-bg);
+}
+
+.ui-segmented-item.active {
+  background: var(--selected-bg);
+  color: var(--fg-primary);
+  font-weight: 500;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg-primary) 14%, transparent);
+}
+
+.ui-segmented-item:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: default;
+}
+
+.ui-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  min-height: var(--panel-header-h);
+  padding: 0 var(--island-pad);
+  border-bottom: 1px solid var(--divider);
+}
+
+.ui-table-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--island-pad);
+  border-bottom: 1px solid var(--divider);
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.ui-table-header > span {
+  flex: 1;
+}
+
+/* Three states share one rhythm and one accent edge, so a pane swapping
+   between loading / empty / error does not jump its content. */
+.ui-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-4);
+  text-align: center;
+}
+
+.ui-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ic-lg);
+  height: var(--ic-lg);
+  margin-bottom: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--sub-bg);
+  color: var(--fg-muted);
+}
+
+.ui-empty-title {
+  margin: 0;
+  color: var(--fg-primary);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+}
+
+.ui-empty-description {
+  margin: 0;
+  max-width: 44ch;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-loose);
+}
+
+.ui-empty-action {
+  margin-top: var(--space-2);
+}
+
+.ui-loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-3);
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+}
+
+.ui-loading-spinner {
+  width: var(--ic-sm);
+  height: var(--ic-sm);
+  flex-shrink: 0;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: var(--radius-pill);
+  animation: ui-loading-spin 800ms linear infinite;
+}
+
+.ui-loading-label {
+  margin: 0;
+}
+
+@keyframes ui-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ui-error-state {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--danger) 38%, var(--border));
+  border-radius: var(--radius-md);
+  background: var(--danger-bg);
+}
+
+.ui-error-state-icon {
+  position: relative;
+  width: var(--ic-md);
+  height: var(--ic-md);
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  background: var(--danger);
+  color: var(--fg-on-accent);
+}
+
+.ui-error-state-icon::before {
+  content: "!";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ui-error-state-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.ui-error-state-title {
+  margin: 0;
+  color: var(--fg-primary);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.ui-error-state-detail {
+  margin: var(--space-1) 0 0;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-loose);
+  overflow-wrap: anywhere;
+}
+
+.ui-error-state-action {
+  flex-shrink: 0;
+}
+
+.ui-notice {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--sub-bg);
+  color: var(--fg-primary);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-loose);
+}
+
+.ui-notice.tone-warn {
+  border-left-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, var(--sub-bg));
+}
+
+.ui-notice.tone-danger {
+  border-left-color: var(--danger);
+  background: var(--danger-bg);
+  color: var(--fg-primary);
+}
+
+.ui-tip {
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-loose);
+}
+
+/* Compact hosts keep the shared state visuals without inheriting the roomy
+   padding meant for full panes. Double-class specificity beats the base rule. */
+.palette-empty.ui-empty-state,
+.exec-log-empty.ui-empty-state,
+.recordings-list-empty.ui-empty-state {
+  padding: var(--space-3);
+}
+
+.recordings-list-empty.ui-empty-state .ui-empty-title,
+.recordings-stage-empty.ui-empty-state .ui-empty-title {
+  font-size: var(--fs-sm);
+}
+
+.recordings-stage-empty.ui-empty-state {
+  flex: 1;
+  justify-content: center;
+}
+
+.file-loading.ui-loading-state {
+  padding: var(--space-3);
+}
+
+.recordings-error.ui-error-state {
+  margin: 0 var(--space-4) var(--space-3);
+}
+
+.ui-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-primary);
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui-menu-item:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+
+.ui-menu-item.selected {
+  background: var(--menu-sel-bg);
+}
+
+.ui-menu-item:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: default;
+}
+
+.ui-menu-item kbd {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+.ui-dialog-header {
+  gap: var(--space-2);
+}
+

@@ -1,0 +1,575 @@
+/* ---- Appearance: theme gallery ----
+   Each card renders a real swatch: the preview element carries the theme's own
+   `data-theme`, so its tokens (and `color-scheme`) resolve from the same blocks
+   the app uses — no duplicated colour tables. The card chrome itself stays in
+   the app theme so selection stays readable. */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.theme-card:hover {
+  border-color: var(--fg-muted);
+}
+
+.theme-card.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  color: var(--fg-primary);
+}
+
+.theme-card-preview {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  height: 54px;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  overflow: hidden;
+}
+
+.theme-card-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.theme-card-chip {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.theme-card-pill {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  opacity: 0.85;
+}
+
+.theme-card-line {
+  height: 5px;
+  border-radius: var(--radius-sm);
+  background: var(--fg-muted);
+  opacity: 0.45;
+}
+
+.theme-card-line.short {
+  width: 62%;
+}
+
+.theme-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  font-size: var(--fs-xs);
+}
+
+.theme-card-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-primary);
+}
+
+.theme-card.active .theme-card-name {
+  font-weight: 500;
+}
+
+.theme-card-check {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.settings-pane.searching .theme-grid {
+  display: none;
+}
+
+/* Three responsive tiers, one per window width the dialog has to survive:
+   >=1080 keeps the full two-column layout, 720-1080 trims the category column
+   and the gutters, and <720 turns the categories into a strip above the pane
+   so the rows keep their full width. */
+@media (max-width: 1080px) {
+  .settings-center {
+    gap: var(--space-3);
+  }
+
+  .settings-nav {
+    width: calc(var(--settings-nav-w) * 0.84);
+  }
+
+  .settings-pane {
+    padding-right: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .settings-center {
+    flex-direction: column;
+    height: min(var(--settings-h), 78vh);
+    gap: var(--space-2);
+  }
+
+  .settings-nav {
+    width: auto;
+    flex: 0 0 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+    padding: 0 0 var(--space-2);
+    border-right: 0;
+    border-bottom: 1px solid var(--divider);
+    overflow: visible;
+  }
+
+  .settings-nav-search {
+    flex: 1 0 100%;
+  }
+
+  /* Categories scroll sideways instead of wrapping into three rows. */
+  .settings-nav-list {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: var(--space-1);
+    width: 100%;
+    padding-bottom: var(--space-1);
+    overflow-x: auto;
+  }
+
+  .settings-nav-list button {
+    flex: 0 0 auto;
+  }
+
+  /* The sideways scroll needs an affordance, not a 10px bar under the chips. */
+  .settings-nav-list::-webkit-scrollbar {
+    height: var(--space-1);
+  }
+
+  .settings-pane {
+    padding-left: 0;
+  }
+
+  /* The dialog edges stop eating width that the rows need. */
+  .modal.settings .modal-body {
+    padding: var(--space-3);
+  }
+
+  .modal.settings .modal-head {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .settings-inline {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.settings-pane .settings-about {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-1);
+}
+
+.settings-update {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ui-error-boundary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: var(--space-5);
+  background: var(--bg-panel);
+  color: var(--fg-primary);
+  text-align: center;
+}
+
+.ui-error-boundary > .ui-error-state-icon {
+  width: var(--space-5);
+  height: var(--space-5);
+}
+
+.ui-error-boundary > .ui-error-state-icon::before {
+  font-size: var(--fs-base);
+}
+
+.ui-error-boundary h2 {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+}
+
+.ui-error-boundary .hint {
+  max-width: 52ch;
+  line-height: var(--lh-loose);
+}
+
+.ui-error-detail {
+  max-width: 100%;
+  margin: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ui-error-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.ui-error-actions button {
+  height: var(--button-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  transition: background var(--motion-fast), border-color var(--motion-fast);
+}
+
+.ui-error-actions button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: var(--hover-bg);
+}
+
+.ui-error-actions button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--fg-on-accent);
+  font-weight: 600;
+}
+
+.ui-error-actions button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.about-update-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.about-name {
+  margin: 0;
+  font-size: var(--font-title);
+  font-weight: 600;
+}
+
+.about-version {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+}
+
+.shortcut-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.hostkey-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.hostkey-details {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+}
+
+.hostkey-details dt {
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+}
+
+.hostkey-details dd {
+  margin: 0;
+  font-size: var(--font-ui-sm);
+}
+
+.hostkey-fingerprint {
+  font-family: var(--font-mono);
+  word-break: break-all;
+  user-select: text;
+}
+
+.broadcast-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.broadcast-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.broadcast-prod {
+  color: var(--warning);
+}
+
+.forward-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.forward-heading {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-ui-sm);
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
+.forward-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.forward-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+}
+
+.forward-main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.forward-route {
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  word-break: break-all;
+}
+
+.forward-tag {
+  color: var(--accent);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.forward-meta {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.shortcut-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.shortcut-row:last-child {
+  border-bottom: 0;
+}
+
+.shortcut-row dt {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+  color: var(--fg-primary);
+}
+
+.shortcut-row dd {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.shortcut-editor {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.shortcut-capture {
+  min-width: 10em;
+  padding: 2px var(--space-2);
+  border: 1px dashed var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+}
+
+.shortcut-error {
+  width: 100%;
+  margin: 0;
+}
+
+.shortcut-row kbd {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+}
+
+/* Legacy fieldset groups follow the same flat rhythm as .ui-setting-group:
+   one pane used to mix bordered boxes with flat sections, which reads as a
+   bug rather than as hierarchy. */
+/* A fieldset parks its legend in the border box, so `padding-top` opens a gap
+   under the title instead of above the group: the separation has to be a
+   margin on the group itself. */
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: var(--space-5) 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.settings-group:first-of-type {
+  margin-top: var(--space-1);
+}
+
+.settings-group legend {
+  padding: 0 0 var(--space-2);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  color: var(--fg-primary);
+}
+
+.sync-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.sync-actions button {
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  font-size: var(--font-ui-sm);
+  cursor: pointer;
+}
+
+/* Icon + label toolbars: keep the glyph centred against the text. */
+.sync-actions button,
+.plugin-actions button,
+.transfer-head-tools button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.sync-actions svg,
+.plugin-actions svg,
+.transfer-head-tools svg {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.sync-actions button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.sync-actions button:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
+}
+
+.sync-message {
+  word-break: break-all;
+}
+
+
+.monitor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.monitor-head h3 {
+  margin: 0;
+  font-size: var(--font-ui);
+  font-weight: 600;
+}
+
+.monitor-head .icon-btn {
+  width: 22px;
+  height: 22px;
+}
+

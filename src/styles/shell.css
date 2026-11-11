@@ -1,0 +1,516 @@
+/* ---- S2: island layout applied to the three content regions ----
+   S3 adds two edge-to-edge icon rails, so the island gutters live on
+   #body-main instead of #body. Kept as one block until S4 splits the dock. */
+
+#body {
+  /* Explicit tracks instead of flex: the two icon rails must keep their exact
+     width no matter what the terminal or transfer view reports as min-content. */
+  display: grid;
+  grid-template-columns:
+    var(--activity-rail-w)
+    minmax(0, 1fr)
+    var(--tool-strip-w);
+  gap: 0;
+  padding: 0;
+}
+
+#body-main {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  gap: var(--island-gap);
+  padding: var(--island-gap);
+  /* Keep island overflow from painting over the edge tool strip. */
+  overflow: hidden;
+}
+
+#host-sidebar {
+  padding: var(--island-pad);
+  background: var(--island-bg);
+  border: 0;
+  border-radius: var(--island-radius);
+}
+
+#content {
+  background: var(--island-bg);
+  border-radius: var(--island-radius);
+}
+
+#terminal-host {
+  margin: var(--island-gap);
+  border: 0;
+}
+
+.section-head {
+  min-height: var(--panel-header-h);
+  padding: 0 var(--island-pad);
+}
+
+.tree-row {
+  padding: 0 var(--island-pad);
+}
+
+/* one hover, one selected: every list uses the same state tokens */
+.tree-row:hover,
+.command-insert:hover,
+.term-history-item:hover {
+  background: var(--hover-bg);
+}
+
+.tree-row.selected,
+.tree-row.selected:hover {
+  background: var(--selected-bg);
+  box-shadow: none;
+}
+
+.tree-row.drop:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.command-insert:hover {
+  border-color: var(--divider);
+}
+
+/* ---- S5: the status bar closes the frame ----
+   One row under the island area. Left cell mirrors the active view, the middle
+   carries the last message, the right cell mirrors the queue and the log; each
+   cell is also the click target for the panel that owns it. */
+
+#statusbar {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--status-bar-h);
+  padding: 0 var(--space-2);
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+  user-select: none;
+}
+
+.statusbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.statusbar-group.end {
+  justify-content: flex-end;
+}
+
+.statusbar-session,
+.statusbar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: calc(var(--status-bar-h) - var(--space-2));
+  padding: 0 var(--space-2);
+  /* Every child is nowrap, so each cell has to be allowed to shrink before the
+     bar can give space back: without this the readout painted over the session
+     label instead of the label ellipsing. */
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.statusbar-session:hover,
+.statusbar-item:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+.statusbar-dot {
+  width: var(--status-dot);
+  height: var(--status-dot);
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--fg-muted);
+}
+
+.statusbar-session.live .statusbar-dot {
+  background: var(--success);
+}
+
+.statusbar-session.closed .statusbar-dot {
+  background: var(--danger);
+}
+
+.statusbar-title {
+  min-width: 0;
+  color: var(--fg-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusbar-flag {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.statusbar-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.statusbar-message {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.statusbar-message:hover:not(:empty) {
+  color: var(--fg-primary);
+}
+
+.statusbar-message.error,
+.statusbar-message.error:hover {
+  color: var(--danger);
+}
+
+.statusbar-mono {
+  font-family: var(--font-mono);
+}
+
+/* ---- Status bar: monitor readout ---- */
+
+/* Host + two tiny gauges. The readout follows the active tab, so it doubles as
+   "which machine am I looking at" without opening a panel. */
+.statusbar-monitor {
+  gap: var(--space-2);
+}
+
+.statusbar-monitor-host {
+  max-width: 10em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-primary);
+}
+
+.statusbar-gauge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.statusbar-gauge-label {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.02em;
+  opacity: 0.8;
+}
+
+.statusbar-ring {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+}
+
+.statusbar-ring-track {
+  stroke: color-mix(in srgb, var(--fg-muted) 35%, transparent);
+}
+
+.statusbar-ring-fill {
+  stroke: var(--success);
+  transition: stroke-dashoffset var(--motion-panel);
+}
+
+.statusbar-ring-fill.warn {
+  stroke: var(--warning);
+}
+
+.statusbar-ring-fill.danger {
+  stroke: var(--danger);
+}
+
+.statusbar-load {
+  color: var(--success);
+}
+
+/* Network: one arrow pair for the primary adapter. Tabular figures keep the
+   two rates from jittering sideways while they change. */
+.statusbar-net {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.statusbar-net-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.statusbar-net-arrow {
+  font-size: var(--fs-xs);
+  color: var(--accent);
+}
+
+.statusbar-latency {
+  color: var(--fg-muted);
+}
+
+.statusbar-latency.warn {
+  color: var(--warning);
+}
+
+.statusbar-latency.danger {
+  color: var(--danger);
+}
+
+.statusbar-monitor {
+  position: relative;
+}
+
+/* Details on hover: the bar carries the glance, the popover carries the
+   numbers that do not fit (mount point, load spread, probe latency). */
+.statusbar-pop {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-1));
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 16em;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-panel);
+  color: var(--fg-primary);
+  font-size: var(--fs-sm);
+  text-align: left;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.statusbar-pop-title {
+  font-family: var(--font-mono);
+  color: var(--fg-primary);
+}
+
+.statusbar-pop-hint {
+  margin-top: var(--space-1);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--divider);
+  color: var(--fg-muted);
+}
+
+/* ---- Status bar: narrow tiers ----
+   The bar carries three cells that all want their natural width, so it has to
+   shed detail in a fixed order as the window narrows: host name, then the
+   gauge captions and load, then the button captions. The readout itself never
+   goes away — it is the reason the bar exists. */
+
+/* < 1080: drop the host name first; the numbers are the point. */
+@media (max-width: 1080px) {
+  .statusbar-monitor-host {
+    display: none;
+  }
+}
+
+/* < 860: three tracks of max-content no longer fit. Switch to a flex row where
+   the left cell shrinks (ellipsis) and the message takes the remainder, so the
+   right cell can never paint over its neighbours. Captions and load move into
+   the hover popover. */
+@media (max-width: 860px) {
+  #statusbar {
+    display: flex;
+    gap: var(--space-2);
+  }
+
+  .statusbar-group {
+    flex: 0 1 auto;
+    overflow: hidden;
+  }
+
+  .statusbar-group.end {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .statusbar-message {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .statusbar-monitor {
+    gap: var(--space-1);
+  }
+}
+
+/* < 700: load and session count go first — they are the readouts the popover
+   can repeat. The gauge captions stay: three unlabelled rings say nothing. */
+@media (max-width: 700px) {
+  .statusbar-load-gauge {
+    display: none;
+  }
+
+  .statusbar-meta {
+    display: none;
+  }
+}
+
+/* < 620: the rate pair goes. It is the widest single readout and the one the
+   host tools card can still show, whereas the gauges cannot be reconstructed
+   from a caption-free bar. */
+@media (max-width: 620px) {
+  .statusbar-net {
+    display: none;
+  }
+}
+
+/* < 560: give the monitor readout back the horizontal space it needs. */
+@media (max-width: 560px) {
+  .statusbar-item {
+    padding: 0 var(--space-1);
+  }
+}
+
+/* < 440: captions finally go, and the ring order (CPU, memory, disk) plus the
+   popover have to carry the meaning on their own. */
+@media (max-width: 440px) {
+  .statusbar-gauge-label {
+    display: none;
+  }
+}
+
+/* ---- About: version history timeline ---- */
+
+.version-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  /* Same inset material as the audit well and the font preview, so nested
+     panels share one "data surface" instead of three different tints. */
+  background: var(--bg-base);
+}
+
+.version-history .ui-panel-header {
+  padding: 0;
+}
+
+.version-history-hint {
+  margin: 0;
+}
+
+.version-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 var(--space-3);
+  border-left: 1px solid var(--divider);
+  max-height: calc(var(--row-h) * 10);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+/* Day bands start at the timeline hairline so the axis reads as continuous. */
+.version-timeline .ui-day-separator {
+  margin-left: calc(-1 * var(--space-3));
+  padding-left: var(--space-2);
+}
+
+.version-entry {
+  position: relative;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.version-entry:last-child {
+  border-bottom: 0;
+}
+
+.version-node {
+  position: absolute;
+  left: calc(-1 * var(--space-4));
+  top: var(--space-3);
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: 50%;
+  background: var(--fg-muted);
+  box-shadow: 0 0 0 2px var(--bg-base);
+}
+
+.version-entry.current .version-node {
+  background: var(--accent);
+}
+
+.version-entry-body {
+  min-width: 0;
+}
+
+.version-entry-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.version-label {
+  color: var(--fg-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  overflow-wrap: anywhere;
+}
+
+.version-entry.current .version-label {
+  color: var(--accent);
+}
+
+.version-subject,
+.version-time {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
+
+.version-subject {
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+}
+
+.version-show-all {
+  align-self: flex-start;
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  font-size: var(--font-ui-sm);
+  cursor: pointer;
+}
+
+.version-show-all:hover {
+  background: var(--hover-bg);
+}
+

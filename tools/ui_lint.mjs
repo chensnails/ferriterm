@@ -10,7 +10,14 @@ import path from "node:path";
 
 const root = process.cwd();
 const componentDir = path.join(root, "src", "components");
-const css = fs.readFileSync(path.join(root, "src", "style.css"), "utf8");
+const styleDir = path.join(root, "src", "styles");
+const css = [
+  fs.readFileSync(path.join(root, "src", "style.css"), "utf8"),
+  ...fs
+    .readdirSync(styleDir)
+    .filter((file) => file.endsWith(".css"))
+    .map((file) => fs.readFileSync(path.join(styleDir, file), "utf8")),
+].join("\n");
 const sources = fs
   .readdirSync(componentDir)
   .filter((file) => file.endsWith(".tsx") && file !== "icons.tsx")
@@ -53,7 +60,7 @@ for (const { text } of sources) {
 }
 for (const className of usedClasses) {
   if (!css.includes(`.${className}`)) {
-    problems.push(`.${className}: used in components but missing from style.css`);
+    problems.push(`.${className}: used in components but missing from the stylesheets`);
   }
 }
 

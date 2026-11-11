@@ -1,0 +1,523 @@
+/* Design tokens — source of truth is docs/UI_SPEC.md §2. No color/size/spacing/
+   radius/duration literals outside this block. */
+/* The default palette also answers `data-theme="dark"` so theme previews can
+   ask for it explicitly on a nested element. */
+:root,
+[data-theme="dark"] {
+  --bg-base: #0f1117;
+  --bg-panel: #151922;
+  --bg-elevated: #1c2130;
+  --border: #2a3040;
+  --fg-primary: #d4d4d8;
+  --fg-muted: #8a93a9;
+  --fg-on-accent: #ffffff;
+  --accent: #4f8cff;
+  --accent-hover: #6ba1ff;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --success: #22c55e;
+  --selection: #33415588;
+  --overlay: rgb(0 0 0 / 0.45);
+
+  --tag-blue: #4f8cff;
+  --tag-green: #22c55e;
+  --tag-amber: #f59e0b;
+  --tag-red: #ef4444;
+  --tag-purple: #a855f7;
+  --tag-cyan: #06b6d4;
+  --tag-pink: #ec4899;
+  --tag-gray: #8a93a9;
+
+  --font-ui: 13px;
+  --font-ui-sm: 12px;
+  --font-title: 15px;
+  --font-terminal: 14px;
+  --line-ui: 1.4;
+  --font-mono: "Ferriterm JetBrains Mono", "JetBrains Mono", "Cascadia Code",
+    Menlo, Consolas, monospace;
+  --font-ui-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-pill: 999px;
+  --control-h: 28px;
+  --button-h: 30px;
+  --row-h: 30px;
+  --tab-h: 30px;
+  --tab-max-w: 200px;
+  --title-bar-h: 36px;
+  --home-w: 720px;
+  --font-logo: 28px;
+  --sidebar-w: 300px;
+  --dialog-w: 440px;
+  --suggest-w: 420px;
+  --settings-w: 860px;
+  --settings-h: 580px;
+  --settings-nav-w: 190px;
+  --settings-label-w: 160px;
+  --settings-control-w: 280px;
+  --recordings-list-w: 240px;
+  --player-h: 360px;
+  --split-gutter: 4px;
+  --focus-width: 2px;
+  --focus-offset: 2px;
+  --tab-accent-w: 2px;
+  --scrollbar-w: 10px;
+  --scrollbar-pad: 2px;
+  --backdrop-blur: 2px;
+  --shadow-panel: 0 8px 24px rgb(0 0 0 / 0.35);
+  --motion-fast: 120ms ease-out;
+  --motion-panel: 160ms ease-out;
+
+  /* Design baseline: one island, one hover, one selected. Neutral overlays
+     keep the semantics identical across bundled colour schemes. */
+  --island-bg: var(--bg-panel);
+  --island-gap: 6px;
+  --island-pad: 8px;
+  --island-radius: var(--radius-lg);
+  --hover-bg: rgb(127 127 127 / 0.12);
+  --selected-bg: rgb(127 127 127 / 0.2);
+  --menu-sel-bg: rgb(127 127 127 / 0.26);
+  --danger-bg: rgb(239 68 68 / 0.14);
+  /* One disabled treatment for every control: previously 0.4–0.55 literals
+     were scattered across 22 rules, so disabled buttons read as different
+     "kinds" of unavailable. */
+  --disabled-opacity: 0.5;
+  --divider: var(--border);
+  --sub-bg: var(--bg-elevated);
+  --panel-header-h: 32px;
+  --status-bar-h: 24px;
+  --status-dot: 6px;
+  --activity-rail-w: 40px;
+  --tool-strip-w: 40px;
+  --row-h-lg: calc(var(--row-h) + var(--space-3));
+  /* Type scale: 11 badge / 12 secondary / 13 body / 14 lead-in / 15 block
+     title / 17 dialog title. Nothing in the UI may go below --fs-xs, and
+     --fs-xs is reserved for badges, never for running copy. */
+  --fs-xs: 11px;
+  --fs-sm: var(--font-ui-sm);
+  --fs-base: var(--font-ui);
+  --fs-md: 14px;
+  --fs-lg: var(--font-title);
+  --fs-xl: 17px;
+  --lh-tight: 1.25;
+  --lh-loose: 1.55;
+  --ic-xs: 12px;
+  --ic-sm: 14px;
+  --ic-md: 16px;
+  --ic-lg: 20px;
+
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg-base: #f5f6f8;
+  --bg-panel: #ffffff;
+  --bg-elevated: #eef1f5;
+  --border: #d7dce3;
+  --fg-primary: #1f2430;
+  --fg-muted: #69707e;
+  --fg-on-accent: #ffffff;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --danger: #d92323;
+  --warning: #a85c05;
+  --success: #11813a;
+  --selection: #bfdbfe88;
+  --overlay: rgb(0 0 0 / 0.45);
+  --shadow-panel: 0 12px 32px rgb(15 23 42 / 0.16);
+  --tag-blue: #0f62ff;
+  --tag-green: #16803d;
+  --tag-amber: #9b6406;
+  --tag-red: #de1313;
+  --tag-purple: #9937f6;
+  --tag-cyan: #047a8f;
+  --tag-pink: #d51675;
+  --tag-gray: #656f89;
+  color-scheme: light;
+}
+
+[data-theme="nord"] {
+  --bg-base: #2e3440;
+  --bg-panel: #3b4252;
+  --bg-elevated: #434c5e;
+  --border: #4c566a;
+  --fg-primary: #eceff4;
+  --fg-muted: #aebacf;
+  --fg-on-accent: #2e3440;
+  --accent: #88c0d0;
+  --accent-hover: #8fbcbb;
+  --danger: #d9a2a7;
+  --warning: #ebcb8b;
+  --success: #a3be8c;
+  --selection: #88c0d055;
+  --overlay: rgb(0 0 0 / 0.45);
+  --tag-blue: #679cff;
+  --tag-red: #f37878;
+  --tag-purple: #bf82f9;
+  --tag-pink: #f073b1;
+  --tag-gray: #959db1;
+}
+
+[data-theme="dracula"] {
+  --bg-base: #282a36;
+  --bg-panel: #21222c;
+  --bg-elevated: #343746;
+  --border: #44475a;
+  --fg-primary: #f8f8f2;
+  --fg-muted: #9aa4c7;
+  --fg-on-accent: #282a36;
+  --accent: #bd93f9;
+  --accent-hover: #caa9fa;
+  --danger: #ff5555;
+  --warning: #f1fa8c;
+  --success: #50fa7b;
+  --selection: #44475a88;
+  --overlay: rgb(0 0 0 / 0.45);
+  --tag-blue: #5590ff;
+  --tag-red: #f26565;
+  --tag-purple: #b772f8;
+  --tag-pink: #ee5ea5;
+}
+
+[data-theme="solarized"] {
+  --bg-base: #fdf6e3;
+  --bg-panel: #eee8d5;
+  --bg-elevated: #fffaf0;
+  --border: #d8d2c0;
+  --fg-primary: #556b72;
+  --fg-muted: #5c6a6a;
+  --fg-on-accent: #fdf6e3;
+  --accent: #1d6ca2;
+  --accent-hover: #1e736c;
+  --danger: #c72421;
+  --warning: #826200;
+  --success: #5f6d00;
+  --selection: #b3d4e088;
+  --overlay: rgb(0 0 0 / 0.45);
+  --shadow-panel: 0 12px 32px rgb(88 110 117 / 0.18);
+  --tag-blue: #0f62ff;
+  --tag-green: #16803d;
+  --tag-amber: #9b6406;
+  --tag-red: #df1313;
+  --tag-purple: #9937f6;
+  --tag-cyan: #047a8f;
+  --tag-pink: #d51675;
+  --tag-gray: #65708a;
+  color-scheme: light;
+}
+
+[data-theme="tokyo-night"] {
+  --bg-base: #1a1b26;
+  --bg-panel: #16161e;
+  --bg-elevated: #24283b;
+  --border: #292e42;
+  --fg-primary: #c0caf5;
+  --fg-muted: #7f8bb0;
+  --fg-on-accent: #16161e;
+  --accent: #7aa2f7;
+  --accent-hover: #9ab8ff;
+  --danger: #f7768e;
+  --warning: #e0af68;
+  --success: #9ece6a;
+  --selection: #33467c88;
+  --overlay: rgb(0 0 0 / 0.5);
+  --tag-purple: #ac5df7;
+}
+
+[data-theme="gruvbox"] {
+  --bg-base: #282828;
+  --bg-panel: #1d2021;
+  --bg-elevated: #3c3836;
+  --border: #504945;
+  --fg-primary: #ebdbb2;
+  --fg-muted: #a89984;
+  --fg-on-accent: #282828;
+  --accent: #83a598;
+  --accent-hover: #8ec07c;
+  --danger: #fb5744;
+  --warning: #fabd2f;
+  --success: #b8bb26;
+  --selection: #665c5488;
+  --overlay: rgb(0 0 0 / 0.5);
+  --tag-red: #f15f5f;
+  --tag-purple: #b56ef8;
+  --tag-pink: #ee59a2;
+}
+
+[data-theme="catppuccin"] {
+  --bg-base: #1e1e2e;
+  --bg-panel: #181825;
+  --bg-elevated: #313244;
+  --border: #45475a;
+  --fg-primary: #cdd6f4;
+  --fg-muted: #a6adc8;
+  --fg-on-accent: #11111b;
+  --accent: #89b4fa;
+  --accent-hover: #b4befe;
+  --danger: #f38ba8;
+  --warning: #f9e2af;
+  --success: #a6e3a1;
+  --selection: #585b7088;
+  --overlay: rgb(0 0 0 / 0.5);
+  --tag-red: #f04e4e;
+  --tag-purple: #ae62f8;
+}
+
+[data-theme="rose-pine"] {
+  --bg-base: #191724;
+  --bg-panel: #1f1d2e;
+  --bg-elevated: #26233a;
+  --border: #403d52;
+  --fg-primary: #e0def4;
+  --fg-muted: #908caa;
+  --fg-on-accent: #191724;
+  --accent: #c4a7e7;
+  --accent-hover: #d6bbf7;
+  --danger: #eb6f92;
+  --warning: #f6c177;
+  --success: #9ccfd8;
+  --selection: #403d5288;
+  --overlay: rgb(0 0 0 / 0.5);
+  --tag-purple: #aa59f7;
+}
+
+[data-theme="solarized-dark"] {
+  --bg-base: #002b36;
+  --bg-panel: #073642;
+  --bg-elevated: #0b3f4b;
+  --border: #0f4b5a;
+  --fg-primary: #93a1a1;
+  --fg-muted: #8d9d9f;
+  --fg-on-accent: #fdf6e3;
+  --accent: #4aa1de;
+  --accent-hover: #2daca2;
+  --danger: #e87977;
+  --warning: #c29300;
+  --success: #8fa400;
+  --selection: #1f5a6699;
+  --overlay: rgb(0 0 0 / 0.5);
+  --tag-red: #f15c5c;
+  --tag-purple: #b46cf8;
+  --tag-pink: #ed56a1;
+}
+
+[data-theme="github-light"] {
+  --bg-base: #ffffff;
+  --bg-panel: #f6f8fa;
+  --bg-elevated: #eef1f4;
+  --border: #d0d7de;
+  --fg-primary: #1f2328;
+  --fg-muted: #656d76;
+  --fg-on-accent: #ffffff;
+  --accent: #0969da;
+  --accent-hover: #0a5fc2;
+  --danger: #cf222e;
+  --warning: #9a6700;
+  --success: #1a7f37;
+  --selection: #b6d7ff99;
+  --overlay: rgb(0 0 0 / 0.45);
+  --shadow-panel: 0 12px 32px rgb(31 35 40 / 0.16);
+  --tag-blue: #1b6aff;
+  --tag-green: #178640;
+  --tag-amber: #a36907;
+  --tag-red: #e81414;
+  --tag-purple: #9e42f6;
+  --tag-cyan: #048096;
+  --tag-pink: #e0177a;
+  --tag-gray: #6a7590;
+  color-scheme: light;
+}
+
+[data-theme="termius-light"] {
+  --bg-base: #f5fbfa;
+  --bg-panel: #ffffff;
+  --bg-elevated: #e9f5f3;
+  --border: #cfe8e3;
+  --fg-primary: #163b36;
+  --fg-muted: #5d7e78;
+  --fg-on-accent: #ffffff;
+  --accent: #0ea5a0;
+  --accent-hover: #0b8a86;
+  --danger: #e5484d;
+  --warning: #b26a06;
+  --success: #0f8a52;
+  --selection: #0ea5a040;
+  --overlay: rgb(0 0 0 / 0.42);
+  --shadow-panel: 0 12px 32px rgb(14 80 75 / 0.16);
+  --tag-blue: #1f7ae0;
+  --tag-green: #0f8a52;
+  --tag-amber: #a9700a;
+  --tag-red: #e23b3b;
+  --tag-purple: #7c4dd6;
+  --tag-cyan: #0e9bb0;
+  --tag-pink: #d23a86;
+  --tag-gray: #5f7a74;
+  color-scheme: light;
+}
+
+[data-theme="iterm2-light"] {
+  --bg-base: #ffffff;
+  --bg-panel: #f6f6fa;
+  --bg-elevated: #eceaf6;
+  --border: #dcd9ec;
+  --fg-primary: #2b2b35;
+  --fg-muted: #6c6a7c;
+  --fg-on-accent: #ffffff;
+  --accent: #6e56cf;
+  --accent-hover: #5a44b8;
+  --danger: #d83a3a;
+  --warning: #a86a00;
+  --success: #1a8a4f;
+  --selection: #6e56cf3a;
+  --overlay: rgb(0 0 0 / 0.42);
+  --shadow-panel: 0 12px 32px rgb(40 30 80 / 0.16);
+  --tag-blue: #3b6fe0;
+  --tag-green: #178a4f;
+  --tag-amber: #a86a00;
+  --tag-red: #e23b3b;
+  --tag-purple: #7a4fd0;
+  --tag-cyan: #0e9bb0;
+  --tag-pink: #d23a86;
+  --tag-gray: #6b6880;
+  color-scheme: light;
+}
+
+[data-theme="atom-one-light"] {
+  --bg-base: #fafafa;
+  --bg-panel: #f0f0f2;
+  --bg-elevated: #e8e8ec;
+  --border: #dcdce1;
+  --fg-primary: #383a42;
+  --fg-muted: #8b8d98;
+  --fg-on-accent: #ffffff;
+  --accent: #4078f2;
+  --accent-hover: #2f63e0;
+  --danger: #e45649;
+  --warning: #c18401;
+  --success: #50a14f;
+  --selection: #4078f240;
+  --overlay: rgb(0 0 0 / 0.4);
+  --shadow-panel: 0 12px 32px rgb(40 50 90 / 0.14);
+  --tag-blue: #3b7bf0;
+  --tag-green: #3f9d4a;
+  --tag-amber: #c18401;
+  --tag-red: #e45649;
+  --tag-purple: #a626a4;
+  --tag-cyan: #0184bc;
+  --tag-pink: #d16fd0;
+  --tag-gray: #8b8d98;
+  color-scheme: light;
+}
+
+[data-theme="termius-dark"] {
+  --bg-base: #0b1f1d;
+  --bg-panel: #0f2624;
+  --bg-elevated: #143029;
+  --border: #1d4039;
+  --fg-primary: #d6efe9;
+  --fg-muted: #7ba89f;
+  --fg-on-accent: #062320;
+  --accent: #0ea5a0;
+  --accent-hover: #28c2bc;
+  --danger: #ff6b6f;
+  --warning: #e0a02a;
+  --success: #3ad17e;
+  --selection: #0ea5a040;
+  --overlay: rgb(0 0 0 / 0.55);
+  --shadow-panel: 0 12px 32px rgb(0 0 0 / 0.4);
+  --tag-blue: #4b97ec;
+  --tag-green: #3ad17e;
+  --tag-amber: #e0a02a;
+  --tag-red: #ff6b6f;
+  --tag-purple: #b07cff;
+  --tag-cyan: #34c2d6;
+  --tag-pink: #f06ab0;
+  --tag-gray: #7e9a92;
+}
+
+[data-theme="iterm2-dark"] {
+  --bg-base: #16141f;
+  --bg-panel: #1c1a28;
+  --bg-elevated: #25222f;
+  --border: #322e44;
+  --fg-primary: #e6e3f4;
+  --fg-muted: #9a96b4;
+  --fg-on-accent: #100e1a;
+  --accent: #6e56cf;
+  --accent-hover: #8b74e6;
+  --danger: #ff6b6b;
+  --warning: #e0a02a;
+  --success: #3ad17e;
+  --selection: #6e56cf3a;
+  --overlay: rgb(0 0 0 / 0.55);
+  --shadow-panel: 0 12px 32px rgb(0 0 0 / 0.4);
+  --tag-blue: #6b95f0;
+  --tag-green: #3ad17e;
+  --tag-amber: #e0a02a;
+  --tag-red: #ff6b6b;
+  --tag-purple: #b07cff;
+  --tag-cyan: #4ad0dc;
+  --tag-pink: #f06ab0;
+  --tag-gray: #8b87a6;
+}
+
+[data-theme="atom-one-dark"] {
+  --bg-base: #282c34;
+  --bg-panel: #21252b;
+  --bg-elevated: #2f343d;
+  --border: #3b4048;
+  --fg-primary: #abb2bf;
+  --fg-muted: #90949d;
+  --fg-on-accent: #14171c;
+  --accent: #4078f2;
+  --accent-hover: #5e90ff;
+  --danger: #e06c75;
+  --warning: #e5c07b;
+  --success: #98c379;
+  --selection: #4078f240;
+  --overlay: rgb(0 0 0 / 0.5);
+  --shadow-panel: 0 12px 32px rgb(0 0 0 / 0.4);
+  --tag-blue: #5791ff;
+  --tag-green: #98c379;
+  --tag-amber: #e5c07b;
+  --tag-red: #e06c75;
+  --tag-purple: #c678dd;
+  --tag-cyan: #56b6c2;
+  --tag-pink: #e06fd0;
+  --tag-gray: #90949d;
+}
+
+[data-theme="github-dark"] {
+  --bg-base: #0d1117;
+  --bg-panel: #161b22;
+  --bg-elevated: #1c2128;
+  --border: #30363d;
+  --fg-primary: #e6edf3;
+  --fg-muted: #7d8590;
+  --fg-on-accent: #0d1117;
+  --accent: #2f81f7;
+  --accent-hover: #4b91f5;
+  --danger: #f85149;
+  --warning: #d29922;
+  --success: #3fb950;
+  --selection: #2f81f74d;
+  --overlay: rgb(0 0 0 / 0.55);
+  --shadow-panel: 0 12px 32px rgb(1 4 9 / 0.5);
+  --tag-blue: #4b91f5;
+  --tag-green: #3fb950;
+  --tag-amber: #d29922;
+  --tag-red: #f85149;
+  --tag-purple: #bc8cff;
+  --tag-cyan: #39c5cf;
+  --tag-pink: #ec6cb0;
+  --tag-gray: #7d8590;
+}

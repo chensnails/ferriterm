@@ -1,0 +1,550 @@
+/* Network toolbox (module: tools). Same island language as the host list:
+   one scroll container per pane, tokens only. */
+
+.tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.tool-list-foot {
+  margin: var(--space-2) 0 0;
+}
+
+.net-tools {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.net-tools-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.net-tools-head h2 {
+  margin: 0;
+  font-size: var(--font-title);
+  font-weight: 600;
+}
+
+.net-tools-head p {
+  margin: 0;
+}
+
+.net-tools-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.net-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.net-kind {
+  align-self: flex-start;
+}
+
+.net-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.net-form input {
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  height: var(--control-h);
+  padding: 0 var(--space-2);
+  color: var(--fg-primary);
+  font-size: var(--font-ui);
+  outline: none;
+  transition: border-color var(--motion-fast);
+}
+
+.net-form input:focus {
+  border-color: var(--accent);
+}
+
+.net-target {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+}
+
+.net-number {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-ui-sm);
+  color: var(--fg-muted);
+}
+
+.net-number input {
+  width: 64px;
+  font-family: var(--font-mono);
+}
+
+.net-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.net-actions button {
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-size: var(--font-ui);
+  transition: background var(--motion-fast);
+}
+
+.net-actions button:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+
+.net-actions button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--fg-on-accent);
+  font-weight: 600;
+}
+
+.net-actions button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.net-actions button:disabled {
+  opacity: var(--disabled-opacity);
+}
+
+.net-console {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-3);
+  overflow: auto;
+  background: var(--sub-bg);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  line-height: var(--line-ui);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.net-console.empty {
+  color: var(--fg-muted);
+}
+
+.geo-card {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--sub-bg);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-md);
+}
+
+.geo-card header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.geo-card h3 {
+  margin: 0;
+  font-size: var(--font-ui);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.geo-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+}
+
+.geo-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.geo-row dt {
+  flex-shrink: 0;
+  min-width: 96px;
+  font-size: var(--font-ui-sm);
+  color: var(--fg-muted);
+}
+
+.geo-row dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.net-binary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.net-binary pre {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  background: var(--sub-bg);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  overflow-x: auto;
+}
+
+/* Right dock (S4): one card per companion panel. Cards stack vertically and
+   both the dock width and each card height are drag-resizable. */
+#dock {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--island-gap);
+  overflow: hidden;
+}
+
+.dock-gutter {
+  position: absolute;
+  left: calc(-1 * var(--island-gap));
+  top: 0;
+  bottom: 0;
+  width: calc(var(--island-gap) + 4px);
+  z-index: 3;
+  cursor: col-resize;
+}
+
+.dock-gutter::after {
+  content: "";
+  position: absolute;
+  left: calc(var(--island-gap) - 1px);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background var(--motion-fast);
+}
+
+.dock-gutter:hover::after,
+.dock-gutter:focus-visible::after {
+  background: var(--accent);
+}
+
+.dock-card {
+  min-height: 0;
+}
+
+.dock-card-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dock-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--island-pad);
+}
+
+.dock-resizer {
+  position: relative;
+  flex-shrink: 0;
+  height: 8px;
+  cursor: row-resize;
+}
+
+.dock-resizer::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 3px;
+  width: 30px;
+  height: 2px;
+  margin-left: -15px;
+  border-radius: 1px;
+  background: var(--divider);
+  transition: background var(--motion-fast);
+}
+
+.dock-resizer:hover::after {
+  background: var(--accent);
+}
+
+body.dock-resizing-x,
+body.dock-resizing-x * {
+  cursor: col-resize !important;
+  user-select: none;
+}
+
+body.dock-resizing-y,
+body.dock-resizing-y * {
+  cursor: row-resize !important;
+  user-select: none;
+}
+
+/* Remote tabs in the transfer view: one pane, N targets. */
+.transfer-remote {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-panel);
+}
+
+.transfer-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 30px;
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.transfer-tabs-scroll {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.transfer-tabs-scroll::-webkit-scrollbar {
+  height: 0;
+}
+
+.transfer-tabs-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.transfer-tab {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  max-width: 180px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+}
+
+.transfer-tab:hover {
+  background: var(--hover-bg);
+}
+
+.transfer-tab.active {
+  background: var(--hover-bg);
+  border-color: var(--border);
+  color: var(--fg-primary);
+}
+
+.transfer-tab-label {
+  min-width: 0;
+  padding: 2px var(--space-2);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: var(--font-ui-sm);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.transfer-tab-close,
+.transfer-tab-add {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: var(--font-ui);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.transfer-tab-close {
+  margin-right: 2px;
+}
+
+.transfer-tab-close:hover,
+.transfer-tab-add:hover {
+  background: var(--divider);
+  color: var(--fg-primary);
+}
+
+.transfer-tab-add {
+  margin-left: var(--space-1);
+}
+
+.transfer-tabs-actions .transfer-tab-add {
+  margin-left: 0;
+}
+
+.transfer-tab-empty {
+  font-size: var(--font-ui-sm);
+  color: var(--fg-muted);
+}
+
+.transfer-copyto {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  padding-left: var(--space-2);
+  flex-shrink: 0;
+  font-size: var(--font-ui-sm);
+  color: var(--fg-muted);
+}
+
+.transfer-copyto select {
+  height: 22px;
+  width: 120px;
+  font-size: var(--font-ui-sm);
+  text-overflow: ellipsis;
+}
+
+.transfer-relay {
+  display: inline-block;
+  margin-right: var(--space-2);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-size: 10px;
+  line-height: 15px;
+  vertical-align: middle;
+}
+
+/* Six columns have to fit a half-width pane. Fixed layout keeps 属主 inside
+   the pane; the narrow columns are sized to their widest realistic content and
+   the name column takes the rest. */
+.file-table {
+  table-layout: fixed;
+}
+
+.file-table th,
+.file-table td {
+  padding-left: var(--space-1);
+  padding-right: var(--space-1);
+}
+
+.file-table th:nth-child(2) {
+  width: 54px;
+}
+
+.file-table th:nth-child(3) {
+  width: 62px;
+}
+
+.file-table th:nth-child(4) {
+  width: 108px;
+}
+
+.file-table th:nth-child(5) {
+  width: 74px;
+}
+
+.file-table th:nth-child(6) {
+  width: 74px;
+}
+
+/* ---- S6: in-app prompt dialog ----
+   Replaces window.confirm / window.prompt, which the embedded WebView does
+   not implement, so the same question keeps the app's own look. */
+
+.prompt-body {
+  margin: 0 0 var(--space-3);
+}
+
+.prompt-input {
+  width: 100%;
+  height: var(--button-h);
+  padding: 0 var(--space-2);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg-primary);
+  font: inherit;
+}
+
+.prompt-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* A pane squeezed by the dock must not squeeze the file name to nothing:
+   the secondary columns step out before the name column loses its width. */
+.file-pane {
+  container-type: inline-size;
+}
+
+.file-table th:first-child {
+  min-width: 96px;
+}
+
+@container (max-width: 430px) {
+  .file-table th:nth-child(5),
+  .file-table td:nth-child(5),
+  .file-table th:nth-child(6),
+  .file-table td:nth-child(6) {
+    display: none;
+  }
+}
+
+@container (max-width: 340px) {
+  .file-table th:nth-child(4),
+  .file-table td:nth-child(4) {
+    display: none;
+  }
+}
+

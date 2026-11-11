@@ -1,0 +1,380 @@
+/* ---- S3: activity rail, tool strip and two-line host rows ---- */
+
+.activity-rail,
+.tool-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: var(--activity-rail-w);
+  min-height: 0;
+  padding: var(--space-2) 0;
+  gap: var(--space-1);
+  background: var(--bg-base);
+  border-right: 1px solid var(--divider);
+}
+
+.tool-strip {
+  position: relative;
+  z-index: 2;
+  width: var(--tool-strip-w);
+  border-right: 0;
+  border-left: 1px solid var(--divider);
+}
+
+.rail-group,
+.strip-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: var(--space-1);
+}
+
+.rail-divider,
+.strip-divider {
+  width: var(--space-4);
+  height: 1px;
+  margin: var(--space-1) 0;
+  background: var(--divider);
+}
+
+.rail-spacer {
+  flex: 1;
+}
+
+.ui-rail-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  height: var(--control-h);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.ui-rail-button:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+.ui-rail-button.active {
+  background: var(--selected-bg);
+  color: var(--accent);
+}
+
+.ui-rail-button:focus-visible {
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
+}
+
+/* Reserved slots stay visible so the rail's future shape is legible, but they
+   refuse activation and keep their idle colour on hover. */
+.ui-rail-button:disabled {
+  color: var(--fg-muted);
+  background: transparent;
+  opacity: var(--disabled-opacity);
+  cursor: default;
+}
+
+.ui-rail-button:disabled:hover {
+  color: var(--fg-muted);
+  background: transparent;
+}
+
+.ui-rail-badge {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  width: var(--space-1);
+  height: var(--space-1);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--bg-base);
+}
+
+/* Two-line host rows: primary line keeps the icon, name, status dot and tags;
+   the meta line carries user@host:port without competing with the name. */
+.tree-row.two-line {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0;
+  height: var(--row-h-lg);
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-1);
+}
+
+.tree-row-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  height: var(--control-h);
+}
+
+.tree-row-meta {
+  display: block;
+  padding-left: calc(var(--space-3) + var(--fs-md) + var(--space-1));
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-row.two-line .tree-tags {
+  max-width: 40%;
+}
+
+.tree-row-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: var(--space-1);
+  opacity: 0;
+  transition: opacity var(--motion-fast);
+}
+
+.tree-row:hover .tree-row-actions,
+.tree-row:focus-within .tree-row-actions,
+.tree-row.selected .tree-row-actions {
+  opacity: 1;
+}
+
+.tree-empty-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.tree-empty-actions button {
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.tree-empty-actions button:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+
+.tree-empty-actions button:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
+}
+
+/* ---- Merged header ------------------------------------------------------
+   The tab bar doubles as the window's title strip: one flat 40px row holding
+   the home slot, the tab list, the drag handle, the tool buttons and — when
+   the frame was removed at runtime — the caption buttons. */
+#tabbar {
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--title-bar-h);
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--divider);
+  background: var(--bg-panel);
+}
+
+/* macOS keeps its native traffic lights drawn over the header. */
+#tabbar[data-chrome="overlay"] {
+  padding-left: calc(70px + var(--space-2));
+}
+
+.tab-home-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--control-h);
+  height: var(--control-h);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.tab-home-btn:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+.tab-home-btn.active {
+  background: var(--selected-bg);
+  color: var(--accent);
+}
+
+.tab-new {
+  width: 26px;
+  height: 26px;
+}
+
+.tab-strip {
+  flex: 0 1 auto;
+  align-items: center;
+  height: 100%;
+  gap: var(--space-1);
+}
+
+.tab-drag {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: var(--space-3);
+}
+
+/* Flatten the raised tabs into segments that sit inside the strip. */
+#tabbar .tab {
+  height: var(--control-h);
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+}
+
+#tabbar .tab:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+#tabbar .tab.active {
+  background: var(--selected-bg);
+  box-shadow: none;
+  color: var(--fg-primary);
+}
+
+.tab-tools {
+  align-self: center;
+  padding-bottom: 0;
+}
+
+.tab-close:hover,
+.tab-record:hover {
+  background: var(--hover-bg);
+}
+
+/* Caption buttons mirror the Windows sizing so the strip feels native. */
+.win-controls {
+  display: flex;
+  align-self: stretch;
+  margin: 0 calc(-1 * var(--space-2)) 0 var(--space-1);
+}
+
+.win-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.win-btn:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+.win-btn-close:hover {
+  background: #e81123;
+  color: #ffffff;
+}
+
+/* Frameless windows lose the OS resize edges, so eight transparent strips
+   hand the drag back to the window manager. The container itself ignores
+   pointer events; only the 6px borders respond. */
+.resize-handles {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.resize-handle {
+  position: absolute;
+  pointer-events: auto;
+}
+
+.resize-north,
+.resize-south {
+  left: 8px;
+  right: 8px;
+  height: 6px;
+}
+
+.resize-north {
+  top: 0;
+  cursor: n-resize;
+}
+
+.resize-south {
+  bottom: 0;
+  cursor: s-resize;
+}
+
+.resize-east,
+.resize-west {
+  top: 8px;
+  bottom: 8px;
+  width: 6px;
+}
+
+.resize-east {
+  right: 0;
+  cursor: e-resize;
+}
+
+.resize-west {
+  left: 0;
+  cursor: w-resize;
+}
+
+.resize-northeast,
+.resize-northwest,
+.resize-southeast,
+.resize-southwest {
+  width: 10px;
+  height: 10px;
+}
+
+.resize-northeast {
+  top: 0;
+  right: 0;
+  cursor: ne-resize;
+}
+
+.resize-northwest {
+  top: 0;
+  left: 0;
+  cursor: nw-resize;
+}
+
+.resize-southeast {
+  bottom: 0;
+  right: 0;
+  cursor: se-resize;
+}
+
+.resize-southwest {
+  bottom: 0;
+  left: 0;
+  cursor: sw-resize;
+}
+

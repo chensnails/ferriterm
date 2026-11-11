@@ -1,0 +1,398 @@
+/* Credential vault, managed keys and known hosts */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
+  line-height: var(--space-4);
+  white-space: nowrap;
+}
+
+.badge.ok {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--accent);
+}
+
+.badge.warn {
+  border-color: color-mix(in srgb, #d9a521 55%, var(--border));
+  color: #d9a521;
+}
+
+.saved-secret {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 4px;
+}
+
+.vault-status-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+/* One inset well with hairline rows: twelve bordered boxes read as twelve
+   unrelated cards, which is why the old list felt noisy while scrolling. */
+.vault-audit {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 var(--space-2);
+  padding: 0 var(--space-1) var(--space-1);
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+}
+
+.vault-audit-row {
+  display: grid;
+  grid-template-columns: 4.5rem 8.5rem minmax(0, 1fr);
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-top: 1px solid var(--divider);
+  font-size: var(--fs-xs);
+}
+
+.vault-audit-time {
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.vault-audit-action {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vault-audit-target {
+  overflow: hidden;
+  color: var(--fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.key-manager {
+  width: min(620px, 92vw);
+}
+
+.key-row .plugin-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.key-row .plugin-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Inline metadata editor, visually attached to the row it belongs to. */
+.key-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2) 0 var(--space-3) var(--space-3);
+  border-left: 2px solid var(--accent);
+}
+
+.key-editor .field {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+}
+
+.key-editor .field > span:first-child {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
+.key-editor .field > textarea,
+.key-editor .field > input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.key-rotate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--divider);
+}
+
+.key-rotate .field-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.key-rotate .field-inline > input {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.key-export {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.key-export > .plugin-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.key-export textarea {
+  width: 100%;
+  min-height: 72px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  resize: vertical;
+}
+
+/* The key dialog's own buttons and inline inputs need the themed surface:
+   without it they fall back to the OS widget look. */
+.key-manager .plugin-actions button {
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--font-ui);
+}
+
+.key-manager .plugin-actions button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.key-manager .plugin-actions button.primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--fg-on-accent);
+  font-weight: 600;
+}
+
+.key-manager .plugin-actions button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.key-manager .plugin-actions button:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
+}
+
+.key-manager .field-inline > input {
+  height: var(--control-h);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--font-ui);
+  outline: none;
+}
+
+.key-manager .field-inline > input:focus {
+  border-color: var(--accent);
+}
+
+.badge.danger {
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--border));
+  color: var(--danger);
+}
+
+.key-paste {
+  min-height: 92px;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  line-height: 1.45;
+}
+
+.key-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--space-2) 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--success) 55%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+}
+
+.key-preview .plugin-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.generated-key {
+  display: block;
+  max-height: 120px;
+  margin: var(--space-2) 0;
+  padding: var(--space-2);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  color: var(--fg-muted);
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.known-hosts {
+  width: min(640px, 92vw);
+}
+
+.known-host-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.known-host-row {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  font-size: 12px;
+}
+
+.known-host-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.known-host-target {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.known-host-fingerprint {
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vault-unlock {
+  margin: 0;
+}
+
+.saved-secret-name {
+  font-weight: 600;
+}
+
+/* Version history: one hairline row per sealed bundle. */
+.sync-version-list {
+  margin-top: var(--space-1);
+}
+.sync-version-list .plugin-row {
+  align-items: flex-start;
+}
+.sync-version-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+.sync-version-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.sync-version-time {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sync-version-summary {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sync-version-row .link-btn {
+  flex: 0 0 auto;
+}
+
+/* ---- Shared pressed feedback (S3) -------------------------------------
+   Only the settings action row used to expose :active. Every control family
+   now answers a press with the same selected surface, so a click is
+   distinguishable from a hover. Kept last so it wins over family hover
+   rules; primary/danger keep their own accent treatment. */
+:is(
+  .actions button,
+  .home-action,
+  .modal-foot button,
+  .link-btn,
+  .icon-btn,
+  .ui-icon-button,
+  .ui-pill,
+  .ui-segmented-item,
+  .ui-menu-item,
+  .ui-rail-button,
+  .ui-setting-action,
+  .ui-error-actions button,
+  .tree-empty-actions button,
+  .net-actions button,
+  .sync-actions button,
+  .command-tool-btn,
+  .command-manager-add,
+  .command-manager-new-group,
+  .command-manager-command,
+  .tag-create button,
+  .transfer-head-tools button
+):active:not(:disabled):not(.primary):not(.danger) {
+  background: var(--selected-bg);
+}
+
+:is(
+  .actions button,
+  .home-action,
+  .modal-foot button,
+  .plugin-actions button,
+  .ui-setting-action,
+  .net-actions button,
+  .ui-error-actions button
+).primary:active:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+/* Compact panes must never let a long unbroken value push controls out of the
+   viewport. List titles keep their own ellipsis behaviour; .hint and
+   .error-text already handle wrapping at their own rules, so both are excluded. */
+:is(.ui-setting-title, .ui-error-state-title, .ui-empty-title,
+    .ui-empty-description, .ui-loading-label, .ui-notice) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

@@ -1,0 +1,474 @@
+/* File editor */
+.file-editor-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+}
+
+.file-editor {
+  width: 100%;
+  min-height: 420px;
+  max-height: 60vh;
+  resize: vertical;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  line-height: 1.5;
+  tab-size: 2;
+}
+
+.file-editor:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.editor-conflict {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  font-size: var(--font-ui-sm);
+}
+
+.editor-conflict p {
+  margin: 0;
+}
+
+.editor-conflict-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.editor-conflict-actions .prompt-input {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.editor-conflict button {
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.editor-conflict button.danger {
+  border-color: transparent;
+  background: var(--danger);
+  color: var(--fg-on-accent);
+  font-weight: 600;
+}
+
+.editor-autosave {
+  margin-right: auto;
+  align-self: center;
+  font-size: var(--font-ui-sm);
+  color: var(--fg-muted);
+}
+
+/* Permissions editor */
+.perm-grid {
+  display: grid;
+  grid-template-columns: 72px repeat(3, 1fr);
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+  margin: var(--space-2) 0 var(--space-3);
+}
+
+.perm-head {
+  font-size: var(--font-ui-sm);
+  color: var(--fg-muted);
+  text-align: center;
+}
+
+.perm-row {
+  display: contents;
+}
+
+.perm-group {
+  font-size: var(--font-ui-sm);
+  color: var(--fg-muted);
+}
+
+.perm-check {
+  justify-content: center;
+}
+
+/* Directory sync preview */
+.sync-plan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.sync-summary {
+  margin: 0;
+  font-size: var(--font-ui-sm);
+  color: var(--fg-primary);
+}
+
+.sync-actions-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.sync-action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-ui-sm);
+  border-bottom: 1px solid var(--border);
+}
+
+.sync-action:last-child {
+  border-bottom: none;
+}
+
+.sync-action.danger {
+  color: var(--danger);
+}
+
+.sync-kind {
+  width: 84px;
+  flex-shrink: 0;
+  color: var(--fg-muted);
+}
+
+.sync-action.danger .sync-kind {
+  color: var(--danger);
+}
+
+.sync-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+.sync-size {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.sync-side {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: var(--font-ui-sm);
+}
+
+.sync-conflicts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sync-conflict select {
+  flex-shrink: 0;
+  max-width: 140px;
+}
+
+label.sync-action {
+  cursor: pointer;
+}
+
+.sync-bulk {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+}
+
+.sync-bulk button {
+  font-size: var(--font-ui-sm);
+}
+
+/* The in-app "reduce motion" switch shares the OS query's rules; the attribute
+   selector keeps the two paths honest — one meaning, one set of effects. */
+[data-motion="reduced"] *,
+[data-motion="reduced"] *::before,
+[data-motion="reduced"] *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+.command-history {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-2);
+}
+
+.command-history-empty {
+  padding: 0 var(--space-2);
+}
+
+.command-history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.command-history-item:hover {
+  background: var(--bg-elevated);
+}
+
+.command-history-text {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-history-meta {
+  color: var(--fg-muted);
+  font-size: 10px;
+}
+
+.command-preview {
+  display: block;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+
+.exec-log-list {
+  flex: 1;
+  margin: 0;
+  padding: var(--space-1) 0;
+  overflow: auto;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.exec-log-row {
+  display: flex;
+  gap: var(--space-2);
+  padding: 1px var(--space-3);
+}
+
+.exec-log-row.kind-event {
+  color: var(--accent);
+}
+
+.exec-log-time {
+  flex-shrink: 0;
+  color: var(--fg-muted);
+}
+
+.exec-log-session {
+  flex-shrink: 0;
+  max-width: 140px;
+  overflow: hidden;
+  color: var(--fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exec-log-text {
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.exec-log-empty {
+  padding: var(--space-2) var(--space-3);
+}
+
+.broadcast-ack {
+  margin-top: var(--space-2);
+}
+
+.plugin-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Inside a settings pane an action row keeps a gutter from the row above, but
+   only sideways: vertical padding made every section that ends with buttons sit
+   further from the next title than one that ends with a hint. */
+.settings-pane .plugin-actions {
+  padding: 0 var(--space-1);
+}
+
+/* Action rows carry one button material. These used to fall through to the UA
+   button, so a pane mixed platform grey with the token surfaces right above
+   it; `primary` and `danger` are the only two variants that change weight. */
+.plugin-actions button {
+  height: var(--button-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  transition:
+    background var(--motion-fast),
+    border-color var(--motion-fast),
+    color var(--motion-fast);
+}
+
+.plugin-actions button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--bg-elevated) 86%, var(--fg-primary));
+}
+
+.plugin-actions button:active:not(:disabled) {
+  background: var(--selected-bg);
+}
+
+.plugin-actions button:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
+}
+
+/* The one call to action in a pane. */
+.plugin-actions button.primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--fg-on-accent);
+}
+
+.plugin-actions button.primary:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--accent-hover);
+}
+
+/* Destructive actions are tinted, not solid: they sit next to ordinary
+   buttons and must read as "careful" rather than "default". */
+.plugin-actions button.danger {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.plugin-actions button.danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger-bg) 60%, var(--danger));
+  color: var(--fg-primary);
+}
+
+.plugin-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The list opens with the rule that separates its rows, so the group title is
+   never mistaken for the first row's label. */
+.settings-pane .plugin-list {
+  border-top: 1px solid var(--divider);
+}
+
+/* Rows are hairlines, not cards: the plugin pane and the credential list used
+   to paint every entry as its own bordered box while the settings rows right
+   beside them were flat. */
+.plugin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-1);
+  border: 0;
+  border-bottom: 1px solid var(--divider);
+  border-radius: 0;
+  background: transparent;
+  font-size: var(--fs-base);
+}
+
+.plugin-row:last-child {
+  border-bottom: 0;
+}
+
+.plugin-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plugin-section-title {
+  margin: var(--space-3) 0 var(--space-1);
+  color: var(--fg-primary);
+  font-size: var(--font-ui-sm);
+  font-weight: 600;
+}
+
+.plugin-kind {
+  flex-shrink: 0;
+  color: var(--fg-muted);
+}
+
+.highlight-form {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.highlight-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.highlight-dot {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-sm);
+  flex: none;
+}
+
+.plugin-errors {
+  margin-top: var(--space-2);
+  color: var(--danger, var(--fg-muted));
+  font-size: 12px;
+}
+
