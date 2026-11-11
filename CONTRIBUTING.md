@@ -17,6 +17,10 @@ makes rustup install the compiler, rustfmt and clippy at that exact version,
 and `.nvmrc` names the Node release CI uses. Linux needs WebKitGTK 4.1 and the
 usual Tauri 2 prerequisites.
 
+Builds fetch crates from crates.io. If your network needs a mirror, put the
+source replacement in your own `~/.cargo/config.toml`; the repository does not
+carry one, so CI and every contributor resolve the same public index.
+
 ## Before opening a pull request
 
 Run every gate locally; CI runs the same set:
