@@ -56,6 +56,29 @@ impl Choice {
     }
 }
 
+/// Where the decision was asked for. The chain is the same for all three; this
+/// is what lets a person reading it tell "I ran that" from "an agent ran that".
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Origin {
+    /// The window: the run button, or a command typed at the prompt.
+    Ui,
+    /// `ferriterm-cli`.
+    Cli,
+    /// An agent through `ferriterm-cli mcp`.
+    Mcp,
+}
+
+impl Origin {
+    pub fn id(self) -> &'static str {
+        match self {
+            Origin::Ui => "ui",
+            Origin::Cli => "cli",
+            Origin::Mcp => "mcp",
+        }
+    }
+}
+
 /// One decision, as stored.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -72,6 +95,12 @@ pub struct AuditEntry {
     pub verdict: Verdict,
     pub choice: Choice,
     pub mode: Mode,
+    /// Absent in records written before this field existed. It stays out of the
+    /// JSON entirely in that case, so replaying the hash of an old record gives
+    /// back the same bytes it was hashed from — an old chain still verifies,
+    /// while a record with the field removed no longer does.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<Origin>,
     pub prev_hash: String,
     pub hash: String,
 }
@@ -90,6 +119,8 @@ struct Body<'a> {
     verdict: Verdict,
     choice: Choice,
     mode: Mode,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    origin: Option<Origin>,
 }
 
 fn hash_of(prev: &str, body: &str) -> String {
@@ -120,6 +151,7 @@ impl AuditEntry {
             verdict: self.verdict,
             choice: self.choice,
             mode: self.mode,
+            origin: self.origin,
         };
         let encoded = serde_json::to_string(&body).unwrap_or_default();
         hash_of(&self.prev_hash, &encoded)
@@ -387,6 +419,7 @@ mod tests {
             verdict: Verdict::Ask,
             choice,
             mode: Mode::Auto,
+            origin: None,
             prev_hash: String::new(),
             hash: String::new(),
         }
@@ -496,6 +529,64 @@ mod tests {
         let removed = log.prune(2).expect("prune");
         assert!(!removed.is_empty());
         assert_eq!(log.months().expect("months").len(), 2);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_record_without_an_origin_still_verifies() {
+        // What every record written before the field existed looks like. Its
+        // hash was taken over a body that never mentioned the origin, so the
+        // body must still serialise without one.
+        let dir = temp_dir("legacy-origin");
+        let log = AuditLog::new(&dir);
+        for index in 0..2 {
+            let mut item = entry("ls", Choice::Auto);
+            log.append(&mut item, 1_794_391_200 + index).expect("append");
+        }
+        let text = fs::read_to_string(log.file_for("202611")).expect("read");
+        assert!(!text.contains("origin"), "an absent origin must not be written");
+        assert!(log.verify("202611").expect("verify").ok);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn the_origin_is_covered_by_the_hash() {
+        let dir = temp_dir("origin-tamper");
+        let log = AuditLog::new(&dir);
+        for index in 0..2 {
+            let mut item = entry("ls", Choice::Auto);
+            item.origin = Some(Origin::Mcp);
+            log.append(&mut item, 1_794_391_200 + index).expect("append");
+        }
+        let path = log.file_for("202611");
+        let text = fs::read_to_string(&path).expect("read");
+        assert!(text.contains("\"origin\":\"mcp\""));
+
+        // Rewriting who asked is as much a lie as rewriting what ran.
+        fs::write(&path, text.replacen("\"origin\":\"mcp\"", "\"origin\":\"ui\"", 1)).expect("write");
+        let report = log.verify("202611").expect("verify");
+        assert!(!report.ok);
+        assert_eq!(report.broken_at, Some(1));
+        assert_eq!(report.broken_reason.as_deref(), Some("hash"));
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn dropping_the_origin_field_breaks_the_chain() {
+        // The cheap way out: delete the field so the record looks old. The hash
+        // covers it, so the record stops verifying instead of passing as legacy.
+        let dir = temp_dir("origin-drop");
+        let log = AuditLog::new(&dir);
+        let mut item = entry("ls", Choice::Auto);
+        item.origin = Some(Origin::Cli);
+        log.append(&mut item, 1_794_391_200).expect("append");
+
+        let path = log.file_for("202611");
+        let text = fs::read_to_string(&path).expect("read");
+        fs::write(&path, text.replace(",\"origin\":\"cli\"", "")).expect("write");
+        let report = log.verify("202611").expect("verify");
+        assert!(!report.ok);
+        assert_eq!(report.broken_reason.as_deref(), Some("hash"));
         fs::remove_dir_all(&dir).ok();
     }
 

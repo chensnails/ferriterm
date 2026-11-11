@@ -1495,7 +1495,10 @@
       "choice_session": "Session",
       "choice_always": "Rule added",
       "choice_cancelled": "Cancelled",
-      "choice_denied": "Blocked"
+      "choice_denied": "Blocked",
+      "origin_ui": "window",
+      "origin_cli": "command line",
+      "origin_mcp": "MCP agent"
     }
   }
 }

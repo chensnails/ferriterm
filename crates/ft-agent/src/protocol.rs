@@ -51,6 +51,10 @@ pub struct ExecRequest {
     pub command: String,
     #[serde(default)]
     pub timeout_ms: Option<u64>,
+    /// Where the call came from, so the audit line can say. Absent is treated as
+    /// the window: the only caller that never has to introduce itself.
+    #[serde(default)]
+    pub origin: Option<String>,
 }
 
 /// A graded command and, when it ran, what it printed.

@@ -64,6 +64,7 @@ impl AgentBackend {
         host: &str,
         decision: &ft_policy::Decision,
         choice: Choice,
+        origin: ft_policy::Origin,
     ) {
         // Best effort on purpose: a refused command must still reach the
         // caller even if the disk is full, and the failure is logged there.
@@ -72,6 +73,7 @@ impl AgentBackend {
             host: host.to_string(),
             decision: decision.clone(),
             choice,
+            origin: Some(origin),
         };
         if let Err(err) = policy::record_decision(&self.audit, entry) {
             tracing::warn!(error = %err, "could not append to the audit chain");
@@ -168,6 +170,9 @@ impl Backend for AgentBackend {
             let label = self.describe(&request.session)?;
             let started = Instant::now();
             let decision = self.grade(&request.command, &label.label)?;
+            // Declared by the caller, not guessed: a record that says "mcp" is
+            // answering the question "did an agent do this".
+            let origin = origin_of(request.origin.as_deref());
             let mut report = ExecReport {
                 verdict: verdict_label(decision.verdict),
                 risk: risk_label(decision.risk),
@@ -188,7 +193,7 @@ impl Backend for AgentBackend {
                     // The audit line goes in before the command runs: a record
                     // written afterwards would be missing for exactly the
                     // commands that crash the process.
-                    self.record(&request.command, &label.label, &decision, Choice::Auto);
+                    self.record(&request.command, &label.label, &decision, Choice::Auto, origin);
                     let output = ft_ssh::exec(
                         &self.sessions,
                         &request.session,
@@ -209,10 +214,11 @@ impl Backend for AgentBackend {
                         &label.label,
                         &decision,
                         Choice::Cancelled,
+                        origin,
                     );
                 }
                 Verdict::Deny => {
-                    self.record(&request.command, &label.label, &decision, Choice::Denied);
+                    self.record(&request.command, &label.label, &decision, Choice::Denied, origin);
                 }
             }
             report.duration_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
@@ -275,6 +281,16 @@ impl Backend for AgentBackend {
                 written: offset,
             })
         })
+    }
+}
+
+/// Maps what a caller says about itself onto the chain's vocabulary. Anything
+/// unrecognised is the window, which is the only caller that never says.
+fn origin_of(declared: Option<&str>) -> ft_policy::Origin {
+    match declared {
+        Some("cli") => ft_policy::Origin::Cli,
+        Some("mcp") => ft_policy::Origin::Mcp,
+        _ => ft_policy::Origin::Ui,
     }
 }
 

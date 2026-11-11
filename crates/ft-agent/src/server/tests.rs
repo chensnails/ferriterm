@@ -202,6 +202,7 @@ async fn exec_returns_the_gate_report_verbatim() {
             session: "s1".to_string(),
             command: "uptime".to_string(),
             timeout_ms: None,
+            origin: None,
         })
         .await
         .unwrap();
@@ -216,6 +217,7 @@ async fn exec_returns_the_gate_report_verbatim() {
             session: "s1".to_string(),
             command: "rm -rf /".to_string(),
             timeout_ms: Some(1000),
+            origin: None,
         })
         .await
         .unwrap();
@@ -233,6 +235,7 @@ async fn a_missing_session_is_an_error_not_an_empty_report() {
             session: "gone".to_string(),
             command: "uptime".to_string(),
             timeout_ms: None,
+            origin: None,
         })
         .await
         .unwrap_err();

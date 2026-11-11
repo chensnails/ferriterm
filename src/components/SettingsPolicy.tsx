@@ -323,6 +323,8 @@ export function SettingsPolicy() {
                   <span className="policy-row-pattern">{entry.command}</span>
                   <span className="policy-row-meta">
                     {entry.host || t("policy.approve.localHost")} · {entry.ts.slice(0, 10)}
+                    {" · "}
+                    {t(`policy.settings.origin_${entry.origin ?? "ui"}`)}
                   </span>
                 </div>
                 <Chip tone={riskTone(entry.risk)}>{t(`policy.risk.${entry.risk}`)}</Chip>

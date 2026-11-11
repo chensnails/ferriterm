@@ -27,7 +27,7 @@ pub mod rules;
 
 use serde::{Deserialize, Serialize};
 
-pub use audit::{AuditEntry, AuditLog, Choice, VerifyReport};
+pub use audit::{AuditEntry, AuditLog, Choice, Origin, VerifyReport};
 pub use parse::{Command, Segment};
 pub use risk::{Assessment, Reason, Risk};
 pub use rules::{Effect, Rule};

@@ -1495,7 +1495,10 @@
       "choice_session": "本会话",
       "choice_always": "已加规则",
       "choice_cancelled": "已取消",
-      "choice_denied": "已拦截"
+      "choice_denied": "已拦截",
+      "origin_ui": "窗口",
+      "origin_cli": "命令行",
+      "origin_mcp": "MCP 代理"
     }
   }
 }

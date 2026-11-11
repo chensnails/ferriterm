@@ -11,8 +11,8 @@
 use std::sync::Arc;
 
 use ft_policy::{
-    AuditEntry, AuditLog, Choice, Context, Decision, Effect, Mode, Policy, Reason, Risk, Rule,
-    Verdict, VerifyReport,
+    AuditEntry, AuditLog, Choice, Context, Decision, Effect, Mode, Origin, Policy, Reason, Risk,
+    Rule, Verdict, VerifyReport,
 };
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -169,6 +169,10 @@ pub struct AuditInput {
     pub host: String,
     pub decision: Decision,
     pub choice: Choice,
+    /// Who asked. Absent means the window: a record written before this field
+    /// existed has none, and neither does a call that forgot to say.
+    #[serde(default)]
+    pub origin: Option<Origin>,
 }
 
 fn now_secs() -> u64 {
@@ -195,6 +199,9 @@ pub(crate) fn record_decision(
         verdict: entry.decision.verdict,
         choice: entry.choice,
         mode: entry.decision.mode,
+        // Always written for new records, so a missing origin genuinely means
+        // "recorded before the field existed" rather than "not said".
+        origin: Some(entry.origin.unwrap_or(Origin::Ui)),
         prev_hash: String::new(),
         hash: String::new(),
     };

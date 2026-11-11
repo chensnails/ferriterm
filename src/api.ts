@@ -1437,6 +1437,9 @@ export type AuditChoice =
   | "cancelled"
   | "denied";
 
+/** Who asked for the decision. */
+export type AuditOrigin = "ui" | "cli" | "mcp";
+
 export interface AuditEntry {
   id: string;
   /** UTC, second precision, `YYYY-MM-DDTHH:MM:SSZ`. */
@@ -1449,6 +1452,8 @@ export interface AuditEntry {
   verdict: PolicyVerdict;
   choice: AuditChoice;
   mode: PolicyMode;
+  /** Absent in records written before the field existed; treated as `ui`. */
+  origin?: AuditOrigin;
   prevHash: string;
   hash: string;
 }
@@ -1474,6 +1479,7 @@ export function policyRecord(input: {
   host: string;
   decision: PolicyDecision;
   choice: AuditChoice;
+  origin?: AuditOrigin;
 }): Promise<AuditEntry> {
   return invoke<AuditEntry>("policy_record", { entry: input });
 }

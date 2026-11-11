@@ -55,7 +55,11 @@ function record(
   decision: PolicyDecision,
   choice: AuditChoice,
 ) {
-  void policyRecord({ command, host, decision, choice }).catch(() => {});
+  // Everything the window does says so, so a record without an origin really
+  // does mean "written before the field existed".
+  void policyRecord({ command, host, decision, choice, origin: "ui" }).catch(
+    () => {},
+  );
 }
 
 export async function runGuarded(

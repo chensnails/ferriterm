@@ -358,6 +358,7 @@ async fn run_command(arguments: &Value, endpoint: Option<&str>) -> Value {
             session,
             command,
             timeout_ms,
+            origin: Some("mcp".to_string()),
         })
         .await
     {
