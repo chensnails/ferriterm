@@ -72,6 +72,9 @@ package version in `src-tauri/tauri.conf.json`.
 - SFTP requests time out after 30s and retire the connection; owner-name exec
   is bounded by a 15s deadline and a 1 MiB output cap.
 - Loopback smoke examples compile against the current `SshConnectArgs`.
+- Vault backups are flushed through a write handle before the rename. Windows
+  rejects `FlushFileBuffers` on a read-only handle, so every vault write after
+  the first one failed with "Access is denied".
 
 ## [0.1.0] - 2026-11-09
 
