@@ -36,6 +36,7 @@ import {
   applyMotion,
   builtinPalette,
   HIGHLIGHT_COLORS,
+  normalizeThemeId,
   setTerminalPalette,
   type Theme,
 } from "./theme";
@@ -1616,7 +1617,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   loadSettings: async () => {
     if (!isTauri) return;
     const settings = await api.getSettings();
-    const theme = settings.theme || "dark";
+    const theme = normalizeThemeId(settings.theme || "dark");
     const language = settings.language || get().language;
     const keepalive = Number.parseInt(settings.keepalive ?? "", 10);
     const fontSize = Number.parseInt(settings.terminalFontSize ?? "", 10);
@@ -1713,6 +1714,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (isTauri) {
       // The queue starts at its built-in default, so push the saved value.
       api.setTransferConcurrency(get().transferConcurrency).catch(() => {});
+      // Retire the duplicate theme id from storage too, so exports and later
+      // loads do not keep carrying a value no bundled theme resolves to.
+      if (settings.theme && theme !== settings.theme) {
+        api.setSetting("theme", theme).catch(() => {});
+      }
     }
     // The stored type scale and motion preference must reach the DOM even when
     // they equal the defaults, because a previous session may have changed them.

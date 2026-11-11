@@ -299,27 +299,6 @@
   --tag-pink: #ee59a2;
 }
 
-[data-theme="one-dark"] {
-  --bg-base: #282c34;
-  --bg-panel: #21252b;
-  --bg-elevated: #2f343d;
-  --border: #3b4048;
-  --fg-primary: #abb2bf;
-  --fg-muted: #90949d;
-  --fg-on-accent: #1b1f24;
-  --accent: #61afef;
-  --accent-hover: #7cc0f5;
-  --danger: #e1737b;
-  --warning: #e5c07b;
-  --success: #98c379;
-  --selection: #3e445188;
-  --overlay: rgb(0 0 0 / 0.5);
-  --tag-blue: #5791ff;
-  --tag-red: #f26868;
-  --tag-purple: #b874f8;
-  --tag-pink: #ef61a7;
-}
-
 [data-theme="catppuccin"] {
   --bg-base: #1e1e2e;
   --bg-panel: #181825;

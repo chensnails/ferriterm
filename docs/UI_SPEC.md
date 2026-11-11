@@ -125,8 +125,10 @@ These phases refine the existing baseline; they do not redefine it. Rulings:
   theme-card radii now come from tokens; `::placeholder` no longer applies an
   `0.8` alpha over `--fg-muted` (which dropped its contrast below 4.5:1).
 - **Theme scope.** S1–S4 touch `:root` (shared by all themes) plus the default
-  `dark`/`light` blocks only. The 19 bundled themes inherit the shared rules
-  and are not individually rewritten.
+  `dark`/`light` blocks only. The 18 bundled themes inherit the shared rules
+  and are not individually rewritten. The retired `one-dark` (a duplicate of
+  `atom-one-dark`) is resolved through `normalizeThemeId()` in `theme.ts`, so
+  a stored setting from an older build still lands on a real theme.
 - **Three-state kit (S2).** `EmptyState`, `Skeleton`, `LoadingState`,
   `ErrorState` and `Notice` share one rhythm and one accent edge. An empty
   state has a title/description hierarchy; loading uses a spinner plus a

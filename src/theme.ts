@@ -63,6 +63,18 @@ export const HIGHLIGHT_COLORS = [
 export type Theme = string;
 export type ThemeBase = "dark" | "light";
 
+// "one-dark" and "atom-one-dark" shipped the same background, foreground and
+// ANSI table, differentiated only by their accent. They were merged in favour
+// of the four light/dark brand pairs, so a stored setting written by an older
+// build must still resolve to a real theme instead of falling back to default.
+const LEGACY_THEME_IDS: Record<string, Theme> = {
+  "one-dark": "atom-one-dark",
+};
+
+export function normalizeThemeId(id: Theme): Theme {
+  return LEGACY_THEME_IDS[id] ?? id;
+}
+
 export interface BuiltinTheme {
   id: Theme;
   base: ThemeBase;
@@ -85,7 +97,6 @@ export const BUILTIN_THEMES: BuiltinTheme[] = [
   { id: "github-dark", base: "dark" },
   { id: "tokyo-night", base: "dark" },
   { id: "gruvbox", base: "dark" },
-  { id: "one-dark", base: "dark" },
   { id: "catppuccin", base: "dark" },
   { id: "rose-pine", base: "dark" },
 ];
@@ -393,24 +404,6 @@ export const BUILTIN_PALETTES: Record<string, TerminalPalette> = {
     "#8ec07c",
     "#ebdbb2",
   ]),
-  "one-dark": palette("#282c34", "#abb2bf", "#528bff", "#3e445188", [
-    "#282c34",
-    "#e06c75",
-    "#98c379",
-    "#e5c07b",
-    "#61afef",
-    "#c678dd",
-    "#56b6c2",
-    "#abb2bf",
-    "#5c6370",
-    "#e06c75",
-    "#98c379",
-    "#e5c07b",
-    "#61afef",
-    "#c678dd",
-    "#56b6c2",
-    "#ffffff",
-  ]),
   catppuccin: palette("#1e1e2e", "#cdd6f4", "#f5e0dc", "#585b7088", [
     "#45475a",
     "#f38ba8",
@@ -450,7 +443,7 @@ export const BUILTIN_PALETTES: Record<string, TerminalPalette> = {
 };
 
 export function builtinPalette(id: Theme): TerminalPalette | null {
-  return BUILTIN_PALETTES[id] ?? null;
+  return BUILTIN_PALETTES[normalizeThemeId(id)] ?? null;
 }
 
 const TOKEN_NAME = /^--[a-z0-9-]+$/i;
@@ -459,7 +452,8 @@ const TOKEN_VALUE = /^[#a-z0-9(),.%\s+-]+$/i;
 let appliedPackTokens: string[] = [];
 
 export function builtinTheme(id: Theme): BuiltinTheme | undefined {
-  return BUILTIN_THEMES.find((item) => item.id === id);
+  const normalized = normalizeThemeId(id);
+  return BUILTIN_THEMES.find((item) => item.id === normalized);
 }
 
 function baseOf(id: Theme): ThemeBase {
@@ -483,9 +477,9 @@ export function applyTheme(
   const root = document.documentElement;
   for (const name of appliedPackTokens) root.style.removeProperty(name);
   appliedPackTokens = [];
-  const base = baseOf(theme);
-  root.dataset.theme =
-    tokens && Object.keys(tokens).length > 0 ? base : theme;
+  const id = normalizeThemeId(theme);
+  const base = baseOf(id);
+  root.dataset.theme = tokens && Object.keys(tokens).length > 0 ? base : id;
   if (!tokens) return;
   for (const [name, value] of Object.entries(tokens)) {
     if (sanitizeToken(name, value)) {
