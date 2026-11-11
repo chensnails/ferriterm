@@ -31,6 +31,18 @@ package version in `src-tauri/tauri.conf.json`.
 - Fault-injection tests cover an abrupt server loss and a blackholed link: a
   session is reaped and surfaced as closed within a bounded time instead of
   hanging.
+- Windows SSH agent support: the Agent option connects to the OpenSSH named
+  pipe and falls back to Pageant, so it no longer only works on Unix.
+- Per-host character set (UTF-8 by default; GBK, GB18030, Big5, Shift_JIS,
+  EUC-JP, EUC-KR, Windows-1252): shell output is streamed through a decoder,
+  input is re-encoded before it reaches the shell, and SFTP names, the home
+  path and text files use the same charset.
+- File-pane path joins and parent lookups handle Windows drive roots and UNC
+  shares the same way on both the local and remote side.
+- Hashed known_hosts entries (`|1|…`) are listed, matched and removable
+  instead of being skipped.
+- CI runs the backend suite, clippy and the loopback SSH smoke tests on
+  Linux, macOS and Windows.
 
 ### Fixed
 
