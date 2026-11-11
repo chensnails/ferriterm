@@ -62,15 +62,7 @@ jobs:
 
       - name: Install webview and WebDriver dependencies
         run: |
-          # The runner's default azure.archive.ubuntu.com mirror intermittently
-          # blackholes ("Ign:" per package), so point apt at the official
-          # archive and pin IPv4 with bounded retries instead of stalling.
-          sudo sed -i -E 's#https?://(azure\.archive|security)\.ubuntu\.com/ubuntu#http://archive.ubuntu.com/ubuntu#g' \
-            /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources || true
-          opts=(-o Acquire::ForceIPv4=true -o Acquire::Retries=3
-                -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20)
-          timeout 300 sudo apt-get "${opts[@]}" update
-          timeout 900 sudo apt-get "${opts[@]}" install -y \
+          bash scripts/ci-apt.sh \
             libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
             libxdo-dev libssl-dev webkit2gtk-driver xvfb
 
@@ -141,14 +133,7 @@ jobs:
       - name: Install Linux webview dependencies
         if: runner.os == 'Linux'
         run: |
-          # Same mirror substitution as the e2e job: the Azure archive mirror
-          # is unreliable from hosted runners.
-          sudo sed -i -E 's#https?://(azure\.archive|security)\.ubuntu\.com/ubuntu#http://archive.ubuntu.com/ubuntu#g' \
-            /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources || true
-          opts=(-o Acquire::ForceIPv4=true -o Acquire::Retries=3
-                -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20)
-          timeout 300 sudo apt-get "${opts[@]}" update
-          timeout 900 sudo apt-get "${opts[@]}" install -y \
+          bash scripts/ci-apt.sh \
             libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
             libxdo-dev libssl-dev
 
