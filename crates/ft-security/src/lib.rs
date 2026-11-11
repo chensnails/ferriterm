@@ -891,7 +891,12 @@ fn atomic_replace(path: &Path, data: &[u8], keep_backup: bool) -> Result<(), Cre
         let bak = PathBuf::from(format!("{}.bak", path.display()));
         let bak_tmp = PathBuf::from(format!("{}.bak.tmp", path.display()));
         fs::copy(path, &bak_tmp)?;
-        fs::File::open(&bak_tmp)?.sync_all()?;
+        // FlushFileBuffers needs a write handle; a read-only open fails with
+        // access denied on Windows.
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&bak_tmp)?
+            .sync_all()?;
         fs::rename(&bak_tmp, &bak)?;
     }
     fs::rename(&tmp, path)?;
