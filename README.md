@@ -74,6 +74,7 @@ examples provide a loopback SSH fixture used by CI and local smoke tests.
 - [docs/RELEASING.md](docs/RELEASING.md) — release and signing handbook
 - [docs/assessment-2026-11-10.md](docs/assessment-2026-11-10.md) — engineering
   assessment and remediation roadmap
+- [docs/backlog.md](docs/backlog.md) — remaining CI and release work
 
 ## License
 
