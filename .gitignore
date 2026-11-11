@@ -4,5 +4,6 @@ dist/
 src-tauri/target/
 src-tauri/gen/schemas/
 testenv/host_key*
+soak-runs/
 *.local
 .DS_Store
