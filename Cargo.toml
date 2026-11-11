@@ -16,6 +16,7 @@ members = [
   "crates/ft-vfs",
   "crates/ft-transfer",
   "crates/ft-ai",
+  "crates/ft-policy",
 ]
 
 [workspace.package]
@@ -38,6 +39,7 @@ ft-plugin = { path = "crates/ft-plugin" }
 ft-vfs = { path = "crates/ft-vfs" }
 ft-transfer = { path = "crates/ft-transfer" }
 ft-ai = { path = "crates/ft-ai" }
+ft-policy = { path = "crates/ft-policy" }
 tokio = { version = "1", features = ["rt", "sync", "time", "macros"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

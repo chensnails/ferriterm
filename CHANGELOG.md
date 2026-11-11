@@ -8,6 +8,14 @@ package version in `src-tauri/tauri.conf.json`.
 
 ### Added
 
+- Command approval policy (`ft-policy`): a shell line is split into simple
+  commands, graded R0 (read only) to R4 (fatal) from its program name plus the
+  modifiers that make the same program dangerous — recursion, `sudo`, system
+  paths, block devices, credential files, `curl | sh`, disk writes — and
+  answered with allow / ask / deny. User rules are glob patterns scoped to a
+  host, last match wins, and a fatal delete can never be whitelisted. Typed
+  commands are not routed through it: the engine exists for the paths a person
+  does not type, which today means the assistant's run action.
 - Built-in AI assistant (bring your own key): OpenAI-compatible and Anthropic
   endpoints, streaming chat, natural-language-to-command with an explicit
   insert step, and failure explanations. Providers and their models are managed

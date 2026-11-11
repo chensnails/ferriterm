@@ -1681,6 +1681,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ft-policy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ft-pty"
 version = "0.1.0"
 dependencies = [
