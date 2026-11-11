@@ -107,7 +107,7 @@ impl SshRuntimeState {
     /// Reclaims everything a session was holding when it went away, whether it
     /// died on its own or was closed by the user. Safe to call twice.
     pub async fn reap(&self, session_id: &str) {
-        tracing::debug!(session = %session_id, "reaping a closed session");
+        tracing::info!(session = %session_id, "reaping a closed session");
         self.forwards.stop_session(session_id).await;
         self.sftp.invalidate(session_id).await;
         self.remote.forget(session_id);

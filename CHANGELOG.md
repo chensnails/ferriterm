@@ -25,8 +25,12 @@ package version in `src-tauri/tauri.conf.json`.
 - Automatic sync reports its outcome in Settings (success time, failure
   reason, conflict) and retries a transient failure after 1 and 3 minutes.
 - Diagnostics are written to `<app data>/logs/ferriterm.log` at INFO and above
-  (`RUST_LOG` overrides the filter). The file rotates at 4 MiB with one
+  (`RUST_LOG` overrides the filter). Session open/reap and failed connection
+  attempts are recorded without credentials. The file rotates at 4 MiB with one
   previous generation, and panics are recorded with a backtrace.
+- Fault-injection tests cover an abrupt server loss and a blackholed link: a
+  session is reaped and surfaced as closed within a bounded time instead of
+  hanging.
 
 ### Fixed
 
