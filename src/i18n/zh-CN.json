@@ -288,7 +288,8 @@
       "about": "关于",
       "credentials": "凭据",
       "ai": "AI",
-      "security": "安全策略"
+      "security": "安全策略",
+      "agent": "Agent 接入"
     },
     "desc": {
       "general": "语言与标签页行为。",
@@ -301,7 +302,8 @@
       "about": "版本、存储位置与免责声明。",
       "credentials": "保险库、SSH 密钥与已知主机。",
       "ai": "内置助手的服务商、上下文范围与脱敏设置。",
-      "security": "审批模式、规则与执行审计。"
+      "security": "审批模式、规则与执行审计。",
+      "agent": "通过 MCP 把这台应用交给外部 Agent 使用。"
     },
     "tabsTitle": "标签页",
     "tabNumbering": "标签序号",
@@ -1499,6 +1501,21 @@
       "origin_ui": "窗口",
       "origin_cli": "命令行",
       "origin_mcp": "MCP 代理"
+    }
+  },
+  "agent": {
+    "settings": {
+      "cliGroup": "命令行工具",
+      "cliHint": "MCP 服务就是这个可执行文件。外部 Agent 需要绝对路径，所以这里显示的是实际会运行的路径，不是猜的。",
+      "copy": "复制",
+      "copied": "已复制",
+      "copyFailed": "剪贴板拒绝写入，请手动选中复制。",
+      "snippetGroup": "MCP 配置",
+      "snippetHint": "把这段加到客户端的 mcpServers 下。Qoder、Qoder CN、WorkBuddy 以及其他支持 MCP 的编辑器都接受这个结构；配置文件放在哪里以各客户端自己的设置为准。",
+      "snippetFoot": "三个工具：列主机、列会话、执行命令，命令走的是和助手同一个闸门。任何东西不经过评级与记录都到不了 shell。",
+      "verifyGroup": "检查连接",
+      "verifyHint": "应用运行时执行它，会打印当前使用的 endpoint 文件、端口和已打开的会话数。",
+      "verifyFoot": "如果提示找不到 endpoint 文件，说明应用没在运行——这个文件在启动时写入、退出时删除。"
     }
   }
 }

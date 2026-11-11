@@ -449,6 +449,16 @@ export function SparkleIcon({ size = 14 }: { size?: number }) {
   );
 }
 
+export function AgentIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <rect x="2.2" y="3.4" width="11.6" height="9.2" rx="2.4" />
+      <path d="M5.4 6.6l2 1.9-2 1.9" />
+      <path d="M9 10.6h2" />
+    </svg>
+  );
+}
+
 export function ShieldIcon({ size = 14 }: { size?: number }) {
   return (
     <svg {...base(size)}>

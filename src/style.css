@@ -8674,3 +8674,48 @@ body.dock-resizing-y * {
     grid-template-columns: 1fr;
   }
 }
+
+/* Settings → Agent: the two things that are hard to get right on the other
+   side of an MCP configuration — the real binary path, and the entry shape. */
+.agent-block {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.agent-block-stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.agent-block-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.agent-code {
+  display: block;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  line-height: var(--line-ui);
+  /* A path or a JSON line can be longer than the panel. Wrapping keeps the
+     whole value readable; the copy button hands over the unwrapped text. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.agent-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+}

@@ -238,6 +238,7 @@ pub fn run() {
             policy::policy_audit_verify,
             policy::policy_audit_path,
             policy::policy_preview,
+            agent::agent_cli_path,
         ])
         .build(tauri::generate_context!())
         .expect("error while building ferriterm")

@@ -288,7 +288,8 @@
       "about": "About",
       "credentials": "Credentials",
       "ai": "AI",
-      "security": "Security"
+      "security": "Security",
+      "agent": "Agents"
     },
     "desc": {
       "general": "Language and tab behaviour.",
@@ -301,7 +302,8 @@
       "about": "Version, storage locations and disclaimer.",
       "credentials": "Vault, SSH keys and known hosts.",
       "ai": "Model providers, context scope and redaction for the built-in assistant.",
-      "security": "Approval mode, rules and the run audit."
+      "security": "Approval mode, rules and the run audit.",
+      "agent": "Hand this app to an external agent over MCP."
     },
     "tabsTitle": "Tabs",
     "tabNumbering": "Tab numbering",
@@ -1499,6 +1501,21 @@
       "origin_ui": "window",
       "origin_cli": "command line",
       "origin_mcp": "MCP agent"
+    }
+  },
+  "agent": {
+    "settings": {
+      "cliGroup": "Command line tool",
+      "cliHint": "The MCP server is this binary. An agent needs its absolute path, so this is the path that actually runs, not a guess.",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copyFailed": "The clipboard refused the text. Select it and copy by hand.",
+      "snippetGroup": "MCP configuration",
+      "snippetHint": "Add this under mcpServers in your client. Qoder, Qoder CN, WorkBuddy and other MCP-capable editors all take this shape; where the file lives is in their own settings.",
+      "snippetFoot": "Three tools: list the hosts, list the sessions, and run a command through the same gate as the assistant. Nothing reaches a shell without being graded and recorded.",
+      "verifyGroup": "Check the connection",
+      "verifyHint": "With the app running, this prints the endpoint file in use, the port and the open sessions.",
+      "verifyFoot": "If it says the endpoint file is missing, the app is not running — the file is written when it starts and removed when it exits."
     }
   }
 }

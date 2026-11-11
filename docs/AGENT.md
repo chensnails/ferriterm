@@ -166,6 +166,10 @@ Only an unknown tool name or method is a protocol error.
 Protocol revisions `2025-06-18`, `2025-03-26` and `2024-11-05` are answered in
 their own dialect; anything else gets `2025-06-18` and the client decides.
 
+Settings → Agents shows the binary's real path and this entry, ready to copy —
+the path comes from the running process, so it points at a file that exists
+rather than at whatever `ferriterm-cli` happens to resolve to in a shell.
+
 Check it without a client:
 
 ```console

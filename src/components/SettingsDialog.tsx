@@ -27,6 +27,7 @@ import { DEV_VERSION } from "../version";
 import { detectLanguage } from "../i18n";
 import { Modal } from "./Modal";
 import { CredentialVault } from "./CredentialVault";
+import { SettingsAgent } from "./SettingsAgent";
 import { SettingsAi } from "./SettingsAi";
 import { SettingsPolicy } from "./SettingsPolicy";
 import { ShortcutEditor } from "./ShortcutEditor";
@@ -56,6 +57,7 @@ import {
   FilesIcon,
   GearIcon,
   InfoIcon,
+  AgentIcon,
   KeyboardIcon,
   KeyIcon,
   LogoMark,
@@ -76,6 +78,7 @@ const SETTINGS_CATEGORIES = [
   "credentials",
   "terminal",
   "ai",
+  "agent",
   "security",
   "keyboard",
   "transfer",
@@ -92,6 +95,7 @@ const CATEGORY_ICONS: Record<SettingsCategory, typeof SlidersIcon> = {
   credentials: KeyIcon,
   terminal: TerminalIcon,
   ai: SparkleIcon,
+  agent: AgentIcon,
   security: ShieldIcon,
   keyboard: KeyboardIcon,
   transfer: FilesIcon,
@@ -1052,6 +1056,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           )}
           {category === "credentials" && <CredentialVault />}
           {category === "ai" && <SettingsAi />}
+          {category === "agent" && <SettingsAgent />}
           {category === "security" && <SettingsPolicy />}
           {category === "terminal" && (
             <>

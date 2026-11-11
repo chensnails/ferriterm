@@ -8,6 +8,11 @@ package version in `src-tauri/tauri.conf.json`.
 
 ### Added
 
+- Settings → Agents collects what an external agent needs: the CLI's real path
+  and a ready `mcpServers` entry, each with a copy button. Nothing is written to
+  anyone else's configuration — every MCP client keeps it in a different file,
+  in a different dialect, sometimes with comments, and guessing at that is a
+  good way to break someone's editor.
 - `ferriterm-cli mcp` speaks MCP on stdin and stdout, so an editor or an agent
   can launch it as a child process and call `list_hosts`, `list_sessions` and
   `run_command`. `run_command` is the same `/v1/exec` route as everything else —

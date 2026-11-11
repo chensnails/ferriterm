@@ -399,6 +399,25 @@ pub fn start(
     Ok(())
 }
 
+/// The CLI that speaks to this service, as an absolute path when it sits next
+/// to the app. The settings page shows this so a copied configuration points at
+/// a binary that exists instead of at whatever `ferriterm-cli` resolves to in
+/// some other shell.
+#[tauri::command]
+pub fn agent_cli_path() -> String {
+    let name = if cfg!(windows) {
+        "ferriterm-cli.exe"
+    } else {
+        "ferriterm-cli"
+    };
+    std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|dir| dir.join(name)))
+        .filter(|path| path.exists())
+        .map(|path| path.display().to_string())
+        .unwrap_or_else(|| name.to_string())
+}
+
 /// Removes the endpoint file when the app exits cleanly, so the file never
 /// outlives the token it holds.
 pub fn clear_endpoint() {

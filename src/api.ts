@@ -1484,6 +1484,11 @@ export function policyRecord(input: {
   return invoke<AuditEntry>("policy_record", { entry: input });
 }
 
+/** Absolute path of the CLI bundled next to the app, or its bare name. */
+export function agentCliPath(): Promise<string> {
+  return invoke<string>("agent_cli_path");
+}
+
 export function policyAuditMonths(): Promise<string[]> {
   return invoke<string[]>("policy_audit_months");
 }
