@@ -65,6 +65,30 @@ package version in `src-tauri/tauri.conf.json`.
   refused rather than silently ignored. Plain FTP only — FTPS is not
   implemented, and the dialog says so.
 
+### Changed
+
+- AI model compatibility is now driven by three protocol families behind one
+  adapter — OpenAI-compatible, Anthropic Messages and Azure OpenAI — so adding
+  a vendor is a preset, not a new client. Eighteen presets ship with their base
+  URLs and models filled in (OpenAI, Anthropic, Gemini, Azure, DeepSeek, Qwen,
+  GLM, Kimi, MiniMax, SiliconFlow, Volcengine Ark, Qianfan, Hunyuan, Yi,
+  StepFun, Groq, OpenRouter, Ollama) and any field stays editable.
+- Base URLs are normalised before use: a bare host, a versioned base
+  (`/v1`, `/v2`, `/api/v3`), an already-complete `/chat/completions` path and
+  both Azure URL styles all resolve to the right endpoint instead of producing
+  a doubled path.
+- Provider settings gained the parameters vendors disagree on: output-cap field
+  name (`max_tokens` vs `max_completion_tokens`), a sampling on/off switch for
+  reasoning models, `top_p`, stop sequences, system-prompt folding, stream usage,
+  reasoning effort, `api-version`, extra request headers and an explicit proxy.
+  Numeric values are clamped to each protocol's accepted range on save.
+- A request rejected with 400/422 is retried once with the offending difference
+  removed (cap field name, sampling parameters, or system role), and the
+  interface says which adjustment was applied instead of failing silently.
+- Settings → AI can pull the model list from the vendor (`GET /models`,
+  including the `v1beta/openai` and Azure variants) and offer it as autocomplete;
+  the field stays hand-editable when the call fails.
+
 ### Fixed
 
 - Transfer progress forwarding survives a lagged broadcast instead of stopping

@@ -202,6 +202,7 @@ pub fn run() {
             ai::ai_delete_provider,
             ai::ai_presets,
             ai::ai_test_provider,
+            ai::ai_list_models,
             ai::ai_chat,
             ai::ai_chat_stream,
             ai::ai_generate_command,

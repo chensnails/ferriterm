@@ -1141,8 +1141,15 @@ export function onNetToolDone(
 
 // ------------------------------------------------------------------- AI (BYOK)
 
-export type AiKind = "openai" | "anthropic";
+export type AiKind = "openai" | "anthropic" | "azure";
 export type AiScope = "none" | "command" | "selection" | "screen";
+export type AiMaxTokensField = "auto" | "maxTokens" | "maxCompletionTokens";
+export type AiReasoning = "off" | "low" | "medium" | "high";
+
+export interface AiHeader {
+  name: string;
+  value: string;
+}
 
 /** Provider as returned to the UI; the API key itself never leaves Rust. */
 export interface AiProvider {
@@ -1156,6 +1163,21 @@ export interface AiProvider {
   maxTokens: number;
   fastModel: string;
   preset: string;
+  /** Which field carries the output cap; `auto` retries with the other one. */
+  maxTokensField: AiMaxTokensField;
+  /** Send temperature/top_p at all — reasoning models reject them. */
+  sendSampling: boolean;
+  topP: number | null;
+  stop: string[];
+  /** Merge the system prompt into the first user turn. */
+  foldSystem: boolean;
+  /** Ask for a usage block on the stream. */
+  streamUsage: boolean;
+  reasoning: AiReasoning;
+  /** Azure `api-version`. */
+  apiVersion: string;
+  extraHeaders: AiHeader[];
+  proxy: string;
   hasKey: boolean;
 }
 
@@ -1164,15 +1186,15 @@ export type AiProviderInput = Omit<AiProvider, "hasKey">;
 export interface AiPreset {
   id: string;
   name: string;
-  kind: AiKind;
-  baseUrl: string;
-  model: string;
+  provider: AiProviderInput;
 }
 
 export interface AiReply {
   text: string;
   latencyMs: number;
   model: string;
+  /** i18n keys for parameters dropped automatically by the vendor. */
+  notes: string[];
 }
 
 export interface AiCommandReply {
@@ -1180,6 +1202,7 @@ export interface AiCommandReply {
   explanation: string;
   latencyMs: number;
   model: string;
+  notes: string[];
 }
 
 export interface AiChatMessage {
@@ -1247,6 +1270,14 @@ export function aiDeleteProvider(id: string): Promise<void> {
 
 export function aiTestProvider(id: string): Promise<AiReply> {
   return invoke<AiReply>("ai_test_provider", { id });
+}
+
+/** Read the vendor catalogue; works before the provider is saved. */
+export function aiListModels(
+  provider: AiProviderInput,
+  key?: string,
+): Promise<string[]> {
+  return invoke<string[]>("ai_list_models", { provider, key: key ?? null });
 }
 
 export function aiChat(

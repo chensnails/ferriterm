@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use ft_ai::{ContextRequest, Kind, Provider, Reply};
+use ft_ai::{ContextRequest, HeaderPair, Kind, Provider, Reply};
 use serde::{Deserialize, Serialize};
 use tauri::ipc::Channel;
 use tauri::State;
@@ -45,6 +45,9 @@ pub struct CommandReply {
     pub explanation: String,
     pub latency_ms: u64,
     pub model: String,
+    /// i18n keys for parameters that had to be dropped (see `ft_ai::Reply`).
+    #[serde(default)]
+    pub notes: Vec<String>,
 }
 
 fn load_providers(store: &Store) -> Result<Vec<Provider>, String> {
@@ -142,6 +145,9 @@ pub fn ai_save_provider(
             .unwrap_or_default();
         provider.id = format!("p{stamp}");
     }
+    // Clamp numbers and trim text once, on the way in, so every later request
+    // uses the same sanitised shape the UI shows.
+    let provider = provider.sanitize();
     let mut providers = load_providers(&store)?;
     match providers.iter_mut().find(|item| item.id == provider.id) {
         Some(existing) => *existing = provider.clone(),
@@ -284,6 +290,7 @@ pub async fn ai_generate_command(
         explanation,
         latency_ms: reply.latency_ms,
         model: reply.model,
+        notes: reply.notes,
     })
 }
 
@@ -317,76 +324,112 @@ pub async fn ai_explain(
         .map_err(|err| err.to_string())
 }
 
-/// Preset catalogue returned to the settings UI. Base URLs and model names are
-/// public defaults; the user can override any of them.
+/// Preset catalogue returned to the settings UI. Every entry carries a fully
+/// formed [`Provider`], so picking a vendor also adopts the protocol, model,
+/// cap field and header defaults that vendor needs. Nothing here is special
+/// cased later: the request path only ever reads the stored provider.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderPreset {
     pub id: &'static str,
     pub name: &'static str,
-    pub kind: Kind,
-    pub base_url: &'static str,
-    pub model: &'static str,
+    pub provider: Provider,
+}
+
+fn preset(
+    id: &'static str,
+    name: &'static str,
+    kind: Kind,
+    base_url: &str,
+    model: &str,
+) -> ProviderPreset {
+    ProviderPreset {
+        id,
+        name,
+        provider: Provider {
+            name: name.to_string(),
+            kind,
+            base_url: base_url.to_string(),
+            model: model.to_string(),
+            preset: id.to_string(),
+            ..Provider::default()
+        },
+    }
 }
 
 #[tauri::command]
 pub fn ai_presets() -> Vec<ProviderPreset> {
-    vec![
-        ProviderPreset {
-            id: "openai",
-            name: "OpenAI",
-            kind: Kind::OpenAi,
-            base_url: "https://api.openai.com/v1",
-            model: "gpt-4.1-mini",
+    let mut list = vec![
+        preset("openai", "OpenAI", Kind::OpenAi, "https://api.openai.com/v1", "gpt-4.1-mini"),
+        preset("anthropic", "Anthropic", Kind::Anthropic, "https://api.anthropic.com/v1", "claude-sonnet-4-5"),
+        // Gemini exposes an OpenAI-compatible face; the native generateContent
+        // shape is intentionally not implemented.
+        preset("gemini", "Google Gemini", Kind::OpenAi, "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-2.5-flash"),
+        preset("azure", "Azure OpenAI", Kind::Azure, "https://your-resource.openai.azure.com/openai/v1", "gpt-4.1-mini"),
+        preset("deepseek", "DeepSeek", Kind::OpenAi, "https://api.deepseek.com/v1", "deepseek-chat"),
+        preset("dashscope", "阿里云百炼（通义）", Kind::OpenAi, "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-plus"),
+        preset("zhipu", "智谱 GLM", Kind::OpenAi, "https://open.bigmodel.cn/api/paas/v4", "glm-4-flash"),
+        preset("moonshot", "Kimi（月之暗面）", Kind::OpenAi, "https://api.moonshot.cn/v1", "moonshot-v1-8k"),
+        preset("minimax", "MiniMax", Kind::OpenAi, "https://api.minimaxi.com/v1", "MiniMax-Text-01"),
+        preset("siliconflow", "硅基流动", Kind::OpenAi, "https://api.siliconflow.cn/v1", "deepseek-ai/DeepSeek-V3"),
+        preset("ark", "火山方舟（豆包）", Kind::OpenAi, "https://ark.cn-beijing.volces.com/api/v3", "doubao-pro-32k"),
+        preset("qianfan", "百度千帆（文心）", Kind::OpenAi, "https://qianfan.baidubce.com/v2", "ernie-4.5-turbo-128k"),
+        preset("hunyuan", "腾讯混元", Kind::OpenAi, "https://tokenhub.tencentmaas.com/v1", "hunyuan-turbos-latest"),
+        preset("yi", "零一万物", Kind::OpenAi, "https://api.lingyiwanwu.com/v1", "yi-lightning"),
+        preset("stepfun", "阶跃星辰", Kind::OpenAi, "https://api.stepfun.com/v1", "step-2-16k"),
+        preset("groq", "Groq", Kind::OpenAi, "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"),
+        preset("openrouter", "OpenRouter", Kind::OpenAi, "https://openrouter.ai/api/v1", "openai/gpt-4.1-mini"),
+        preset("ollama", "Ollama（本地）", Kind::OpenAi, "http://127.0.0.1:11434/v1", "qwen2.5:7b"),
+    ];
+    // Azure needs a version for the classic deployment path.
+    if let Some(azure) = list.iter_mut().find(|item| item.id == "azure") {
+        azure.provider.api_version = "2024-10-21".into();
+    }
+    // OpenRouter asks callers to identify themselves; other vendors ignore it.
+    if let Some(router) = list.iter_mut().find(|item| item.id == "openrouter") {
+        router.provider.extra_headers = vec![HeaderPair {
+            name: "HTTP-Referer".into(),
+            value: "https://github.com/chensnails/ferriterm".into(),
+        }];
+    }
+    list.push(ProviderPreset {
+        id: "custom",
+        name: "自定义",
+        provider: Provider {
+            name: "自定义".into(),
+            base_url: "https://".into(),
+            model: String::new(),
+            preset: "custom".into(),
+            ..Provider::default()
         },
-        ProviderPreset {
-            id: "anthropic",
-            name: "Anthropic",
-            kind: Kind::Anthropic,
-            base_url: "https://api.anthropic.com/v1",
-            model: "claude-sonnet-4-5",
-        },
-        ProviderPreset {
-            id: "dashscope",
-            name: "阿里云百炼（通义）",
-            kind: Kind::OpenAi,
-            base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model: "qwen-plus",
-        },
-        ProviderPreset {
-            id: "deepseek",
-            name: "DeepSeek",
-            kind: Kind::OpenAi,
-            base_url: "https://api.deepseek.com/v1",
-            model: "deepseek-chat",
-        },
-        ProviderPreset {
-            id: "zhipu",
-            name: "智谱 GLM",
-            kind: Kind::OpenAi,
-            base_url: "https://open.bigmodel.cn/api/paas/v4",
-            model: "glm-4-flash",
-        },
-        ProviderPreset {
-            id: "moonshot",
-            name: "Kimi（月之暗面）",
-            kind: Kind::OpenAi,
-            base_url: "https://api.moonshot.cn/v1",
-            model: "moonshot-v1-8k",
-        },
-        ProviderPreset {
-            id: "ollama",
-            name: "Ollama（本地）",
-            kind: Kind::OpenAi,
-            base_url: "http://127.0.0.1:11434/v1",
-            model: "qwen2.5:7b",
-        },
-        ProviderPreset {
-            id: "custom",
-            name: "自定义",
-            kind: Kind::OpenAi,
-            base_url: "https://",
-            model: "",
-        },
-    ]
+    });
+    list
+}
+
+/// Read the model catalogue straight from the vendor. Works on an unsaved
+/// draft: the form key wins, otherwise the stored one is used.
+#[tauri::command]
+pub async fn ai_list_models(
+    credentials: State<'_, Credentials>,
+    provider: Provider,
+    key: Option<String>,
+) -> Result<Vec<String>, String> {
+    let typed = key.unwrap_or_default().trim().to_string();
+    let key = if typed.is_empty() {
+        if provider.id.trim().is_empty() {
+            return Err("enter an API key first".into());
+        }
+        credentials
+            .get(&provider.secret_ref())
+            .map_err(|err| err.to_string())?
+            .unwrap_or_default()
+    } else {
+        typed
+    };
+    if key.trim().is_empty() {
+        return Err("no API key saved for this provider".into());
+    }
+    ft_ai::models(&provider, &key)
+        .await
+        .map_err(|err| err.to_string())
 }

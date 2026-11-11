@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   aiDeleteProvider,
+  aiListModels,
   aiListProviders,
   aiPresets,
   aiSaveProvider,
@@ -12,8 +13,10 @@ import {
   type AiKind,
   type AiPreset,
   type AiProvider,
-  type AiSettings,
   type AiProviderInput,
+  type AiSettings,
+  type AiMaxTokensField,
+  type AiReasoning,
   DEFAULT_AI_SETTINGS,
 } from "../api";
 import { useAppStore } from "../store";
@@ -28,24 +31,67 @@ interface Draft extends AiProviderInput {
   key: string;
 }
 
+const EMPTY_PROVIDER: AiProviderInput = {
+  id: "",
+  name: "",
+  kind: "openai",
+  baseUrl: "https://",
+  model: "",
+  timeoutSecs: 60,
+  temperature: 0.2,
+  maxTokens: 1024,
+  fastModel: "",
+  preset: "custom",
+  maxTokensField: "auto",
+  sendSampling: true,
+  topP: null,
+  stop: [],
+  foldSystem: false,
+  streamUsage: false,
+  reasoning: "off",
+  apiVersion: "",
+  extraHeaders: [],
+  proxy: "",
+};
+
 function draftFrom(provider: AiProvider): Draft {
   return { ...provider, key: "" };
 }
 
 function draftFromPreset(preset: AiPreset): Draft {
   return {
+    ...EMPTY_PROVIDER,
+    ...preset.provider,
     id: "",
-    name: preset.name,
-    kind: preset.kind,
-    baseUrl: preset.baseUrl,
-    model: preset.model,
-    timeoutSecs: 60,
-    temperature: 0.2,
-    maxTokens: 1024,
-    fastModel: "",
     preset: preset.id,
     key: "",
   };
+}
+
+/** Drop the form-only key field before handing the draft to the backend. */
+function toInput(draft: Draft): AiProviderInput {
+  const { key: _key, ...rest } = draft;
+  return rest;
+}
+
+function headersToText(draft: Draft): string {
+  return draft.extraHeaders.map((pair) => `${pair.name}: ${pair.value}`).join("\n");
+}
+
+function textToHeaders(text: string) {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      const split = line.indexOf(":");
+      if (split < 0) return { name: line, value: "" };
+      return {
+        name: line.slice(0, split).trim(),
+        value: line.slice(split + 1).trim(),
+      };
+    })
+    .filter((pair) => pair.name.length > 0);
 }
 
 /** Settings → AI: model providers, redaction and context policy. */
@@ -59,6 +105,10 @@ export function SettingsAi() {
   const [settings, setSettings] = useState<AiSettings>(DEFAULT_AI_SETTINGS);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
+  const [busyModels, setBusyModels] = useState(false);
+  const [models, setModels] = useState<string[]>([]);
+  const [modelNote, setModelNote] = useState<string | null>(null);
+  const [headersText, setHeadersText] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
   const reload = async () => {
@@ -86,14 +136,35 @@ export function SettingsAi() {
     }
   };
 
+  const openDraft = (next: Draft) => {
+    setDraft(next);
+    setModels([]);
+    setModelNote(null);
+    setHeadersText(headersToText(next));
+  };
+
   const applyPreset = (id: string) => {
     const preset = presets.find((item) => item.id === id);
     if (!preset || !draft) return;
-    setDraft({
-      ...draftFromPreset(preset),
-      id: draft.id,
-      key: draft.key,
-    });
+    openDraft({ ...draftFromPreset(preset), id: draft.id, key: draft.key });
+  };
+
+  const kindLabel = (kind: AiKind) => t(`ai.kind_${kind}`);
+
+  const loadModels = async () => {
+    if (!draft) return;
+    setBusyModels(true);
+    setModelNote(null);
+    try {
+      const list = await aiListModels(toInput(draft), draft.key.trim() || undefined);
+      setModels(list);
+      setModelNote(t("ai.modelsLoaded", { count: list.length }));
+    } catch (err) {
+      setModels([]);
+      setModelNote(t("ai.modelsFailed", { error: String(err) }));
+    } finally {
+      setBusyModels(false);
+    }
   };
 
   const save = async () => {
@@ -101,23 +172,13 @@ export function SettingsAi() {
     setBusy(true);
     setMessage(null);
     try {
-      const saved = await aiSaveProvider({
-        id: draft.id,
-        name: draft.name.trim(),
-        kind: draft.kind,
-        baseUrl: draft.baseUrl.trim(),
-        model: draft.model.trim(),
-        timeoutSecs: draft.timeoutSecs,
-        temperature: draft.temperature,
-        maxTokens: draft.maxTokens,
-        fastModel: draft.fastModel.trim(),
-        preset: draft.preset,
-      });
+      const saved = await aiSaveProvider(toInput(draft));
       if (draft.key.trim()) {
         await api.saveSecret(`ai:${saved.id}`, draft.key.trim());
       }
       await reload();
       setDraft(null);
+      setHeadersText("");
     } catch (err) {
       setMessage(String(err));
     } finally {
@@ -145,7 +206,10 @@ export function SettingsAi() {
     setMessage(t("ai.testing", { name: provider.name }));
     try {
       const reply = await aiTestProvider(provider.id);
-      setMessage(t("ai.testOk", { model: reply.model, ms: reply.latencyMs }));
+      const notes = reply.notes.length
+        ? ` · ${reply.notes.map((note) => t(note)).join("、")}`
+        : "";
+      setMessage(t("ai.testOk", { model: reply.model, ms: reply.latencyMs }) + notes);
     } catch (err) {
       setMessage(t("ai.testFailed", { error: String(err) }));
     }
@@ -227,12 +291,10 @@ export function SettingsAi() {
       <SettingGroup
         title={t("ai.providers")}
         hint={t("ai.providersHint")}
-        onReset={() => setDraft(draftFromPreset(presets[0] ?? {
+        onReset={() => openDraft(draftFromPreset(presets[0] ?? {
           id: "custom",
           name: t("ai.customProvider"),
-          kind: "openai",
-          baseUrl: "https://",
-          model: "",
+          provider: EMPTY_PROVIDER,
         }))}
         resetLabel={t("ai.addProvider")}
       >
@@ -243,7 +305,7 @@ export function SettingsAi() {
           <SettingRow
             key={provider.id}
             title={provider.name}
-            hint={`${provider.kind} · ${provider.model}`}
+            hint={`${kindLabel(provider.kind)} · ${provider.model}`}
           >
             <div className="ai-provider-actions">
               <Chip tone={provider.hasKey ? "info" : "warn"}>
@@ -259,7 +321,7 @@ export function SettingsAi() {
               <button
                 type="button"
                 className="link-btn"
-                onClick={() => setDraft(draftFrom(provider))}
+                onClick={() => openDraft(draftFrom(provider))}
               >
                 {t("ai.edit")}
               </button>
@@ -313,19 +375,36 @@ export function SettingsAi() {
                     setDraft({ ...draft, kind: event.target.value as AiKind })
                   }
                 >
-                  <option value="openai">OpenAI 兼容</option>
-                  <option value="anthropic">Anthropic</option>
+                  <option value="openai">{t("ai.kind_openai")}</option>
+                  <option value="anthropic">{t("ai.kind_anthropic")}</option>
+                  <option value="azure">{t("ai.kind_azure")}</option>
                 </select>
               </label>
               <label className="ai-form-field">
                 <span>{t("ai.model")}</span>
-                <input
-                  className="ai-field"
-                  value={draft.model}
-                  onChange={(event) =>
-                    setDraft({ ...draft, model: event.target.value })
-                  }
-                />
+                <div className="ai-model-row">
+                  <input
+                    className="ai-field"
+                    list="ai-model-options"
+                    value={draft.model}
+                    onChange={(event) =>
+                      setDraft({ ...draft, model: event.target.value })
+                    }
+                  />
+                  <datalist id="ai-model-options">
+                    {models.map((model) => (
+                      <option key={model} value={model} />
+                    ))}
+                  </datalist>
+                  <button
+                    type="button"
+                    className="link-btn"
+                    disabled={busyModels}
+                    onClick={() => void loadModels()}
+                  >
+                    {busyModels ? t("ai.loadingModels") : t("ai.loadModels")}
+                  </button>
+                </div>
               </label>
               <label className="ai-form-field ai-form-wide">
                 <span>{t("ai.baseUrl")}</span>
@@ -334,17 +413,6 @@ export function SettingsAi() {
                   value={draft.baseUrl}
                   onChange={(event) =>
                     setDraft({ ...draft, baseUrl: event.target.value })
-                  }
-                />
-              </label>
-              <label className="ai-form-field">
-                <span>{t("ai.fastModel")}</span>
-                <input
-                  className="ai-field"
-                  value={draft.fastModel}
-                  placeholder={t("ai.fastModelHint")}
-                  onChange={(event) =>
-                    setDraft({ ...draft, fastModel: event.target.value })
                   }
                 />
               </label>
@@ -364,6 +432,222 @@ export function SettingsAi() {
                 />
               </label>
             </div>
+            <p className="hint">{t("ai.baseUrlHint")}</p>
+            {modelNote && <p className="hint">{modelNote}</p>}
+
+            <details className="ai-advanced">
+              <summary>{t("ai.advanced")}</summary>
+              <p className="hint">{t("ai.advancedHint")}</p>
+              <div className="ai-form-grid">
+                <label className="ai-form-field">
+                  <span>{t("ai.temperature")}</span>
+                  <input
+                    className="ai-field"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="2"
+                    value={draft.temperature}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        temperature: Number(event.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <label className="ai-form-field">
+                  <span>{t("ai.maxTokens")}</span>
+                  <input
+                    className="ai-field"
+                    type="number"
+                    min="16"
+                    value={draft.maxTokens}
+                    onChange={(event) =>
+                      setDraft({ ...draft, maxTokens: Number(event.target.value) })
+                    }
+                  />
+                </label>
+                <label className="ai-form-field">
+                  <span>{t("ai.timeout")}</span>
+                  <input
+                    className="ai-field"
+                    type="number"
+                    min="5"
+                    max="600"
+                    value={draft.timeoutSecs}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        timeoutSecs: Number(event.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <label className="ai-form-field">
+                  <span>{t("ai.topP")}</span>
+                  <input
+                    className="ai-field"
+                    type="number"
+                    step="0.05"
+                    min="0"
+                    max="1"
+                    value={draft.topP ?? ""}
+                    placeholder={t("ai.notSent")}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        topP:
+                          event.target.value === ""
+                            ? null
+                            : Number(event.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <label className="ai-form-field">
+                  <span>{t("ai.maxTokensField")}</span>
+                  <select
+                    className="ai-field"
+                    value={draft.maxTokensField}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        maxTokensField: event.target.value as AiMaxTokensField,
+                      })
+                    }
+                  >
+                    <option value="auto">{t("ai.maxTokensField_auto")}</option>
+                    <option value="maxTokens">max_tokens</option>
+                    <option value="maxCompletionTokens">
+                      max_completion_tokens
+                    </option>
+                  </select>
+                </label>
+                <label className="ai-form-field">
+                  <span>{t("ai.reasoning")}</span>
+                  <select
+                    className="ai-field"
+                    value={draft.reasoning}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        reasoning: event.target.value as AiReasoning,
+                      })
+                    }
+                  >
+                    <option value="off">{t("ai.reasoningOff")}</option>
+                    <option value="low">low</option>
+                    <option value="medium">medium</option>
+                    <option value="high">high</option>
+                  </select>
+                </label>
+                {draft.kind === "azure" && (
+                  <label className="ai-form-field">
+                    <span>{t("ai.apiVersion")}</span>
+                    <input
+                      className="ai-field"
+                      value={draft.apiVersion}
+                      placeholder="2024-10-21"
+                      onChange={(event) =>
+                        setDraft({ ...draft, apiVersion: event.target.value })
+                      }
+                    />
+                  </label>
+                )}
+                <label className="ai-form-field">
+                  <span>{t("ai.fastModel")}</span>
+                  <input
+                    className="ai-field"
+                    value={draft.fastModel}
+                    placeholder={t("ai.fastModelHint")}
+                    onChange={(event) =>
+                      setDraft({ ...draft, fastModel: event.target.value })
+                    }
+                  />
+                </label>
+                <label className="ai-form-field ai-form-wide">
+                  <span>{t("ai.stop")}</span>
+                  <input
+                    className="ai-field"
+                    value={draft.stop.join(", ")}
+                    placeholder={t("ai.stopHint")}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        stop: event.target.value
+                          .split(",")
+                          .map((item) => item.trim())
+                          .filter((item) => item.length > 0),
+                      })
+                    }
+                  />
+                </label>
+                <label className="ai-form-field ai-form-wide">
+                  <span>{t("ai.extraHeaders")}</span>
+                  <textarea
+                    className="ai-field ai-field-area"
+                    rows={3}
+                    value={headersText}
+                    placeholder={t("ai.extraHeadersHint")}
+                    onChange={(event) => {
+                      setHeadersText(event.target.value);
+                      setDraft({
+                        ...draft,
+                        extraHeaders: textToHeaders(event.target.value),
+                      });
+                    }}
+                  />
+                </label>
+                <label className="ai-form-field ai-form-wide">
+                  <span>{t("ai.proxy")}</span>
+                  <input
+                    className="ai-field"
+                    value={draft.proxy}
+                    placeholder="http://127.0.0.1:7890"
+                    onChange={(event) =>
+                      setDraft({ ...draft, proxy: event.target.value })
+                    }
+                  />
+                </label>
+              </div>
+              <div className="ai-toggle-list">
+                <label className="ai-toggle">
+                  <input
+                    type="checkbox"
+                    checked={draft.sendSampling}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        sendSampling: event.target.checked,
+                      })
+                    }
+                  />
+                  <span>{t("ai.sendSampling")}</span>
+                </label>
+                <label className="ai-toggle">
+                  <input
+                    type="checkbox"
+                    checked={draft.foldSystem}
+                    onChange={(event) =>
+                      setDraft({ ...draft, foldSystem: event.target.checked })
+                    }
+                  />
+                  <span>{t("ai.foldSystem")}</span>
+                </label>
+                <label className="ai-toggle">
+                  <input
+                    type="checkbox"
+                    checked={draft.streamUsage}
+                    onChange={(event) =>
+                      setDraft({ ...draft, streamUsage: event.target.checked })
+                    }
+                  />
+                  <span>{t("ai.streamUsage")}</span>
+                </label>
+              </div>
+            </details>
+
             <p className="hint">{t("ai.keyVaultHint")}</p>
             <div className="ai-form-actions plugin-actions">
               <button
@@ -374,7 +658,14 @@ export function SettingsAi() {
               >
                 {busy ? t("ai.saving") : t("ai.save")}
               </button>
-              <button type="button" onClick={() => setDraft(null)}>
+              <button
+                type="button"
+                onClick={() => {
+                  setDraft(null);
+                  setHeadersText("");
+                  setModelNote(null);
+                }}
+              >
                 {t("ai.cancel")}
               </button>
             </div>

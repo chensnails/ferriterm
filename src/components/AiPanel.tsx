@@ -62,6 +62,7 @@ export function AiPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<AiCommandReply | null>(null);
+  const [notes, setNotes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -162,6 +163,7 @@ export function AiPanel() {
           context: buildContext(),
         });
         setDraft(reply);
+        setNotes(reply.notes);
         setInput("");
       } catch (err) {
         setError(String(err));
@@ -179,17 +181,25 @@ export function AiPanel() {
     setInput("");
     setBusy(true);
     try {
-      await aiChatStream(providerId, history, buildContext(), undefined, (delta) => {
-        setMessages((previous) => {
-          const copy = previous.slice();
-          const last = copy[copy.length - 1];
-          copy[copy.length - 1] = {
-            role: "assistant",
-            content: last.content + delta,
-          };
-          return copy;
-        });
-      });
+      const reply = await aiChatStream(
+        providerId,
+        history,
+        buildContext(),
+        undefined,
+        (delta) => {
+          setMessages((previous) => {
+            const copy = previous.slice();
+            const last = copy[copy.length - 1];
+            copy[copy.length - 1] = {
+              role: "assistant",
+              content: last.content + delta,
+            };
+            return copy;
+          });
+        },
+      );
+      // The vendor may have refused a parameter; say so instead of hiding it.
+      setNotes(reply.notes);
     } catch (err) {
       setError(String(err));
       setMessages((previous) => {
@@ -282,6 +292,16 @@ export function AiPanel() {
 
       {provider && !provider.hasKey && (
         <Notice tone="warn">{t("ai.providerNoKey")}</Notice>
+      )}
+
+      {notes.length > 0 && (
+        <Notice tone="info">
+          <span>
+            {t("ai.degraded", {
+              notes: notes.map((note) => t(note)).join(" \u00b7 "),
+            })}
+          </span>
+        </Notice>
       )}
 
       {settings.enabled &&
