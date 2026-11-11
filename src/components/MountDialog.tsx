@@ -11,7 +11,7 @@ interface MountDialogProps {
 
 export function MountDialog({ mounts, onClose, onChanged }: MountDialogProps) {
   const { t } = useTranslation();
-  const [kind, setKind] = useState<"webdav" | "s3">("webdav");
+  const [kind, setKind] = useState<"webdav" | "s3" | "ftp">("webdav");
   const [label, setLabel] = useState("");
   const [url, setUrl] = useState("");
   const [username, setUsername] = useState("");
@@ -22,6 +22,9 @@ export function MountDialog({ mounts, onClose, onChanged }: MountDialogProps) {
   const [accessKey, setAccessKey] = useState("");
   const [secretKey, setSecretKey] = useState("");
   const [prefix, setPrefix] = useState("");
+  const [host, setHost] = useState("");
+  const [port, setPort] = useState("21");
+  const [rootPath, setRootPath] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -30,19 +33,42 @@ export function MountDialog({ mounts, onClose, onChanged }: MountDialogProps) {
     setError("");
     try {
       const id = `m${Date.now().toString(36)}`;
+      const parsedPort = port.trim() === "" ? null : Number(port.trim());
+      if (kind === "ftp" && parsedPort !== null && !Number.isInteger(parsedPort)) {
+        setError(t("transfer.mountPortInvalid"));
+        return;
+      }
       const config =
         kind === "webdav"
           ? { kind: "webdav" as const, url, username, password }
-          : {
-              kind: "s3" as const,
-              endpoint,
-              region,
-              bucket,
-              accessKey,
-              secretKey,
-              prefix,
-            };
-      await api.remoteMountAdd(id, label.trim() || url || bucket, config);
+          : kind === "ftp"
+            ? {
+                kind: "ftp" as const,
+                host: host.trim(),
+                port: parsedPort,
+                username,
+                password,
+                path: rootPath.trim(),
+              }
+            : {
+                kind: "s3" as const,
+                endpoint,
+                region,
+                bucket,
+                accessKey,
+                secretKey,
+                prefix,
+              };
+      await api.remoteMountAdd(
+        id,
+        label.trim() ||
+          (kind === "webdav"
+            ? url
+            : kind === "ftp"
+              ? host.trim() || rootPath.trim()
+              : bucket),
+        config,
+      );
       await onChanged();
       onClose();
     } catch (err) {
@@ -83,10 +109,11 @@ export function MountDialog({ mounts, onClose, onChanged }: MountDialogProps) {
           <span>{t("transfer.mountKind")}</span>
           <select
             value={kind}
-            onChange={(e) => setKind(e.target.value as "webdav" | "s3")}
+            onChange={(e) => setKind(e.target.value as "webdav" | "s3" | "ftp")}
           >
             <option value="webdav">{t("transfer.mountWebdav")}</option>
             <option value="s3">{t("transfer.mountS3")}</option>
+            <option value="ftp">{t("transfer.mountFtp")}</option>
           </select>
         </label>
         <label className="field">
@@ -119,7 +146,7 @@ export function MountDialog({ mounts, onClose, onChanged }: MountDialogProps) {
               />
             </label>
           </>
-        ) : (
+        ) : kind === "s3" ? (
           <>
             <label className="field">
               <span>{t("transfer.mountEndpoint")}</span>
@@ -156,6 +183,51 @@ export function MountDialog({ mounts, onClose, onChanged }: MountDialogProps) {
               <span>{t("transfer.mountPrefix")}</span>
               <input value={prefix} onChange={(e) => setPrefix(e.target.value)} />
             </label>
+          </>
+        ) : (
+          <>
+            <label className="field">
+              <span>{t("transfer.mountHost")}</span>
+              <input
+                value={host}
+                onChange={(e) => setHost(e.target.value)}
+                placeholder="ftp.example.com"
+              />
+            </label>
+            <label className="field">
+              <span>{t("transfer.mountPort")}</span>
+              <input
+                value={port}
+                onChange={(e) => setPort(e.target.value)}
+                inputMode="numeric"
+                placeholder="21"
+              />
+            </label>
+            <label className="field">
+              <span>{t("transfer.mountUser")}</span>
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="anonymous"
+              />
+            </label>
+            <label className="field">
+              <span>{t("transfer.mountPassword")}</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span>{t("transfer.mountRoot")}</span>
+              <input
+                value={rootPath}
+                onChange={(e) => setRootPath(e.target.value)}
+                placeholder="/"
+              />
+            </label>
+            <p className="hint">{t("transfer.mountFtpHint")}</p>
           </>
         )}
         {error && <p className="error-text">{error}</p>}

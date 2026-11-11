@@ -2987,6 +2987,19 @@ pub enum RemoteMountConfig {
         #[serde(default)]
         prefix: String,
     },
+    #[serde(rename_all = "camelCase")]
+    Ftp {
+        host: String,
+        #[serde(default)]
+        port: Option<u16>,
+        #[serde(default)]
+        username: String,
+        #[serde(default)]
+        password: String,
+        /// Directory that `/` maps to; empty means the login directory.
+        #[serde(default)]
+        path: String,
+    },
 }
 
 #[tauri::command]
@@ -3020,6 +3033,20 @@ pub fn remote_mount_add(
                 &access_key,
                 &secret_key,
                 &prefix,
+            )?),
+        ),
+        RemoteMountConfig::Ftp {
+            host,
+            port,
+            username,
+            password,
+            path,
+        } => (
+            "ftp".to_string(),
+            // The connection is lazy: a wrong host shows up in the file pane
+            // instead of blocking the dialog.
+            Arc::new(ft_vfs::FtpVfs::new(
+                &host, port, &username, &password, &path,
             )?),
         ),
     };

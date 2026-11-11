@@ -3,6 +3,7 @@ use std::pin::Pin;
 
 use serde::{Deserialize, Serialize};
 
+mod ftp;
 mod local;
 mod registry;
 mod s3;
@@ -11,6 +12,7 @@ mod timeutil;
 mod util;
 mod webdav;
 
+pub use ftp::FtpVfs;
 pub use local::LocalFs;
 pub use registry::{RemoteMountInfo, RemoteMounts};
 pub use s3::S3Vfs;

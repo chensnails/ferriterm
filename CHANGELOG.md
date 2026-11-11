@@ -49,6 +49,13 @@ package version in `src-tauri/tauri.conf.json`.
 - Clipboard reads and writes go through a shared helper that falls back to the
   native clipboard when the webview denies `navigator.clipboard`, covering
   terminal copy/paste, OSC 52, key import and copied host/path addresses.
+- FTP servers can be mounted as a file-pane target next to WebDAV and S3:
+  passive mode (`EPSV` with a `PASV` fallback), `MLSD` listings with a `LIST`
+  parser for servers that lack it, `REST`/`APPE` for resumed transfers, and
+  `MFMT` timestamps when the server advertises them. FTP has no POSIX
+  permissions, so files report `0644` and directories `0755`; `chmod` is
+  refused rather than silently ignored. Plain FTP only — FTPS is not
+  implemented, and the dialog says so.
 
 ### Fixed
 

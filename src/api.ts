@@ -444,6 +444,15 @@ export type RemoteMountConfig =
       accessKey: string;
       secretKey: string;
       prefix: string;
+    }
+  | {
+      kind: "ftp";
+      host: string;
+      port: number | null;
+      username: string;
+      password: string;
+      /** Directory that `/` maps to; empty means the login directory. */
+      path: string;
     };
 
 export interface LanguagePack {
