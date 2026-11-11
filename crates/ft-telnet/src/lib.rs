@@ -382,7 +382,10 @@ mod tests {
         write_raw(&registry, "telnet-1", b"root\xff").await.unwrap();
         resize(&registry, "telnet-1", 100, 30).await.unwrap();
 
-        for _ in 0..100 {
+        // Shared CI runners can schedule the reader thread well after the
+        // handshake, so wait on a deadline instead of a fixed second.
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while std::time::Instant::now() < deadline {
             if sink.data.lock().unwrap().ends_with(b"ok\r\n") {
                 break;
             }
