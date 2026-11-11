@@ -126,6 +126,8 @@ export interface SshConnectArgs {
   hostId?: string;
   /** Global SSH algorithm policy; omitted when using russh's safe defaults. */
   algorithms?: SshAlgorithms;
+  /** Charset for shell output and SFTP names; UTF-8 when omitted. */
+  encoding?: string;
   cols: number;
   rows: number;
 }

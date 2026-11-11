@@ -151,6 +151,8 @@ impl client::Handler for SshHandler {
 pub struct SshSession {
     pub handle: Arc<Handle<SshHandler>>,
     pub writer: ChannelWriteHalf<Msg>,
+    /// Character set the host speaks, used for shell output and SFTP names.
+    pub encoding: String,
 }
 
 pub struct PtySession {

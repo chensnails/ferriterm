@@ -3,13 +3,15 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use encoding_rs::Encoding;
+use ft_core::encoding::encoding_for_label;
 use ft_core::{Session, SessionRegistry, SshHandler};
 use russh::client;
 use russh::ChannelMsg;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, ReadHalf, WriteHalf};
 use tokio::sync::Mutex;
 
-use crate::{join_path, FileEntry, OpenMode, Vfs, VfsFile, VfsFuture};
+use crate::{decode_text, encode_text, join_path, FileEntry, OpenMode, Vfs, VfsFile, VfsFuture};
 
 const SSH_FXP_INIT: u8 = 1;
 const REQUEST_TIMEOUT_SECS: u64 = 30;
@@ -109,6 +111,9 @@ pub struct SftpConnection {
     /// Set when a request times out: cancelling a read mid-packet would
     /// desync the stream, so the connection is retired instead of reused.
     broken: AtomicBool,
+    /// Character set the host speaks. SFTP carries raw bytes for names and file
+    /// contents, so both are decoded and encoded with this.
+    encoding: &'static Encoding,
 }
 
 /// Numeric ids to names. SFTP only reports ids, so the file table would show
@@ -158,10 +163,13 @@ fn parse_passwd_line(line: &str) -> Option<(u32, String)> {
 
 impl SftpConnection {
     pub async fn open(sessions: &SessionRegistry, session_id: &str) -> Result<Arc<Self>, String> {
-        let handle = {
+        let (handle, encoding) = {
             let guard = sessions.sessions.lock().await;
             match guard.get(session_id) {
-                Some(Session::Ssh(session)) => session.handle.clone(),
+                Some(Session::Ssh(session)) => (
+                    session.handle.clone(),
+                    encoding_for_label(&session.encoding),
+                ),
                 _ => return Err("ssh session not found".to_string()),
             }
         };
@@ -183,6 +191,7 @@ impl SftpConnection {
             handle,
             names: Mutex::new(None),
             broken: AtomicBool::new(false),
+            encoding,
         });
         tokio::time::timeout(Duration::from_secs(15), connection.handshake())
             .await
@@ -205,6 +214,20 @@ impl SftpConnection {
             return Err(format!("unsupported sftp version {version}"));
         }
         Ok(())
+    }
+
+    fn encoding(&self) -> &'static Encoding {
+        self.encoding
+    }
+
+    /// Paths travel as bytes in the host's charset; a GBK server cannot open a
+    /// file whose name arrives UTF-8 encoded.
+    fn encode_path(&self, path: &str) -> Vec<u8> {
+        encode_bytes(&encode_text(self.encoding, path))
+    }
+
+    fn decode(&self, bytes: &[u8]) -> String {
+        decode_text(self.encoding, bytes)
     }
 
     /// The owner tables, read once per connection. A server that forbids exec,
@@ -308,7 +331,7 @@ impl SftpConnection {
                 .request(SSH_FXP_READDIR, &encode_bytes(&handle))
                 .await?;
             match packet_type {
-                SSH_FXP_NAME => entries.extend(parse_names(&body, path)?),
+                SSH_FXP_NAME => entries.extend(parse_names(&body, path, self.encoding())?),
                 SSH_FXP_STATUS => {
                     if status_code(&body)? == STATUS_EOF {
                         break;
@@ -323,7 +346,7 @@ impl SftpConnection {
     }
 
     async fn handle_request(&self, packet_type: u8, path: &str) -> Result<Vec<u8>, String> {
-        let (response_type, body) = self.request(packet_type, &encode_string(path)).await?;
+        let (response_type, body) = self.request(packet_type, &self.encode_path(path)).await?;
         match response_type {
             SSH_FXP_HANDLE => {
                 let mut reader = PacketReader::new(&body);
@@ -336,7 +359,7 @@ impl SftpConnection {
 
     async fn stat_raw(&self, path: &str, follow: bool) -> Result<FileEntry, String> {
         let packet = if follow { SSH_FXP_STAT } else { SSH_FXP_LSTAT };
-        let (response_type, body) = self.request(packet, &encode_string(path)).await?;
+        let (response_type, body) = self.request(packet, &self.encode_path(path)).await?;
         let attrs = match response_type {
             SSH_FXP_ATTRS => parse_attrs(&body)?,
             SSH_FXP_STATUS => return Err(status_message(&body)?),
@@ -346,7 +369,9 @@ impl SftpConnection {
     }
 
     async fn realpath(&self, path: &str) -> Result<String, String> {
-        let (response_type, body) = self.request(SSH_FXP_REALPATH, &encode_string(path)).await?;
+        let (response_type, body) = self
+            .request(SSH_FXP_REALPATH, &self.encode_path(path))
+            .await?;
         match response_type {
             SSH_FXP_NAME => {
                 let mut reader = PacketReader::new(&body);
@@ -354,8 +379,8 @@ impl SftpConnection {
                 if count == 0 {
                     return Err("sftp realpath returned no entries".to_string());
                 }
-                let name = reader.string()?;
-                Ok(name)
+                let name = reader.bytes()?;
+                Ok(self.decode(&name))
             }
             SSH_FXP_STATUS => Err(status_message(&body)?),
             other => Err(format!("unexpected sftp packet {other}")),
@@ -363,7 +388,7 @@ impl SftpConnection {
     }
 
     async fn simple_path_request(&self, packet_type: u8, path: &str) -> Result<(), String> {
-        let (response_type, body) = self.request(packet_type, &encode_string(path)).await?;
+        let (response_type, body) = self.request(packet_type, &self.encode_path(path)).await?;
         expect_ok(response_type, &body)
     }
 
@@ -382,7 +407,7 @@ impl SftpConnection {
     }
 
     async fn chmod(&self, path: &str, mode: u32) -> Result<(), String> {
-        let mut body = encode_string(path);
+        let mut body = self.encode_path(path);
         put_u32(&mut body, ATTR_PERMISSIONS);
         put_u32(&mut body, mode & 0o7777);
         let (response_type, response) = self.request(SSH_FXP_SETSTAT, &body).await?;
@@ -392,7 +417,7 @@ impl SftpConnection {
     /// SETSTAT with access and modification time set to the same value: the
     /// copy should look like the original, and an atime of "now" would not.
     async fn set_times(&self, path: &str, mtime: u64) -> Result<(), String> {
-        let mut body = encode_string(path);
+        let mut body = self.encode_path(path);
         put_u32(&mut body, ATTR_ACMODTIME);
         let seconds = u32::try_from(mtime).unwrap_or(u32::MAX);
         put_u32(&mut body, seconds);
@@ -413,7 +438,7 @@ impl SftpConnection {
             }
         };
         // OPEN payload: filename + pflags + attrs (attrs flags = 0).
-        let mut body = encode_string(path);
+        let mut body = self.encode_path(path);
         put_u32(&mut body, flags);
         put_u32(&mut body, 0);
         let (response_type, response) = self.request(SSH_FXP_OPEN, &body).await?;
@@ -527,7 +552,7 @@ impl Vfs for SftpVfs {
 
     fn mkdir<'a>(&'a self, path: &'a str) -> VfsFuture<'a, ()> {
         Box::pin(async move {
-            let mut body = encode_string(path);
+            let mut body = self.connection.encode_path(path);
             put_u32(&mut body, 0);
             let (response_type, response) = self.connection.request(SSH_FXP_MKDIR, &body).await?;
             expect_ok(response_type, &response)
@@ -548,8 +573,8 @@ impl Vfs for SftpVfs {
 
     fn rename<'a>(&'a self, from: &'a str, to: &'a str) -> VfsFuture<'a, ()> {
         Box::pin(async move {
-            let mut body = encode_string(from);
-            body.extend_from_slice(&encode_string(to));
+            let mut body = self.connection.encode_path(from);
+            body.extend_from_slice(&self.connection.encode_path(to));
             let (response_type, response) = self.connection.request(SSH_FXP_RENAME, &body).await?;
             expect_ok(response_type, &response)
         })
@@ -571,6 +596,10 @@ impl Vfs for SftpVfs {
                 handle,
             }) as Box<dyn VfsFile + Send>)
         })
+    }
+
+    fn text_encoding(&self) -> &'static Encoding {
+        self.connection.encoding()
     }
 }
 
@@ -643,14 +672,19 @@ fn parse_attrs(body: &[u8]) -> Result<Attrs, String> {
     Ok(attrs)
 }
 
-fn parse_names(body: &[u8], base: &str) -> Result<Vec<FileEntry>, String> {
+fn parse_names(
+    body: &[u8],
+    base: &str,
+    encoding: &'static Encoding,
+) -> Result<Vec<FileEntry>, String> {
     let mut reader = PacketReader::new(body);
     let count = reader.u32()?;
     let mut entries = Vec::new();
     for _ in 0..count {
-        let name = reader.string()?;
+        let raw_name = reader.bytes()?;
         let _long_name = reader.string()?;
         let attrs = parse_attrs_at(&mut reader)?;
+        let name = decode_text(encoding, &raw_name);
         if name == "." || name == ".." {
             continue;
         }
@@ -722,6 +756,7 @@ fn name_of(path: &str) -> String {
         .to_string()
 }
 
+#[cfg(test)]
 fn encode_string(value: &str) -> Vec<u8> {
     encode_bytes(value.as_bytes())
 }
@@ -858,10 +893,26 @@ mod tests {
         body.extend_from_slice(&encode_string("dir"));
         body.extend_from_slice(&encode_string("drwxr-xr-x dir"));
         body.extend_from_slice(&attrs_bytes(0, S_IFDIR | 0o755, 8));
-        let entries = parse_names(&body, "/home/user").unwrap();
+        let entries = parse_names(&body, "/home/user", encoding_rs::UTF_8).unwrap();
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].path, "/home/user/a.txt");
         assert!(entries[1].is_dir);
+    }
+
+    /// A GBK host sends names as GBK bytes; they must arrive readable and the
+    /// joined path must keep the same text so a later stat targets the file.
+    #[test]
+    fn decodes_gbk_file_names() {
+        let encoded = encode_text(encoding_for_label("gbk"), "测试.txt");
+        assert_ne!(encoded, "测试.txt".as_bytes());
+        let mut body = Vec::new();
+        put_u32(&mut body, 1);
+        body.extend_from_slice(&encode_bytes(&encoded));
+        body.extend_from_slice(&encode_string("-rw-r--r--"));
+        body.extend_from_slice(&attrs_bytes(1, 0o100644, 7));
+        let entries = parse_names(&body, "/home/user", encoding_for_label("gbk")).unwrap();
+        assert_eq!(entries[0].name, "测试.txt");
+        assert_eq!(entries[0].path, "/home/user/测试.txt");
     }
 
     #[test]

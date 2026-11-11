@@ -191,6 +191,7 @@ fn args(port: u16, keepalive: Option<u64>) -> SshConnectArgs {
         x11: false,
         jump: Vec::new(),
         keepalive,
+        encoding: None,
         host_id: None,
         algorithms: None,
         cols: 80,

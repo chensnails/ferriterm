@@ -251,6 +251,9 @@ pub struct SshConnectArgs {
     pub jump: Vec<JumpHop>,
     #[serde(default)]
     pub keepalive: Option<u64>,
+    /// Character set of the remote host, e.g. `gbk`; UTF-8 when omitted.
+    #[serde(default)]
+    pub encoding: Option<String>,
     #[serde(default)]
     pub host_id: Option<String>,
     #[serde(default)]
@@ -372,23 +375,35 @@ pub async fn connect(
 
     let (mut reader, writer) = channel.split();
     let event_id = id.clone();
+    let encoding = args.encoding.clone().unwrap_or_else(|| "utf-8".to_string());
     registry.sessions.lock().await.insert(
         id.clone(),
         Session::Ssh(SshSession {
             handle: handle.clone(),
             writer,
+            encoding: encoding.clone(),
         }),
     );
 
     let cleanup = ctx.cleanup.clone();
     let registry = registry.clone();
     tokio::spawn(async move {
+        let mut decoder = (!ft_core::encoding::is_utf8_label(&encoding))
+            .then(|| ft_core::encoding::StreamingDecoder::new(&encoding));
         while let Some(msg) = reader.wait().await {
             match msg {
-                ChannelMsg::Data { data } => sink.output(&event_id, data.to_vec()),
-                ChannelMsg::ExtendedData { data, .. } => sink.output(&event_id, data.to_vec()),
+                ChannelMsg::Data { data } => emit_output(&sink, &event_id, &mut decoder, &data),
+                ChannelMsg::ExtendedData { data, .. } => {
+                    emit_output(&sink, &event_id, &mut decoder, &data)
+                }
                 ChannelMsg::Close => break,
                 _ => {}
+            }
+        }
+        if let Some(decoder) = decoder.as_mut() {
+            let tail = decoder.finish();
+            if !tail.is_empty() {
+                sink.output(&event_id, tail.into_bytes());
             }
         }
         // The connection stopped producing output, so this session is finished
@@ -747,14 +762,30 @@ async fn authenticate_agent(
     Err("ssh-agent authentication is not supported on this platform".to_string())
 }
 
+fn emit_output(
+    sink: &Arc<dyn TerminalSink>,
+    id: &str,
+    decoder: &mut Option<ft_core::encoding::StreamingDecoder>,
+    data: &[u8],
+) {
+    match decoder {
+        Some(decoder) => {
+            let text = decoder.push(data);
+            if !text.is_empty() {
+                sink.output(id, text.into_bytes());
+            }
+        }
+        None => sink.output(id, data.to_vec()),
+    }
+}
+
 pub async fn write(registry: &SessionRegistry, id: &str, data: String) -> Result<(), String> {
     let sessions = registry.sessions.lock().await;
     match sessions.get(id) {
-        Some(Session::Ssh(s)) => s
-            .writer
-            .data_bytes(data.into_bytes())
-            .await
-            .map_err(|e| e.to_string()),
+        Some(Session::Ssh(s)) => {
+            let bytes = ft_core::encoding::encode_text(&s.encoding, &data);
+            s.writer.data_bytes(bytes).await.map_err(|e| e.to_string())
+        }
         _ => Err("ssh session not found".to_string()),
     }
 }

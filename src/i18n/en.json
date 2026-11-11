@@ -105,6 +105,8 @@
     "jumpHost": "Jump host (ProxyJump)",
     "jumpNone": "None (direct)",
     "jumpHint": "Connects through another saved host before reaching this one.",
+    "encoding": "Character set",
+    "encodingHint": "Use GBK for legacy Chinese hosts. Applies to terminal output, file names and the editor.",
     "x11": "Forward X11",
     "x11Hint": "Experimental. Requires a local X server; remote GUI apps render here.",
     "keyPath": "Private key file",

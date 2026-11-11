@@ -29,6 +29,17 @@ const BAUD_RATES = [
   4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600,
 ];
 
+const ENCODINGS: { value: string; label: string }[] = [
+  { value: "utf-8", label: "UTF-8" },
+  { value: "gbk", label: "GBK" },
+  { value: "gb18030", label: "GB18030" },
+  { value: "big5", label: "Big5" },
+  { value: "shift_jis", label: "Shift_JIS" },
+  { value: "euc-jp", label: "EUC-JP" },
+  { value: "euc-kr", label: "EUC-KR" },
+  { value: "windows-1252", label: "Windows-1252" },
+];
+
 const PROTOCOLS: HostProtocol[] = ["ssh", "sftp", "telnet", "serial", "local"];
 
 const DEFAULT_PORTS: Record<HostProtocol, number> = {
@@ -391,6 +402,21 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
                       ))}
                   </select>
                   <span className="hint">{t("hostDialog.jumpHint")}</span>
+                </label>
+
+                <label className="field">
+                  <span>{t("hostDialog.encoding")}</span>
+                  <select
+                    value={options.encoding}
+                    onChange={(e) => updateOption("encoding", e.target.value)}
+                  >
+                    {ENCODINGS.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="hint">{t("hostDialog.encodingHint")}</span>
                 </label>
               </>
             )}

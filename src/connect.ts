@@ -80,6 +80,7 @@ export function buildConnectArgs(
     hostId: host.id,
     authMethod: host.authMethod,
     x11: host.x11,
+    encoding: host.protocolOptions.encoding ?? "utf-8",
   };
   if (jump.length > 0) args.jump = jump;
   if (keepalive && keepalive > 0) args.keepalive = keepalive;

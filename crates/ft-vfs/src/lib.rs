@@ -73,6 +73,27 @@ pub trait Vfs: Send + Sync {
     /// modification time. Backends that cannot store one may do nothing.
     fn set_times<'a>(&'a self, path: &'a str, mtime: u64) -> VfsFuture<'a, ()>;
     fn open<'a>(&'a self, path: &'a str, mode: OpenMode) -> VfsFuture<'a, Box<dyn VfsFile + Send>>;
+    /// Character set used for text files and, on SFTP, file names. Local
+    /// volumes stay UTF-8; a remote host may be configured as GBK or similar.
+    fn text_encoding(&self) -> &'static encoding_rs::Encoding {
+        encoding_rs::UTF_8
+    }
+}
+
+pub fn decode_text(encoding: &'static encoding_rs::Encoding, bytes: &[u8]) -> String {
+    if encoding == encoding_rs::UTF_8 {
+        return String::from_utf8_lossy(bytes).into_owned();
+    }
+    let (text, _, _) = encoding.decode(bytes);
+    text.into_owned()
+}
+
+pub fn encode_text(encoding: &'static encoding_rs::Encoding, text: &str) -> Vec<u8> {
+    if encoding == encoding_rs::UTF_8 {
+        return text.as_bytes().to_vec();
+    }
+    let (bytes, _, _) = encoding.encode(text);
+    bytes.into_owned()
 }
 
 /// Joins a directory and a child name. Both `/` and `\` count as separators
@@ -154,7 +175,7 @@ pub async fn read_text(vfs: &dyn Vfs, path: &str, max_bytes: u64) -> Result<Text
     }
     let _ = file.close().await;
     Ok(TextFile {
-        content: String::from_utf8_lossy(&buffer).into_owned(),
+        content: decode_text(vfs.text_encoding(), &buffer),
         mtime: entry.mtime,
         size: entry.size,
         truncated,
@@ -177,7 +198,8 @@ pub async fn write_text(
         }
     }
     let mut file = vfs.open(path, OpenMode::Write { truncate: true }).await?;
-    file.write(0, content.as_bytes()).await?;
+    let bytes = encode_text(vfs.text_encoding(), content);
+    file.write(0, &bytes).await?;
     file.close().await?;
     Ok(vfs.stat(path).await?.mtime)
 }

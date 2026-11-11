@@ -85,6 +85,7 @@ async fn run() -> Result<(), String> {
             x11: false,
             jump: Vec::new(),
             algorithms: None,
+            encoding: None,
             keepalive: None,
             host_id: None,
             cols: 80,

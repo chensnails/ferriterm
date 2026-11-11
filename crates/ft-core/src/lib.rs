@@ -1,3 +1,4 @@
+pub mod encoding;
 pub mod events;
 pub mod recording;
 pub mod session;

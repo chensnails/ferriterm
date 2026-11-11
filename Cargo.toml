@@ -43,6 +43,7 @@ russh = { version = "0.65", default-features = false, features = ["ring", "flate
 portable-pty = "0.9"
 serial2 = "0.2"
 rusqlite = { version = "0.41", features = ["bundled"] }
+encoding_rs = "0.8"
 
 [profile.release]
 strip = true
