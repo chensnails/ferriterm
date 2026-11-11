@@ -139,6 +139,17 @@ These phases refine the existing baseline; they do not redefine it. Rulings:
   desktop-shell blockers read like ordinary hints. It now carries a warning
   edge and a tinted band; `.error-text` uses `--fg-primary` body text on a
   danger band so long messages stay legible in every theme.
+- **One press treatment (S3).** Every control family answers a press with
+  `--selected-bg`; `primary` keeps `--accent-hover`. Before this only the
+  settings action row had `:active`, so clicks read the same as hovers. The
+  switch is deliberately excluded (its thumb carries the pressed state) and
+  its hard-coded white/radius/duration now come from tokens.
+- **Layout stability (S3).** `--split-ratio` gains a `1fr` fallback so a split
+  cannot collapse before `TerminalArea` injects the inline value. Long
+  unbroken values in state/title/notice copy wrap instead of pushing controls
+  out of compact panes. Verified by capture at 1518×1047, 1100×800, 860×700
+  and 660×620 physical px: the 1080/860/720/620/560/440 tiers degrade the
+  status bar and settings nav without overlap or clipping.
 
 ## 3. Component inventory
 

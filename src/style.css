@@ -1216,13 +1216,16 @@ body {
   display: grid;
 }
 
+/* --split-ratio is injected by TerminalArea. A fallback keeps both panes
+   equal on the first frame (and if the inline style is ever missing) instead
+   of invalidating the whole grid-template declaration and collapsing them. */
 #terminal-host.split.horizontal {
-  grid-template-columns: var(--split-ratio) var(--split-gutter) minmax(0, 1fr);
+  grid-template-columns: var(--split-ratio, 1fr) var(--split-gutter) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
 }
 
 #terminal-host.split.vertical {
-  grid-template-rows: var(--split-ratio) var(--split-gutter) minmax(0, 1fr);
+  grid-template-rows: var(--split-ratio, 1fr) var(--split-gutter) minmax(0, 1fr);
   grid-template-columns: minmax(0, 1fr);
 }
 
@@ -5672,10 +5675,10 @@ label.sync-action {
   height: 21px;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--fg-primary) 22%, transparent);
   cursor: pointer;
-  transition: background 120ms ease;
+  transition: background var(--motion-fast);
 }
 
 .ui-switch-thumb {
@@ -5684,9 +5687,9 @@ label.sync-action {
   left: 2px;
   width: 15px;
   height: 15px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--bg-base);
-  transition: transform 140ms ease;
+  transition: transform var(--motion-fast);
 }
 
 .ui-switch.on {
@@ -5695,7 +5698,7 @@ label.sync-action {
 
 .ui-switch.on .ui-switch-thumb {
   transform: translateX(17px);
-  background: #fff;
+  background: var(--fg-on-accent);
 }
 
 .ui-switch:focus-visible {
@@ -7821,4 +7824,53 @@ body.dock-resizing-y * {
 }
 .sync-version-row .link-btn {
   flex: 0 0 auto;
+}
+
+/* ---- Shared pressed feedback (S3) -------------------------------------
+   Only the settings action row used to expose :active. Every control family
+   now answers a press with the same selected surface, so a click is
+   distinguishable from a hover. Kept last so it wins over family hover
+   rules; primary/danger keep their own accent treatment. */
+:is(
+  .actions button,
+  .home-action,
+  .modal-foot button,
+  .link-btn,
+  .icon-btn,
+  .ui-icon-button,
+  .ui-pill,
+  .ui-segmented-item,
+  .ui-menu-item,
+  .ui-rail-button,
+  .ui-setting-action,
+  .ui-error-actions button,
+  .tree-empty-actions button,
+  .net-actions button,
+  .sync-actions button,
+  .rail-form button,
+  .tag-create button,
+  .transfer-head-tools button
+):active:not(:disabled):not(.primary):not(.danger) {
+  background: var(--selected-bg);
+}
+
+:is(
+  .actions button,
+  .home-action,
+  .modal-foot button,
+  .plugin-actions button,
+  .ui-setting-action,
+  .net-actions button,
+  .ui-error-actions button
+).primary:active:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+/* Compact panes must never let a long unbroken value push controls out of the
+   viewport. List titles keep their own ellipsis behaviour; .hint and
+   .error-text already handle wrapping at their own rules, so both are excluded. */
+:is(.ui-setting-title, .ui-error-state-title, .ui-empty-title,
+    .ui-empty-description, .ui-loading-label, .ui-notice) {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
