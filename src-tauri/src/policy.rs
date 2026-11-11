@@ -10,13 +10,18 @@
 
 use std::sync::Arc;
 
-use ft_policy::{Context, Decision, Effect, Mode, Policy, Rule};
+use ft_policy::{
+    AuditEntry, AuditLog, Choice, Context, Decision, Effect, Mode, Policy, Reason, Risk, Rule,
+    Verdict, VerifyReport,
+};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
 type Store = Arc<ft_store::Store>;
 
 const POLICY_KEY: &str = "policy";
+/// Months of audit records kept on disk before the oldest file is dropped.
+const AUDIT_MONTHS_KEPT: usize = 12;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -131,4 +136,113 @@ pub fn policy_remove_rule(store: State<'_, Store>, id: String) -> Result<PolicyC
     config.rules.retain(|rule| rule.id != id);
     persist(&store, &config)?;
     Ok(config)
+}
+
+// ------------------------------------------------------------------- audit
+
+/// What the caller did with a decision, sent back after the fact.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuditInput {
+    pub command: String,
+    pub host: String,
+    pub decision: Decision,
+    pub choice: Choice,
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|value| value.as_secs())
+        .unwrap_or_default()
+}
+
+/// Append one decision to the chain. Written for every verdict, including the
+/// ones that never ran, because "what almost ran" is worth keeping.
+#[tauri::command]
+pub fn policy_record(
+    audit: State<'_, AuditLog>,
+    entry: AuditInput,
+) -> Result<AuditEntry, String> {
+    let mut record = AuditEntry {
+        id: String::new(),
+        ts: String::new(),
+        host: entry.host,
+        command: entry.command,
+        risk: entry.decision.risk,
+        reasons: entry.decision.reasons,
+        rule: entry.decision.rule,
+        verdict: entry.decision.verdict,
+        choice: entry.choice,
+        mode: entry.decision.mode,
+        prev_hash: String::new(),
+        hash: String::new(),
+    };
+    audit
+        .append(&mut record, now_secs())
+        .map_err(|err| err.to_string())?;
+    // Retention is applied on write: a log that grows forever is a log nobody
+    // keeps checking.
+    let _ = audit.prune(AUDIT_MONTHS_KEPT);
+    Ok(record)
+}
+
+#[tauri::command]
+pub fn policy_audit_months(audit: State<'_, AuditLog>) -> Result<Vec<String>, String> {
+    audit.months().map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+pub fn policy_audit_list(
+    audit: State<'_, AuditLog>,
+    month: String,
+) -> Result<Vec<AuditEntry>, String> {
+    audit.read_month(&month).map_err(|err| err.to_string())
+}
+
+/// Verify one month, or every month when `month` is empty.
+#[tauri::command]
+pub fn policy_audit_verify(
+    audit: State<'_, AuditLog>,
+    month: Option<String>,
+) -> Result<Vec<VerifyReport>, String> {
+    let months = match month.filter(|value| !value.trim().is_empty()) {
+        Some(month) => vec![month],
+        None => audit.months().map_err(|err| err.to_string())?,
+    };
+    let mut reports = Vec::new();
+    for month in months {
+        reports.push(audit.verify(&month).map_err(|err| err.to_string())?);
+    }
+    Ok(reports)
+}
+
+/// Absolute path of a month file, so the interface can reveal it.
+#[tauri::command]
+pub fn policy_audit_path(audit: State<'_, AuditLog>, month: String) -> String {
+    audit.dir().join(format!("audit-{month}.jsonl")).display().to_string()
+}
+
+/// Grading summary used by the settings page to explain a rule before saving.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RulePreview {
+    pub risk: Risk,
+    pub reasons: Vec<Reason>,
+    pub verdict: Verdict,
+}
+
+#[tauri::command]
+pub fn policy_preview(
+    store: State<'_, Store>,
+    pattern: String,
+    host: String,
+) -> Result<RulePreview, String> {
+    let config = load(&store)?;
+    let decision = ft_policy::evaluate(&config.to_policy(), &pattern, &Context { host, elevated: false });
+    Ok(RulePreview {
+        risk: decision.risk,
+        reasons: decision.reasons,
+        verdict: decision.verdict,
+    })
 }

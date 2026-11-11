@@ -8,6 +8,17 @@ package version in `src-tauri/tauri.conf.json`.
 
 ### Added
 
+- Every routing decision is now recorded in a hash-chained audit log:
+  `%APPDATA%/<app>/audit/audit-YYYYMM.jsonl`, one line per evaluation with the
+  command, host, risk, reasons, matched rule, verdict, the answer the person
+  gave and the mode in force. Each line carries the previous line's hash, so a
+  rewritten or removed entry breaks the chain at that point; Settings →
+  Security shows the recent entries per month and verifies the chain, naming
+  the first record that no longer matches. Files are kept for 12 months.
+- Settings → Security collects the policy in one place: the mode
+  (auto / ask before writes / plan only), the rule list with add and delete,
+  and the audit view above. The mode is saved as you switch it; deleting a rule
+  asks first, because it makes previously allowed commands ask again.
 - The assistant's command card can now run a command, not only paste it. Run
   goes through the approval policy first: allowed commands execute, higher-risk
   ones open a card showing the literal line, its risk level and the reasons it
@@ -105,6 +116,11 @@ package version in `src-tauri/tauri.conf.json`.
 
 ### Fixed
 
+- A confirmation asked from inside Settings now appears on top of it instead of
+  underneath: dialogs share one z-index in the stylesheet, so they are stacked
+  by mount order and only the topmost one answers Escape. Closing a confirm no
+  longer closes the dialog that asked it, and the request is no longer left
+  hanging behind a card the person cannot see.
 - Transfer progress forwarding survives a lagged broadcast instead of stopping
   the UI feed for every running job.
 - WebDAV uploads are guarded by the remote ETag: when another device wrote the

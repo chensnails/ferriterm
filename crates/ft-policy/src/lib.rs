@@ -20,12 +20,14 @@
 //! the authorisation. The engine exists because anything else — a model, an
 //! agent, a script over the control socket — is not.
 
+pub mod audit;
 pub mod parse;
 pub mod risk;
 pub mod rules;
 
 use serde::{Deserialize, Serialize};
 
+pub use audit::{AuditEntry, AuditLog, Choice, VerifyReport};
 pub use parse::{Command, Segment};
 pub use risk::{Assessment, Reason, Risk};
 pub use rules::{Effect, Rule};

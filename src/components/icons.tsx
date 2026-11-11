@@ -448,3 +448,12 @@ export function SparkleIcon({ size = 14 }: { size?: number }) {
     </svg>
   );
 }
+
+export function ShieldIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg {...base(size)}>
+      <path d="M8 1.8l5 1.9v3.6c0 3-2.1 5-5 6.1-2.9-1.1-5-3.1-5-6.1V3.7z" />
+      <path d="M5.8 7.6l1.6 1.6 3-3.2" />
+    </svg>
+  );
+}

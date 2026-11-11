@@ -42,6 +42,7 @@ pub fn run() {
             app.manage(store.clone());
             app.manage(Arc::new(ft_security::CredentialStore::new(dir.clone())));
             app.manage(ft_sync::BackupStore::new(dir.join("backups")));
+            app.manage(ft_policy::AuditLog::new(dir.join("audit")));
             app.manage(ft_plugin::PluginRegistry::new(dir.join("plugins")));
             app.manage(ft_core::RecorderRegistry::new(dir.join("recordings")));
             let sftp = Arc::new(ft_vfs::SftpRegistry::default());
@@ -213,6 +214,12 @@ pub fn run() {
             policy::policy_evaluate,
             policy::policy_add_rule,
             policy::policy_remove_rule,
+            policy::policy_record,
+            policy::policy_audit_months,
+            policy::policy_audit_list,
+            policy::policy_audit_verify,
+            policy::policy_audit_path,
+            policy::policy_preview,
         ])
         .run(tauri::generate_context!())
         .expect("error while running ferriterm");

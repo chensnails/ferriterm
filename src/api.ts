@@ -1427,3 +1427,78 @@ export function policyAddRule(
 export function policyRemoveRule(id: string): Promise<PolicyConfig> {
   return invoke<PolicyConfig>("policy_remove_rule", { id });
 }
+
+/** How the gate ended up treating one command. */
+export type AuditChoice =
+  | "auto"
+  | "once"
+  | "session"
+  | "always"
+  | "cancelled"
+  | "denied";
+
+export interface AuditEntry {
+  id: string;
+  /** UTC, second precision, `YYYY-MM-DDTHH:MM:SSZ`. */
+  ts: string;
+  host: string;
+  command: string;
+  risk: PolicyRisk;
+  reasons: PolicyReason[];
+  rule: string | null;
+  verdict: PolicyVerdict;
+  choice: AuditChoice;
+  mode: PolicyMode;
+  prevHash: string;
+  hash: string;
+}
+
+export interface AuditVerifyReport {
+  month: string;
+  entries: number;
+  ok: boolean;
+  /** 1-based position of the first record that does not verify. */
+  brokenAt: number | null;
+  /** `hash` | `link` | `parse`. */
+  brokenReason: string | null;
+}
+
+export interface RulePreview {
+  risk: PolicyRisk;
+  reasons: PolicyReason[];
+  verdict: PolicyVerdict;
+}
+
+export function policyRecord(input: {
+  command: string;
+  host: string;
+  decision: PolicyDecision;
+  choice: AuditChoice;
+}): Promise<AuditEntry> {
+  return invoke<AuditEntry>("policy_record", { entry: input });
+}
+
+export function policyAuditMonths(): Promise<string[]> {
+  return invoke<string[]>("policy_audit_months");
+}
+
+export function policyAuditList(month: string): Promise<AuditEntry[]> {
+  return invoke<AuditEntry[]>("policy_audit_list", { month });
+}
+
+export function policyAuditVerify(month?: string): Promise<AuditVerifyReport[]> {
+  return invoke<AuditVerifyReport[]>("policy_audit_verify", {
+    month: month ?? null,
+  });
+}
+
+export function policyAuditPath(month: string): Promise<string> {
+  return invoke<string>("policy_audit_path", { month });
+}
+
+export function policyPreview(
+  pattern: string,
+  host: string,
+): Promise<RulePreview> {
+  return invoke<RulePreview>("policy_preview", { pattern, host });
+}

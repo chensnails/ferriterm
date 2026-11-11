@@ -1,4 +1,10 @@
-import { policyAddRule, policyEvaluate, type PolicyDecision } from "./api";
+import {
+  policyAddRule,
+  policyEvaluate,
+  policyRecord,
+  type AuditChoice,
+  type PolicyDecision,
+} from "./api";
 import { useAppStore } from "./store";
 
 /**
@@ -38,6 +44,20 @@ export interface GateOptions {
   run: () => void;
 }
 
+/**
+ * Append the decision to the audit chain. Best effort on purpose: failing to
+ * write a log line must not turn a refusal into an execution, or hold up a
+ * command the person already approved.
+ */
+function record(
+  command: string,
+  host: string,
+  decision: PolicyDecision,
+  choice: AuditChoice,
+) {
+  void policyRecord({ command, host, decision, choice }).catch(() => {});
+}
+
 export async function runGuarded(
   command: string,
   options: GateOptions,
@@ -54,13 +74,16 @@ export async function runGuarded(
   }
 
   if (decision.verdict === "allow") {
+    record(line, host, decision, "auto");
     run();
     return { status: "ran" };
   }
   if (decision.verdict === "deny") {
+    record(line, host, decision, "denied");
     return { status: "denied", decision };
   }
   if (sessionGrants.has(grantKey(host, line))) {
+    record(line, host, decision, "session");
     run();
     return { status: "ran" };
   }
@@ -70,7 +93,10 @@ export async function runGuarded(
     host,
     decision,
   });
-  if (!choice) return { status: "cancelled" };
+  if (!choice) {
+    record(line, host, decision, "cancelled");
+    return { status: "cancelled" };
+  }
 
   if (choice === "always") {
     // An exact line, scoped to this host: the narrowest rule that keeps the
@@ -85,6 +111,7 @@ export async function runGuarded(
     sessionGrants.add(grantKey(host, line));
   }
 
+  record(line, host, decision, choice);
   run();
   return { status: "ran" };
 }
