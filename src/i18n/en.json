@@ -314,9 +314,9 @@
       "sync": "Sync",
       "about": "About",
       "credentials": "Credentials",
-      "ai": "AI",
-      "security": "Security",
-      "agent": "Agents"
+      "ai": "AI assistant",
+      "security": "Permissions",
+      "agent": "External access"
     },
     "desc": {
       "general": "Language and tab behaviour.",

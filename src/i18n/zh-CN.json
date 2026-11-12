@@ -314,9 +314,9 @@
       "sync": "同步",
       "about": "关于",
       "credentials": "凭据",
-      "ai": "AI",
-      "security": "安全策略",
-      "agent": "Agent 接入"
+      "ai": "AI 助手",
+      "security": "权限策略",
+      "agent": "外部接入"
     },
     "desc": {
       "general": "语言与标签页行为。",
