@@ -1501,7 +1501,8 @@
     "mode": {
       "auto": "Auto",
       "ask": "Ask before writes",
-      "plan": "Plan only"
+      "plan": "Plan only",
+      "agent": "Continuous"
     },
     "settings": {
       "modeGroup": "Approval mode",

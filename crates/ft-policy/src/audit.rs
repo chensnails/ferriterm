@@ -56,7 +56,7 @@ impl Choice {
     }
 }
 
-/// Where the decision was asked for. The chain is the same for all three; this
+/// Where the decision was asked for. The chain is the same for all of them; this
 /// is what lets a person reading it tell "I ran that" from "an agent ran that".
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -67,6 +67,8 @@ pub enum Origin {
     Cli,
     /// An agent through `ferriterm-cli mcp`.
     Mcp,
+    /// The built-in continuous agent loop, acting on its own.
+    Agent,
 }
 
 impl Origin {
@@ -75,6 +77,7 @@ impl Origin {
             Origin::Ui => "ui",
             Origin::Cli => "cli",
             Origin::Mcp => "mcp",
+            Origin::Agent => "agent",
         }
     }
 }

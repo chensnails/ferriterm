@@ -166,6 +166,7 @@ export function SettingsPolicy() {
             { value: "auto", label: t("policy.mode.auto") },
             { value: "ask", label: t("policy.mode.ask") },
             { value: "plan", label: t("policy.mode.plan") },
+            { value: "agent", label: t("policy.mode.agent") },
           ]}
         />
         <SettingRow

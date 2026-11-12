@@ -1501,7 +1501,8 @@
     "mode": {
       "auto": "自动",
       "ask": "写入前询问",
-      "plan": "仅规划"
+      "plan": "仅规划",
+      "agent": "连续模式"
     },
     "settings": {
       "modeGroup": "审批模式",

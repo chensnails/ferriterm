@@ -1383,7 +1383,7 @@ export function aiExplain(
 // ------------------------------------------------------------------ policy
 
 /** How much rope the non-human execution paths get. */
-export type PolicyMode = "auto" | "ask" | "plan";
+export type PolicyMode = "auto" | "ask" | "plan" | "agent";
 export type PolicyVerdict = "allow" | "ask" | "deny";
 export type PolicyEffect = "allow" | "ask" | "deny";
 export type PolicyRisk = "r0" | "r1" | "r2" | "r3" | "r4";
@@ -1474,7 +1474,7 @@ export type AuditChoice =
   | "denied";
 
 /** Who asked for the decision. */
-export type AuditOrigin = "ui" | "cli" | "mcp";
+export type AuditOrigin = "ui" | "cli" | "mcp" | "agent";
 
 export interface AuditEntry {
   id: string;
