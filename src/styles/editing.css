@@ -368,6 +368,12 @@ label.sync-action {
   cursor: not-allowed;
 }
 
+.plugin-actions button:focus-visible {
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
+  border-color: var(--accent);
+}
+
 /* The one call to action in a pane. */
 .plugin-actions button.primary {
   border-color: transparent;

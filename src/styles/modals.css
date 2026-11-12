@@ -339,10 +339,29 @@
   color: var(--fg-primary);
   font-size: var(--font-ui-sm);
   cursor: pointer;
+  transition:
+    background var(--motion-fast),
+    border-color var(--motion-fast),
+    color var(--motion-fast);
 }
 
-.plugin-action:hover {
+.plugin-action:hover:not(:disabled) {
   border-color: var(--accent);
+}
+
+.plugin-action:focus-visible {
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
+  border-color: var(--accent);
+}
+
+.plugin-action:active:not(:disabled) {
+  background: var(--selected-bg);
+}
+
+.plugin-action:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
 }
 
 .plugin-actions-inline {
@@ -372,11 +391,27 @@
   color: var(--fg-primary);
   font-size: var(--font-ui-sm);
   cursor: pointer;
+  transition:
+    background var(--motion-fast),
+    border-color var(--motion-fast),
+    color var(--motion-fast);
 }
 
 .settings-pane .plugin-actions button:hover,
 .settings-pane .highlight-form button:hover {
   border-color: var(--accent);
+}
+
+.settings-pane .plugin-actions button:focus-visible,
+.settings-pane .highlight-form button:focus-visible {
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
+  border-color: var(--accent);
+}
+
+.settings-pane .plugin-actions button:active:not(:disabled),
+.settings-pane .highlight-form button:active:not(:disabled) {
+  background: var(--selected-bg);
 }
 
 .settings-pane .sync-actions {

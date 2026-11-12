@@ -454,14 +454,31 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Native selects share the input material so a dropdown reads as a control,
+   not the OS widget dropped into the pane. */
 .ui-setting-control > select.ui-select {
   flex: 0 0 auto;
   width: var(--settings-label-w);
+  height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: inherit;
+  font-size: var(--font-ui);
   cursor: pointer;
+  transition: border-color var(--motion-fast);
 }
 
 .ui-setting-control > select.ui-select.wide {
   width: var(--settings-control-w);
+}
+
+.ui-setting-control > select.ui-select:focus-visible {
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: 0;
+  border-color: var(--accent);
 }
 
 .ui-setting-control > select.ui-select:disabled {
@@ -500,6 +517,16 @@
 .ui-setting-action:disabled {
   opacity: var(--disabled-opacity);
   cursor: not-allowed;
+}
+
+.ui-setting-action:focus-visible {
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
+  border-color: var(--accent);
+}
+
+.ui-setting-action:active:not(:disabled) {
+  background: var(--selected-bg);
 }
 
 .ui-setting-control > .ui-segmented {

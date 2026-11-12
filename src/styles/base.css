@@ -187,6 +187,12 @@ body {
   cursor: not-allowed;
 }
 
+.icon-btn:focus-visible {
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
+  border-color: var(--accent);
+}
+
 #conn-form {
   display: flex;
   flex-direction: column;
@@ -278,6 +284,16 @@ body {
 .actions button:disabled {
   opacity: var(--disabled-opacity);
   cursor: not-allowed;
+}
+
+.actions button:focus-visible {
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-offset);
+  border-color: var(--accent);
+}
+
+.actions button:active:not(:disabled) {
+  background: var(--selected-bg);
 }
 
 #form-status {
