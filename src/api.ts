@@ -47,6 +47,8 @@ export interface HostEntry {
   authMethod: string;
   keyPath: string;
   keyId: string;
+  /** Named password credential resolved inside Rust; empty = ask on connect. */
+  passwordId: string;
   jumpHostId: string;
   x11: boolean;
   parentId: string | null;
@@ -69,6 +71,7 @@ export interface HostInput {
   authMethod: string;
   keyPath: string;
   keyId: string;
+  passwordId: string;
   jumpHostId: string;
   x11: boolean;
   parentId: string | null;
@@ -193,6 +196,17 @@ export interface KeyCandidate {
   fingerprint: string;
   comment: string;
   encrypted: boolean;
+}
+
+export interface PasswordCredential {
+  id: string;
+  name: string;
+  username: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+  /** Whether the vault currently holds a password for this credential. */
+  hasSecret: boolean;
 }
 
 export interface KnownHostEntry {
@@ -857,8 +871,30 @@ export const api = {
     invoke<void>("save_host_credential", { hostId, password, passphrase }),
   deleteCredential: (hostId: string) =>
     invoke<void>("delete_credential", { hostId }),
-  credentialStatus: (hostId: string, keyId?: string) =>
-    invoke<CredentialStatus>("credential_status", { hostId, keyId }),
+  credentialStatus: (hostId: string, keyId?: string, passwordId?: string) =>
+    invoke<CredentialStatus>("credential_status", { hostId, keyId, passwordId }),
+  hostSetPasswordCredential: (hostId: string, passwordId: string) =>
+    invoke<void>("host_set_password_credential", { hostId, passwordId }),
+  passwordCredentialList: () =>
+    invoke<PasswordCredential[]>("password_credential_list"),
+  passwordCredentialSave: (input: {
+    id: string;
+    name: string;
+    username?: string;
+    notes?: string;
+    secret?: string | null;
+    hostId?: string | null;
+  }) =>
+    invoke<PasswordCredential>("password_credential_save", {
+      id: input.id,
+      name: input.name,
+      username: input.username ?? "",
+      notes: input.notes ?? "",
+      secret: input.secret ?? null,
+      hostId: input.hostId ?? null,
+    }),
+  passwordCredentialDelete: (id: string) =>
+    invoke<void>("password_credential_delete", { id }),
   saveSecret: (secretRef: string, secret: string) =>
     invoke<void>("save_secret", { secretRef, secret }),
   secretSaved: (secretRef: string) =>

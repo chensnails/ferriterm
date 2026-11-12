@@ -306,6 +306,7 @@ pub async fn ssh_connect(
     ));
     let provider = Arc::new(VaultProvider {
         credentials: credentials.inner().clone(),
+        store: runtime.store.clone(),
     });
     let ctx = ConnectContext::new(verifier)
         .with_keyboard_interactive(keyboard_prompt)

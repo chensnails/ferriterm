@@ -5,6 +5,7 @@ import {
   isTauri,
   type CredentialStatus,
   type HostEntry,
+  type PasswordCredential,
   type SessionKind,
   type SshKey,
   type VaultStatus,
@@ -27,15 +28,21 @@ export function ConnectHostDialog({
   const hosts = useAppStore((s) => s.hosts);
   const keepaliveSecs = useAppStore((s) => s.keepaliveSecs);
   const openSession = useAppStore((s) => s.openSession);
+  const loadHosts = useAppStore((s) => s.loadHosts);
   const setStatusMessage = useAppStore((s) => s.setStatus);
   const [status, setStatus] = useState<CredentialStatus | null>(null);
   const [vault, setVault] = useState<VaultStatus | null>(null);
   const [keys, setKeys] = useState<SshKey[]>([]);
+  const [passwords, setPasswords] = useState<PasswordCredential[]>([]);
   const [password, setPassword] = useState("");
   const [keyPath, setKeyPath] = useState(host.keyPath);
   const [passphrase, setPassphrase] = useState("");
-  const [remember, setRemember] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [useSaved, setUseSaved] = useState(!initialError);
+  const [selectedPasswordId, setSelectedPasswordId] = useState(
+    host.passwordId || "",
+  );
+  const [overridePassword, setOverridePassword] = useState(Boolean(initialError));
   const [unlockPassword, setUnlockPassword] = useState("");
   const [unlocking, setUnlocking] = useState(false);
   const [error, setError] = useState(initialError ?? "");
@@ -52,21 +59,44 @@ export function ConnectHostDialog({
     ? Boolean(host.keyId ? status?.keyPassphrase : status?.passphrase)
     : false;
   const keyNeedsPassphrase = keyAuth && Boolean(managedKey?.hasPassphrase);
+  const selectedCredential = passwords.find(
+    (item) => item.id === selectedPasswordId,
+  );
+  const usingStoredPassword =
+    !overridePassword &&
+    Boolean(selectedPasswordId) &&
+    Boolean(selectedCredential?.hasSecret);
+  const usingLegacySaved =
+    !overridePassword &&
+    !host.passwordId &&
+    !selectedPasswordId &&
+    useSaved &&
+    Boolean(status?.password);
+  const passwordRequired =
+    !keyAuth && needsSecret && !usingStoredPassword && !usingLegacySaved;
 
   useEffect(() => {
     if (!isTauri) return;
     let cancelled = false;
     void (async () => {
       try {
-        const [nextVault, nextStatus, keyList] = await Promise.all([
+        const [nextVault, nextStatus, keyList, passwordList] = await Promise.all([
           api.vaultStatus(),
-          api.credentialStatus(host.id, host.keyId || undefined),
+          api.credentialStatus(
+            host.id,
+            host.keyId || undefined,
+            host.passwordId || undefined,
+          ),
           keyAuth ? api.sshKeyList() : Promise.resolve([] as SshKey[]),
+          keyAuth
+            ? Promise.resolve([] as PasswordCredential[])
+            : api.passwordCredentialList(),
         ]);
         if (cancelled) return;
         setVault(nextVault);
         setStatus(nextStatus);
         setKeys(keyList);
+        setPasswords(passwordList);
         setUseSaved(initialError ? false : nextStatus.password);
       } catch (err) {
         if (!cancelled) setError(String(err));
@@ -75,7 +105,7 @@ export function ConnectHostDialog({
     return () => {
       cancelled = true;
     };
-  }, [host.id, host.keyId, keyAuth]);
+  }, [host.id, host.keyId, host.passwordId, keyAuth, initialError]);
 
   const unlock = async () => {
     if (!unlockPassword) return;
@@ -85,7 +115,11 @@ export function ConnectHostDialog({
       await api.vaultUnlock(unlockPassword);
       const [nextVault, nextStatus] = await Promise.all([
         api.vaultStatus(),
-        api.credentialStatus(host.id, host.keyId || undefined),
+        api.credentialStatus(
+          host.id,
+          host.keyId || undefined,
+          host.passwordId || undefined,
+        ),
       ]);
       setVault(nextVault);
       setStatus(nextStatus);
@@ -112,7 +146,7 @@ export function ConnectHostDialog({
       setError(t("connectHost.passphraseRequired"));
       return;
     }
-    if (!keyAuth && needsSecret && !useSaved && !password) {
+    if (passwordRequired && !password) {
       setError(t("connectHost.passwordRequired"));
       return;
     }
@@ -120,29 +154,54 @@ export function ConnectHostDialog({
     setBusy(true);
     try {
       const args = buildConnectArgs(host, hosts, keepaliveSecs);
+      // An SFTP host opens the file browser tab; both share the SSH transport.
+      const kind: SessionKind = host.protocol === "sftp" ? "sftp" : "ssh";
+      const pending: PendingConnect =
+        kind === "sftp" ? { type: "sftp", args } : { type: "ssh", args };
       if (keyAuth) {
         if (!host.keyId) args.keyPath = keyPath.trim();
         if (passphrase) {
           args.keyPassphrase = passphrase;
           if (remember) {
-            if (host.keyId) {
-              await api.saveSecret(`keypp:${host.keyId}`, passphrase);
-            } else {
-              await api.saveHostCredential(host.id, null, passphrase);
-            }
+            pending.saveSecret = host.keyId
+              ? { secretRef: `keypp:${host.keyId}`, secret: passphrase }
+              : { secretRef: `pp:${host.id}`, secret: passphrase };
           }
         }
-      } else if (needsSecret && !useSaved) {
-        args.password = password;
-        if (remember && password) {
-          await api.saveHostCredential(host.id, password, null);
+      } else if (needsSecret) {
+        if (usingStoredPassword && selectedPasswordId !== host.passwordId) {
+          await api.hostSetPasswordCredential(host.id, selectedPasswordId);
+          await loadHosts();
+        } else if (passwordRequired) {
+          args.password = password;
+          if (remember) {
+            const credentialId =
+              selectedPasswordId || host.passwordId || crypto.randomUUID();
+            const existing = passwords.find(
+              (item) => item.id === credentialId,
+            );
+            // Persisted only after ssh_connect succeeds; a typo must not
+            // overwrite the credential that used to work.
+            pending.saveCredential = {
+              hostId: host.id,
+              credentialId,
+              name:
+                existing?.name ||
+                host.name ||
+                `${host.username}@${host.host}`,
+              username: host.username,
+              password,
+            };
+          } else if (host.passwordId) {
+            // The user is typing a one-shot password and does not want it
+            // saved; unlink the old one so the next connect asks instead of
+            // replaying a credential that may be stale.
+            await api.hostSetPasswordCredential(host.id, "");
+            await loadHosts();
+          }
         }
       }
       setStatusMessage(t("connect.connecting"));
-      // An SFTP host opens the file browser tab; both share the SSH transport.
-      const kind: SessionKind = host.protocol === "sftp" ? "sftp" : "ssh";
-      const pending: PendingConnect =
-        kind === "sftp" ? { type: "sftp", args } : { type: "ssh", args };
       openSession(
         kind,
         host.name || `${host.username}@${host.host}`,
@@ -283,7 +342,44 @@ export function ConnectHostDialog({
         )}
         {!locked && !keyAuth && needsSecret && (
           <>
-            {status?.password ? (
+            <label className="field">
+              <span>{t("connectHost.passwordCredential")}</span>
+              <select
+                value={selectedPasswordId}
+                data-testid="connect-password-credential"
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedPasswordId(id);
+                  setOverridePassword(Boolean(initialError) && id === host.passwordId);
+                  setPassword("");
+                }}
+              >
+                <option value="">
+                  {t("connectHost.passwordCredentialNew")}
+                </option>
+                {passwords.map((credential) => (
+                  <option key={credential.id} value={credential.id}>
+                    {credential.name}
+                    {credential.username ? ` · ${credential.username}` : ""}
+                  </option>
+                ))}
+              </select>
+              <span className="hint">
+                {t("connectHost.passwordCredentialHint")}
+              </span>
+            </label>
+            {usingStoredPassword && (
+              <div className="saved-secret">
+                <span className="badge">{t("connectHost.passwordSaved")}</span>
+                <span className="saved-secret-name">
+                  {selectedCredential?.name}
+                </span>
+                <span className="hint">
+                  {t("connectHost.passwordCredentialStored")}
+                </span>
+              </div>
+            )}
+            {usingLegacySaved && (
               <div className="saved-secret">
                 <span className="badge">{t("connectHost.passwordSaved")}</span>
                 <label className="checkbox">
@@ -295,29 +391,30 @@ export function ConnectHostDialog({
                   <span>{t("connectHost.useSaved")}</span>
                 </label>
               </div>
-            ) : null}
-            {!useSaved || !status?.password ? (
-              <label className="field">
-                <span>{t("connectHost.password")}</span>
-                <input
-                  autoFocus
-                  type="password"
-                  data-testid="connect-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={t("connectHost.passwordPlaceholder")}
-                />
-              </label>
-            ) : null}
-            {(!status?.password || !useSaved) && (
-              <label className="checkbox">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
-                />
-                <span>{t("connectHost.remember")}</span>
-              </label>
+            )}
+            {passwordRequired && (
+              <>
+                <label className="field">
+                  <span>{t("connectHost.password")}</span>
+                  <input
+                    autoFocus
+                    type="password"
+                    data-testid="connect-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={t("connectHost.passwordPlaceholder")}
+                  />
+                </label>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                  />
+                  <span>{t("connectHost.remember")}</span>
+                </label>
+                <p className="hint">{t("connectHost.rememberHint")}</p>
+              </>
             )}
           </>
         )}

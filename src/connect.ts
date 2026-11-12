@@ -8,14 +8,61 @@ import {
 
 export type ConnectArgs = Omit<SshConnectArgs, "cols" | "rows">;
 
+/** A password typed in the connect dialog, kept out of the vault until the
+    transport has actually authenticated with it. */
+export interface PendingCredentialSave {
+  hostId: string;
+  credentialId: string;
+  name: string;
+  username: string;
+  password: string;
+}
+
+/** Key passphrase typed for a connection, stored only after success. */
+export interface PendingSecretSave {
+  secretRef: string;
+  secret: string;
+}
+
 /** What a session needs when its tab mounts. Serial and telnet carry their
     target directly; SSH-family tabs resolve credentials inside Rust. */
 export type PendingConnect =
-  | { type: "ssh"; args: ConnectArgs }
-  | { type: "sftp"; args: ConnectArgs }
+  | {
+      type: "ssh";
+      args: ConnectArgs;
+      saveCredential?: PendingCredentialSave;
+      saveSecret?: PendingSecretSave;
+    }
+  | {
+      type: "sftp";
+      args: ConnectArgs;
+      saveCredential?: PendingCredentialSave;
+      saveSecret?: PendingSecretSave;
+    }
   | { type: "pty"; shell?: string; cwd?: string }
   | { type: "serial"; config: SerialConfig }
   | { type: "telnet"; host: string; port: number };
+
+/** Auth failures must stop silent retries: the user has to supply a credential
+    in the connect dialog instead of replaying the secret that just failed. */
+export function isAuthFailure(error: string): boolean {
+  return /authentication failed|credentials are required|permission denied|credential vault is locked/i.test(
+    error,
+  );
+}
+
+/** Drops one-shot secrets and deferred saves from a pending connection. Used
+    after a connect attempt so reconnects and host deletion cannot replay a
+    password that was never verified. */
+export function stripPendingSecrets(
+  pending: PendingConnect | null | undefined,
+): PendingConnect | undefined {
+  if (!pending) return undefined;
+  if (pending.type !== "ssh" && pending.type !== "sftp") return pending;
+  const { password: _password, keyPassphrase: _keyPassphrase, ...args } =
+    pending.args;
+  return { ...pending, args, saveCredential: undefined, saveSecret: undefined };
+}
 
 export interface HostConnectPlan {
   kind: SessionKind;

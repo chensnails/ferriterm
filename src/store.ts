@@ -21,7 +21,11 @@ import {
   parseSshSecurity,
   type SshAlgorithmGroupKey,
 } from "./ssh-algorithms";
-import { planHostConnect, type PendingConnect } from "./connect";
+import {
+  planHostConnect,
+  stripPendingSecrets,
+  type PendingConnect,
+} from "./connect";
 import { isSensitiveCommand } from "./commands";
 import {
   normalizeCombo,
@@ -612,6 +616,8 @@ interface AppState {
   stopRecording: (id: string) => Promise<void>;
   consumePending: (id: string) => PendingConnect | undefined;
   reconnect: (id: string) => void;
+  /** Drops ephemeral passwords from a session so a retry cannot resend them. */
+  scrubSessionSecrets: (id: string) => void;
   toggleTheme: () => void;
   setLanguage: (lng: Language) => void;
   setTheme: (theme: Theme) => void;
@@ -1611,6 +1617,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     state.closeSession(id);
   },
 
+  scrubSessionSecrets: (id) => {
+    set((s) => ({
+      sessions: s.sessions.map((x) =>
+        x.id === id
+          ? {
+              ...x,
+              pending: stripPendingSecrets(x.pending),
+              lastConnect: stripPendingSecrets(x.lastConnect),
+            }
+          : x,
+      ),
+    }));
+  },
+
   toggleTheme: () => {
     const theme = get().theme === "light" ? "dark" : "light";
     get().setTheme(theme);
@@ -1905,6 +1925,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => ({
       hosts,
       selectedHostId: s.selectedHostId === id ? null : s.selectedHostId,
+      connectRetry: s.connectRetry?.hostId === id ? null : s.connectRetry,
+      // A deleted host must not keep a failed password alive on its tabs; the
+      // retry path would otherwise keep resending a credential that is gone.
+      sessions: s.sessions.map((x) =>
+        x.hostId === id
+          ? {
+              ...x,
+              pending: stripPendingSecrets(x.pending),
+              lastConnect: stripPendingSecrets(x.lastConnect),
+            }
+          : x,
+      ),
     }));
   },
 

@@ -246,12 +246,16 @@ Acceptance = perform each path in Ferriterm and in the reference install; record
 - [ ] Enabling a master password migrates stored secrets, requires the password on later launches and after auto-lock; cancelling the unlock dialog leaves the app usable but blocks SSH connects with a clear message.
 - [ ] Changing the master password re-encrypts existing entries; disabling it returns to the local vault; resetting wipes secrets, managed keys and their host references after confirmation.
 - [ ] Auto-lock selects 0/5/15/30/60 minutes of inactivity and locks without a restart.
-- [ ] Stored-secret list shows one row per host with password and/or passphrase entries, each deletable; "clear all" asks for confirmation; deleting a host removes its secrets.
+- [ ] Stored-secret list shows one row per secret, each deletable; "clear all" asks for confirmation; deleting a host removes its secrets.
+- [ ] Settings › Credentials offers a password manager for named password credentials: create, rename, change the secret, add notes, and delete; the stored password is never shown again.
+- [ ] Host properties can link a named password credential or a managed key; the connect dialog lists saved passwords and signs in without prompting while the vault is unlocked.
+- [ ] A password typed in the connect dialog is written to the vault only after the SSH authentication succeeds; a failed attempt never overwrites the saved secret and the dialog reopens with the error instead of silently retrying.
+- [ ] Unlinking or forgetting a password makes the next connect ask again; deleting a host clears its pending retry state and one-shot secrets.
 - [ ] Recent access log lists the last credential reads, writes and deletes with timestamps.
 - [ ] Key manager imports a private key from a `~/.ssh` candidate or a typed path, rejects non-key files, and shows algorithm plus SHA256 fingerprint.
 - [ ] Key manager generates ed25519 and RSA keys with an optional passphrase, shows the public key and copies it to the clipboard.
 - [ ] Host properties can select a managed key or keep a key path; a managed key wins when both are set.
-- [ ] The connect dialog shows a saved badge instead of pre-filling passwords or passphrases; entering a new secret replaces it, "forget" deletes it.
+- [ ] The connect dialog shows a saved badge instead of pre-filling passwords or passphrases; entering a new secret replaces it after a successful sign-in.
 - [ ] SSH connects read secrets only in the Rust process; the webview never receives stored plaintext.
 - [ ] Authentication falls back key → agent → password when the previous method is rejected, without exceeding the server's failure limit.
 - [ ] Jump-host hops resolve their own saved password, passphrase or managed key.

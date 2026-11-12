@@ -213,6 +213,7 @@ function toHostInput(host: ImportedHost, parentId: string | null) {
     authMethod: "password",
     keyPath: "",
     keyId: "",
+    passwordId: "",
     jumpHostId: "",
     x11: false,
     parentId,

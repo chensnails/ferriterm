@@ -14,6 +14,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { api, isTauri, onClosed, onOutput, type SessionKind } from "./api";
 import { writeClipboardText } from "./clipboard";
 import type { PendingConnect } from "./connect";
+import { isAuthFailure, stripPendingSecrets } from "./connect";
 import { connectAlgorithms } from "./ssh-algorithms";
 import {
   registerTerminal,
@@ -280,16 +281,26 @@ export class TerminalView implements TerminalHandle {
       .then(() => {
         this.reconnectAttempt = 0;
         useAppStore.getState().setStatus("");
+        this.persistDeferredSecrets(pending);
+        this.stripSecrets();
       })
       .catch((err) => {
         if (this.disposed) return;
         const message = String(err);
         if (retry) {
+          // A rejected retry after a drop is usually a credential problem; do
+          // not keep replaying the same secret through the rest of the ladder.
+          if (isAuthFailure(message)) {
+            this.stripSecrets();
+            this.reportGiveUp(message);
+            return;
+          }
           // The socket closed before the ladder could report anything, so the
           // next rung (or the give-up line) owns this failure.
           if (!this.scheduleReconnect()) this.reportGiveUp(message);
           return;
         }
+        this.stripSecrets();
         useAppStore.getState().setStatus(message, true);
         this.term.writeln(
           `\r\n\x1b[31m${i18n.t("terminal.connectFailed", { error: message })}\x1b[0m`,
@@ -297,6 +308,42 @@ export class TerminalView implements TerminalHandle {
         this.reportHostError(message);
         this.onSessionClosed();
       });
+  }
+
+  /** Stores a password or passphrase only after the transport authenticated
+      with it, so a typo can never overwrite the last good secret. */
+  private persistDeferredSecrets(pending: PendingConnect) {
+    if (pending.type !== "ssh" && pending.type !== "sftp") return;
+    const credential = pending.saveCredential;
+    const secret = pending.saveSecret;
+    if (!credential && !secret) return;
+    void (async () => {
+      try {
+        if (credential) {
+          await api.passwordCredentialSave({
+            id: credential.credentialId,
+            name: credential.name,
+            username: credential.username,
+            secret: credential.password,
+            hostId: credential.hostId,
+          });
+          await useAppStore.getState().loadHosts();
+        }
+        if (secret) await api.saveSecret(secret.secretRef, secret.secret);
+      } catch (err) {
+        useAppStore.getState().setStatus(String(err), true);
+      }
+    })();
+  }
+
+  private stripSecrets() {
+    if (
+      this.pending &&
+      (this.pending.type === "ssh" || this.pending.type === "sftp")
+    ) {
+      this.pending = stripPendingSecrets(this.pending) ?? null;
+    }
+    useAppStore.getState().scrubSessionSecrets(this.id);
   }
 
   /** Reconnects SSH-family tabs after a dropped connection. Every other

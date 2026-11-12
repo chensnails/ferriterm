@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
   api,
@@ -7,6 +13,8 @@ import {
   type HostEntry,
   type HostInput,
   type HostProtocol,
+  type KeyCandidate,
+  type PasswordCredential,
   type ProtocolOptions,
   type SerialFlowControl,
   type SerialParity,
@@ -66,7 +74,12 @@ const GROUP_LABEL: Record<(typeof ICON_GROUPS)[number], string> = {
   device: "hostDialog.iconDevices",
 };
 
-export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProps) {
+export function HostDialog({
+  host,
+  parentId,
+  isFolder,
+  onClose,
+}: HostDialogProps) {
   const { t } = useTranslation();
   const tags = useAppStore((s) => s.tags);
   const hosts = useAppStore((s) => s.hosts);
@@ -76,9 +89,14 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
   );
   const createHost = useAppStore((s) => s.createHost);
   const updateHost = useAppStore((s) => s.updateHost);
+  const loadHosts = useAppStore((s) => s.loadHosts);
 
+  // Retries keep one id so a failed save can never leave a duplicate host.
+  const [draftId] = useState(() => host?.id ?? crypto.randomUUID());
   const [name, setName] = useState(host?.name ?? "");
-  const [protocol, setProtocol] = useState<HostProtocol>(host?.protocol ?? "ssh");
+  const [protocol, setProtocol] = useState<HostProtocol>(
+    host?.protocol ?? "ssh",
+  );
   const [address, setAddress] = useState(host?.host ?? "");
   const [port, setPort] = useState(
     String(host?.port || DEFAULT_PORTS[host?.protocol ?? "ssh"]),
@@ -87,7 +105,19 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
   const [authMethod, setAuthMethod] = useState(host?.authMethod ?? "password");
   const [keyPath, setKeyPath] = useState(host?.keyPath ?? "");
   const [keyId, setKeyId] = useState(host?.keyId ?? "");
+  const [passwordId, setPasswordId] = useState(host?.passwordId ?? "");
+  const [passwordSource, setPasswordSource] = useState<"direct" | "credential">(
+    host?.passwordId ? "credential" : "direct",
+  );
+  const [directPassword, setDirectPassword] = useState("");
+  const [keySource, setKeySource] = useState<"file" | "managed">(
+    host?.keyId ? "managed" : "file",
+  );
+  const [keyPassphrase, setKeyPassphrase] = useState("");
+  const [keyCandidates, setKeyCandidates] = useState<KeyCandidate[]>([]);
+  const [scanning, setScanning] = useState(false);
   const [keys, setKeys] = useState<SshKey[]>([]);
+  const [passwords, setPasswords] = useState<PasswordCredential[]>([]);
   const [jumpHostId, setJumpHostId] = useState(host?.jumpHostId ?? "");
   const [x11, setX11] = useState(host?.x11 ?? false);
   const [options, setOptions] = useState<ProtocolOptions>({
@@ -99,9 +129,12 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
   const [portsLoading, setPortsLoading] = useState(false);
   const [production, setProduction] = useState(host?.production ?? false);
   const [notes, setNotes] = useState(host?.notes ?? "");
-  const [tagIds, setTagIds] = useState<string[]>(host?.tags.map((tag) => tag.id) ?? []);
+  const [tagIds, setTagIds] = useState<string[]>(
+    host?.tags.map((tag) => tag.id) ?? [],
+  );
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const createdRef = useRef(false);
 
   const sshLike = protocol === "ssh" || protocol === "sftp";
   const networkProtocol = protocol !== "serial" && protocol !== "local";
@@ -113,6 +146,12 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
       .sshKeyList()
       .then((list) => {
         if (!cancelled) setKeys(list);
+      })
+      .catch(() => {});
+    void api
+      .passwordCredentialList()
+      .then((list) => {
+        if (!cancelled) setPasswords(list);
       })
       .catch(() => {});
     return () => {
@@ -141,6 +180,18 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
     if (protocol === "serial" && isTauri) void refreshPorts();
   }, [protocol, refreshPorts]);
 
+  const scanKeys = useCallback(async () => {
+    if (!isTauri) return;
+    setScanning(true);
+    try {
+      setKeyCandidates(await api.sshKeyScan());
+    } catch {
+      setKeyCandidates([]);
+    } finally {
+      setScanning(false);
+    }
+  }, []);
+
   const title = host
     ? isFolder
       ? t("hostDialog.editFolderTitle")
@@ -150,7 +201,9 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
       : t("hostDialog.newHostTitle");
 
   const toggleTag = (id: string) =>
-    setTagIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+    setTagIds((ids) =>
+      ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
+    );
 
   const updateOption = <K extends keyof ProtocolOptions>(
     key: K,
@@ -179,8 +232,19 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
       }
     }
     setSaving(true);
+    const typedPassword =
+      !isFolder &&
+      sshLike &&
+      authMethod === "password" &&
+      passwordSource === "direct"
+        ? directPassword
+        : "";
+    const typedPassphrase =
+      !isFolder && sshLike && authMethod === "key" && keySource === "file"
+        ? keyPassphrase
+        : "";
     const input: HostInput = {
-      id: host?.id ?? crypto.randomUUID(),
+      id: draftId,
       name: name.trim(),
       host: isFolder || !networkProtocol ? "" : address.trim(),
       port:
@@ -190,10 +254,21 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
       username: isFolder || !sshLike ? "" : username.trim(),
       authMethod: isFolder || !sshLike ? "password" : authMethod,
       keyPath:
-        isFolder || !sshLike || authMethod !== "key" || keyId
+        isFolder || !sshLike || authMethod !== "key" || keySource !== "file"
           ? ""
           : keyPath.trim(),
-      keyId: isFolder || !sshLike || authMethod !== "key" ? "" : keyId,
+      keyId:
+        isFolder || !sshLike || authMethod !== "key" || keySource !== "managed"
+          ? ""
+          : keyId,
+      passwordId:
+        isFolder || !sshLike || authMethod !== "password"
+          ? ""
+          : passwordSource === "credential"
+            ? passwordId
+            : typedPassword
+              ? ""
+              : (host?.passwordId ?? ""),
       jumpHostId: isFolder || !sshLike ? "" : jumpHostId,
       x11: isFolder || protocol !== "ssh" ? false : x11,
       parentId: host ? host.parentId : parentId,
@@ -213,8 +288,33 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
       tagIds: isFolder ? [] : tagIds,
     };
     try {
-      if (host) await updateHost(input);
-      else await createHost(input);
+      if (host || createdRef.current) {
+        await updateHost(input);
+      } else {
+        await createHost(input);
+        createdRef.current = true;
+      }
+      if (typedPassword && isTauri) {
+        // Typed passwords become ordinary named credentials, so the vault
+        // manager can edit or reuse them and the connect dialog stays out of
+        // the way.
+        await api.passwordCredentialSave({
+          id: crypto.randomUUID(),
+          name:
+            name.trim() ||
+            [username.trim(), address.trim()].filter(Boolean).join("@") ||
+            draftId,
+          username: username.trim(),
+          secret: typedPassword,
+          hostId: draftId,
+        });
+        await loadHosts();
+      }
+      if (typedPassphrase && isTauri) {
+        await api.saveHostCredential(draftId, null, typedPassphrase);
+      }
+      setDirectPassword("");
+      setKeyPassphrase("");
       onClose();
     } catch (err) {
       setError(String(err));
@@ -321,7 +421,9 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
                   <>
                     <p className="hint">{t("hostDialog.telnetHint")}</p>
                     {!telnetReady && (
-                      <p className="hint">{t("hostDialog.telnetNeedsPlugin")}</p>
+                      <p className="hint">
+                        {t("hostDialog.telnetNeedsPlugin")}
+                      </p>
                     )}
                   </>
                 )}
@@ -339,7 +441,9 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
                     value={authMethod}
                     onChange={(e) => setAuthMethod(e.target.value)}
                   >
-                    <option value="password">{t("hostDialog.authPassword")}</option>
+                    <option value="password">
+                      {t("hostDialog.authPassword")}
+                    </option>
                     <option value="key">{t("hostDialog.authKey")}</option>
                     <option value="agent">{t("hostDialog.authAgent")}</option>
                     <option value="keyboard-interactive">
@@ -352,8 +456,78 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
                   <p className="hint">{t("hostDialog.agentHint")}</p>
                 )}
 
+                {authMethod === "password" && (
+                  <>
+                    <label className="field">
+                      <span>{t("hostDialog.passwordSource")}</span>
+                      <select
+                        value={passwordSource}
+                        onChange={(e) =>
+                          setPasswordSource(
+                            e.target.value as "direct" | "credential",
+                          )
+                        }
+                      >
+                        <option value="direct">
+                          {t("hostDialog.sourceDirect")}
+                        </option>
+                        <option value="credential">
+                          {t("hostDialog.sourceCredential")}
+                        </option>
+                      </select>
+                    </label>
+                    {passwordSource === "direct" ? (
+                      <label className="field">
+                        <span>{t("hostDialog.directPassword")}</span>
+                        <input
+                          type="password"
+                          autoComplete="new-password"
+                          data-testid="host-password"
+                          value={directPassword}
+                          onChange={(e) => setDirectPassword(e.target.value)}
+                          placeholder={t(
+                            "hostDialog.directPasswordPlaceholder",
+                          )}
+                        />
+                        <span className="hint">
+                          {passwordId
+                            ? t("hostDialog.directPasswordKeepHint")
+                            : t("hostDialog.directPasswordHint")}
+                        </span>
+                      </label>
+                    ) : (
+                      <label className="field">
+                        <span>{t("hostDialog.passwordPick")}</span>
+                        <select
+                          value={passwordId}
+                          onChange={(e) => setPasswordId(e.target.value)}
+                        >
+                          <option value="">
+                            {t("hostDialog.passwordPickEmpty")}
+                          </option>
+                          {passwords.map((credential) => (
+                            <option key={credential.id} value={credential.id}>
+                              {credential.name}
+                              {credential.username
+                                ? ` · ${credential.username}`
+                                : ""}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="hint">
+                          {passwords.length === 0
+                            ? t("hostDialog.passwordsEmpty")
+                            : t("hostDialog.passwordCredentialHint")}
+                        </span>
+                      </label>
+                    )}
+                  </>
+                )}
+
                 {authMethod === "keyboard-interactive" && (
-                  <p className="hint">{t("hostDialog.keyboardInteractiveHint")}</p>
+                  <p className="hint">
+                    {t("hostDialog.keyboardInteractiveHint")}
+                  </p>
                 )}
 
                 {authMethod === "key" && (
@@ -361,26 +535,107 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
                     <label className="field">
                       <span>{t("hostDialog.keySource")}</span>
                       <select
-                        value={keyId}
-                        onChange={(e) => setKeyId(e.target.value)}
+                        value={keySource}
+                        onChange={(e) =>
+                          setKeySource(e.target.value as "file" | "managed")
+                        }
                       >
-                        <option value="">{t("hostDialog.keySourcePath")}</option>
-                        {keys.map((key) => (
-                          <option key={key.id} value={key.id}>
-                            {key.name} · {key.fingerprint}
-                          </option>
-                        ))}
+                        <option value="file">
+                          {t("hostDialog.sourceFile")}
+                        </option>
+                        <option value="managed">
+                          {t("hostDialog.sourceManaged")}
+                        </option>
                       </select>
-                      <span className="hint">{t("hostDialog.keySourceHint")}</span>
                     </label>
-                    {!keyId && (
+                    {keySource === "file" ? (
+                      <>
+                        <label className="field">
+                          <span>{t("hostDialog.keyPath")}</span>
+                          <div className="field-inline">
+                            <input
+                              value={keyPath}
+                              onChange={(e) => setKeyPath(e.target.value)}
+                              placeholder="~/.ssh/id_ed25519"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void scanKeys()}
+                              disabled={scanning || !isTauri}
+                            >
+                              {scanning
+                                ? t("hostDialog.scanning")
+                                : t("hostDialog.keyScan")}
+                            </button>
+                          </div>
+                          {keyCandidates.length > 0 && (
+                            <select
+                              value={
+                                keyCandidates.some(
+                                  (candidate) => candidate.path === keyPath,
+                                )
+                                  ? keyPath
+                                  : ""
+                              }
+                              onChange={(e) => setKeyPath(e.target.value)}
+                            >
+                              <option value="">
+                                {t("hostDialog.keyCandidatePick")}
+                              </option>
+                              {keyCandidates.map((candidate) => (
+                                <option
+                                  key={candidate.path}
+                                  value={candidate.path}
+                                >
+                                  {candidate.name} · {candidate.algorithm} ·{" "}
+                                  {candidate.fingerprint}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                          {isTauri && keyCandidates.length === 0 && (
+                            <span className="hint">
+                              {t("hostDialog.keyFileHint")}
+                            </span>
+                          )}
+                        </label>
+                        <label className="field">
+                          <span>{t("hostDialog.keyPassphrase")}</span>
+                          <input
+                            type="password"
+                            autoComplete="new-password"
+                            value={keyPassphrase}
+                            onChange={(e) => setKeyPassphrase(e.target.value)}
+                            placeholder={t(
+                              "hostDialog.keyPassphrasePlaceholder",
+                            )}
+                          />
+                          <span className="hint">
+                            {t("hostDialog.keyPassphraseHint")}
+                          </span>
+                        </label>
+                      </>
+                    ) : (
                       <label className="field">
-                        <span>{t("hostDialog.keyPath")}</span>
-                        <input
-                          value={keyPath}
-                          onChange={(e) => setKeyPath(e.target.value)}
-                          placeholder="~/.ssh/id_ed25519"
-                        />
+                        <span>{t("hostDialog.keyPick")}</span>
+                        <select
+                          value={keyId}
+                          onChange={(e) => setKeyId(e.target.value)}
+                        >
+                          <option value="">
+                            {t("hostDialog.keyPickEmpty")}
+                          </option>
+                          {keys.map((key) => (
+                            <option key={key.id} value={key.id}>
+                              {key.name} · {key.fingerprint}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="hint">
+                          {keys.length === 0
+                            ? t("hostDialog.keysEmpty")
+                            : t("hostDialog.keyManagedHint")}
+                        </span>
                       </label>
                     )}
                   </>
@@ -450,7 +705,9 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
                       list="host-serial-ports"
                       value={options.serialPath}
                       placeholder="/dev/ttyUSB0"
-                      onChange={(e) => updateOption("serialPath", e.target.value)}
+                      onChange={(e) =>
+                        updateOption("serialPath", e.target.value)
+                      }
                     />
                     <datalist id="host-serial-ports">
                       {ports.map((item) => (
@@ -587,21 +844,29 @@ export function HostDialog({ host, parentId, isFolder, onClose }: HostDialogProp
               </button>
               {ICON_GROUPS.map((group) => (
                 <div key={group} className="icon-group">
-                  <span className="icon-group-label">{t(GROUP_LABEL[group])}</span>
+                  <span className="icon-group-label">
+                    {t(GROUP_LABEL[group])}
+                  </span>
                   <div className="icon-options">
-                    {HOST_ICONS.filter((def) => def.group === group).map((def) => (
-                      <button
-                        key={def.id}
-                        type="button"
-                        className={`icon-option${icon === def.id ? " active" : ""}`}
-                        onClick={() => setIcon(def.id)}
-                        title={def.name}
-                        aria-label={def.name}
-                        aria-pressed={icon === def.id}
-                      >
-                        <HostIcon icon={def.id} protocol={protocol} size={18} />
-                      </button>
-                    ))}
+                    {HOST_ICONS.filter((def) => def.group === group).map(
+                      (def) => (
+                        <button
+                          key={def.id}
+                          type="button"
+                          className={`icon-option${icon === def.id ? " active" : ""}`}
+                          onClick={() => setIcon(def.id)}
+                          title={def.name}
+                          aria-label={def.name}
+                          aria-pressed={icon === def.id}
+                        >
+                          <HostIcon
+                            icon={def.id}
+                            protocol={protocol}
+                            size={18}
+                          />
+                        </button>
+                      ),
+                    )}
                   </div>
                 </div>
               ))}

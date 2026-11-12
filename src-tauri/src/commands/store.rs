@@ -117,6 +117,23 @@ pub fn update_host(
     state.update_host(&input).map_err(|e| e.to_string())
 }
 
+/// Links (or clears, with an empty id) the password credential a host resolves
+/// at connect time. Used by the connect dialog when the user picks a stored
+/// credential instead of typing a password.
+#[tauri::command]
+pub fn host_set_password_credential(
+    state: State<'_, Arc<ft_store::Store>>,
+    host_id: String,
+    password_id: String,
+) -> Result<(), String> {
+    let password_id = password_id.trim();
+    state
+        .set_host_password_id(&host_id, password_id)
+        .map_err(|e| e.to_string())?;
+    let _ = state.append_audit("host.password.link", &host_id, password_id);
+    Ok(())
+}
+
 #[tauri::command]
 pub fn delete_host(
     state: State<'_, Arc<ft_store::Store>>,

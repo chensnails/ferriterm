@@ -11,6 +11,7 @@ import { useAppStore } from "../store";
 import { clockLabel, dayLabel, groupByDay, parseStamp } from "../timeline";
 import { KeyManagerDialog } from "./KeyManagerDialog";
 import { KnownHostsDialog } from "./KnownHostsDialog";
+import { PasswordManagerDialog } from "./PasswordManagerDialog";
 import { SelectSetting } from "./SettingsControls";
 import { DaySeparator, Skeleton } from "./ui";
 import { UnlockDialog, type VaultAction } from "./UnlockDialog";
@@ -28,6 +29,7 @@ export function CredentialVault() {
   const [error, setError] = useState("");
   const [action, setAction] = useState<VaultAction | null>(null);
   const [keyManagerOpen, setKeyManagerOpen] = useState(false);
+  const [passwordManagerOpen, setPasswordManagerOpen] = useState(false);
   const [knownHostsOpen, setKnownHostsOpen] = useState(false);
   const [confirmingClear, setConfirmingClear] = useState(false);
 
@@ -175,6 +177,9 @@ export function CredentialVault() {
           <button type="button" onClick={() => setKeyManagerOpen(true)}>
             {t("keys.manage")}
           </button>
+          <button type="button" onClick={() => setPasswordManagerOpen(true)}>
+            {t("passwords.manage")}
+          </button>
           <button type="button" onClick={() => setKnownHostsOpen(true)}>
             {t("knownHosts.manage")}
           </button>
@@ -298,6 +303,14 @@ export function CredentialVault() {
       )}
       {knownHostsOpen && (
         <KnownHostsDialog onClose={() => setKnownHostsOpen(false)} />
+      )}
+      {passwordManagerOpen && (
+        <PasswordManagerDialog
+          onClose={() => {
+            setPasswordManagerOpen(false);
+            void refresh();
+          }}
+        />
       )}
     </>
   );

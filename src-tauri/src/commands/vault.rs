@@ -10,6 +10,7 @@ pub(crate) type Credentials = Arc<ft_security::CredentialStore>;
 /// receives stored plaintext.
 pub(crate) struct VaultProvider {
     pub(crate) credentials: Credentials,
+    pub(crate) store: Arc<ft_store::Store>,
 }
 
 impl VaultProvider {
@@ -28,7 +29,17 @@ impl VaultProvider {
 impl CredentialProvider for VaultProvider {
     fn host_secret(&self, host_id: &str, kind: SecretKind) -> Option<String> {
         match kind {
-            SecretKind::Password => self.lookup(&[format!("pwd:{host_id}"), host_id.to_string()]),
+            SecretKind::Password => {
+                let mut references = Vec::new();
+                if let Some(linked) = self.store.host_password_id(host_id).ok().flatten() {
+                    references.push(password_credential_ref(&linked));
+                }
+                // Legacy per-host slots stay readable so existing installs keep
+                // connecting until the password is promoted to a credential.
+                references.push(password_ref(host_id));
+                references.push(host_id.to_string());
+                self.lookup(&references)
+            }
             SecretKind::Passphrase => self.lookup(&[format!("pp:{host_id}"), host_id.to_string()]),
         }
     }
@@ -57,6 +68,10 @@ pub(crate) fn password_ref(host_id: &str) -> String {
     format!("pwd:{host_id}")
 }
 
+pub(crate) fn password_credential_ref(id: &str) -> String {
+    format!("pwcred:{id}")
+}
+
 pub(crate) fn passphrase_ref(host_id: &str) -> String {
     format!("pp:{host_id}")
 }
@@ -72,6 +87,8 @@ pub(crate) fn key_passphrase_ref(key_id: &str) -> String {
 pub(crate) fn infer_kind(reference: &str) -> &'static str {
     if reference.starts_with("pwd:") {
         "password"
+    } else if reference.starts_with("pwcred:") {
+        "passwordCredential"
     } else if reference.starts_with("pp:") {
         "passphrase"
     } else if reference.starts_with("keypp:") {
@@ -112,14 +129,55 @@ pub struct VaultEntryView {
     pub updated_at: String,
 }
 
+/// Password credential metadata plus the only secret-related fact the webview
+/// may know: whether the vault currently holds a value for it.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PasswordCredentialView {
+    pub id: String,
+    pub name: String,
+    pub username: String,
+    pub notes: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub has_secret: bool,
+}
+
+fn password_credential_view(
+    credentials: &ft_security::CredentialStore,
+    credential: ft_store::PasswordCredential,
+) -> PasswordCredentialView {
+    PasswordCredentialView {
+        has_secret: credentials.exists(&password_credential_ref(&credential.id)),
+        id: credential.id,
+        name: credential.name,
+        username: credential.username,
+        notes: credential.notes,
+        created_at: credential.created_at,
+        updated_at: credential.updated_at,
+    }
+}
+
 #[tauri::command]
 pub fn credential_status(
+    store: State<'_, Arc<ft_store::Store>>,
     credentials: State<'_, Credentials>,
     host_id: String,
     key_id: Option<String>,
+    password_id: Option<String>,
 ) -> CredentialStatus {
+    let linked = password_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .map(str::to_string)
+        .or_else(|| store.host_password_id(&host_id).ok().flatten());
     CredentialStatus {
-        password: credentials.exists(&password_ref(&host_id)) || credentials.exists(&host_id),
+        password: linked
+            .as_deref()
+            .is_some_and(|id| credentials.exists(&password_credential_ref(id)))
+            || credentials.exists(&password_ref(&host_id))
+            || credentials.exists(&host_id),
         passphrase: credentials.exists(&passphrase_ref(&host_id)) || credentials.exists(&host_id),
         key: key_id
             .as_deref()
@@ -131,6 +189,110 @@ pub fn credential_status(
             .is_some_and(|id| credentials.exists(&key_passphrase_ref(id))),
         locked: credentials.is_locked(),
     }
+}
+
+#[tauri::command]
+pub fn password_credential_list(
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+) -> Result<Vec<PasswordCredentialView>, String> {
+    let list = store
+        .list_password_credentials()
+        .map_err(|e| e.to_string())?;
+    Ok(list
+        .into_iter()
+        .map(|credential| password_credential_view(&credentials, credential))
+        .collect())
+}
+
+/// Creates or edits a named password credential. `secret` is `None` or empty
+/// when only metadata changes. `host_id` links the credential to a host in the
+/// same call.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)] // IPC signature mirrors the frontend payload
+pub fn password_credential_save(
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+    id: String,
+    name: String,
+    username: String,
+    notes: String,
+    secret: Option<String>,
+    host_id: Option<String>,
+) -> Result<PasswordCredentialView, String> {
+    let existing = store
+        .list_password_credentials()
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .find(|credential| credential.id == id);
+    let secret = secret.filter(|value| !value.is_empty());
+    if existing.is_none() && secret.is_none() {
+        return Err("a password is required for a new credential".to_string());
+    }
+    let fallback_name = existing
+        .as_ref()
+        .map(|credential| credential.name.clone())
+        .unwrap_or_else(|| "password".to_string());
+    let name = match name.trim() {
+        "" => fallback_name,
+        value => value.chars().take(120).collect(),
+    };
+    let credential = ft_store::PasswordCredential {
+        id: id.clone(),
+        name,
+        username: username.trim().chars().take(120).collect(),
+        notes: notes.trim().chars().take(2000).collect(),
+        created_at: existing
+            .as_ref()
+            .map(|credential| credential.created_at.clone())
+            .unwrap_or_default(),
+        updated_at: String::new(),
+    };
+    let reference = password_credential_ref(&id);
+    if let Some(value) = secret {
+        credentials
+            .set(&reference, &value)
+            .map_err(|e| e.to_string())?;
+    }
+    if credentials.exists(&reference) {
+        store
+            .upsert_vault_entry(&reference, "passwordCredential", &credential.name, None)
+            .map_err(|e| e.to_string())?;
+    }
+    store
+        .save_password_credential(&credential)
+        .map_err(|e| e.to_string())?;
+    if let Some(host_id) = host_id.filter(|value| !value.trim().is_empty()) {
+        store
+            .set_host_password_id(&host_id, &id)
+            .map_err(|e| e.to_string())?;
+    }
+    let _ = store.append_audit("password.save", &credential.name, &id);
+    Ok(password_credential_view(&credentials, credential))
+}
+
+#[tauri::command]
+pub fn password_credential_delete(
+    store: State<'_, Arc<ft_store::Store>>,
+    credentials: State<'_, Credentials>,
+    id: String,
+) -> Result<(), String> {
+    let label = store
+        .list_password_credentials()
+        .ok()
+        .and_then(|list| list.into_iter().find(|credential| credential.id == id))
+        .map(|credential| credential.name)
+        .unwrap_or_else(|| id.clone());
+    let reference = password_credential_ref(&id);
+    if let Err(err) = credentials.delete(&reference) {
+        let _ = store.append_audit("password.delete.failed", &label, &err.to_string());
+    }
+    let _ = store.delete_vault_entry(&reference);
+    store
+        .delete_password_credential(&id)
+        .map_err(|e| e.to_string())?;
+    let _ = store.append_audit("password.delete", &label, "");
+    Ok(())
 }
 
 /// Legacy entry point kept for older payloads; stores a password under the
@@ -328,6 +490,7 @@ pub fn vault_reset(
 ) -> Result<(), String> {
     credentials.reset().map_err(|e| e.to_string())?;
     let _ = store.clear_vault_entries();
+    let _ = store.clear_password_credentials();
     let _ = store.append_audit("vault.reset", "vault", "all secrets removed");
     Ok(())
 }
@@ -339,6 +502,7 @@ pub fn vault_list_entries(
 ) -> Result<Vec<VaultEntryView>, String> {
     let hosts = store.list_hosts().unwrap_or_default();
     let keys = store.list_ssh_keys().unwrap_or_default();
+    let passwords = store.list_password_credentials().unwrap_or_default();
     let refs = credentials.refs();
     let mut views: Vec<VaultEntryView> = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
@@ -364,6 +528,7 @@ pub fn vault_list_entries(
             .strip_prefix("keypp:")
             .or_else(|| reference.strip_prefix("key:"))
             .map(str::to_string);
+        let password_id = reference.strip_prefix("pwcred:").map(str::to_string);
         let label = host_id
             .as_ref()
             .and_then(|id| hosts.iter().find(|host| &host.id == id))
@@ -373,6 +538,12 @@ pub fn vault_list_entries(
                     .as_ref()
                     .and_then(|id| keys.iter().find(|key| &key.id == id))
                     .map(|key| key.name.clone())
+            })
+            .or_else(|| {
+                password_id
+                    .as_ref()
+                    .and_then(|id| passwords.iter().find(|item| &item.id == id))
+                    .map(|item| item.name.clone())
             })
             .unwrap_or_else(|| reference.clone());
         views.push(VaultEntryView {
@@ -394,6 +565,9 @@ pub fn vault_delete_entry(
 ) -> Result<(), String> {
     credentials.delete(&secret_ref).map_err(|e| e.to_string())?;
     let _ = store.delete_vault_entry(&secret_ref);
+    if let Some(id) = secret_ref.strip_prefix("pwcred:") {
+        let _ = store.delete_password_credential(id);
+    }
     let _ = store.append_audit("secret.delete", &secret_ref, "");
     Ok(())
 }
@@ -416,6 +590,7 @@ pub fn vault_clear_entries(
         }
     }
     let _ = store.clear_vault_entries();
+    let _ = store.clear_password_credentials();
     let _ = store.append_audit("vault.clear", "vault", &format!("{removed} secrets"));
     Ok(removed)
 }
@@ -433,6 +608,11 @@ fn known_secret_refs(store: &ft_store::Store) -> Vec<String> {
         for key in keys {
             refs.push(key_ref(&key.id));
             refs.push(key_passphrase_ref(&key.id));
+        }
+    }
+    if let Ok(passwords) = store.list_password_credentials() {
+        for credential in passwords {
+            refs.push(password_credential_ref(&credential.id));
         }
     }
     refs.push("sync:gist-token".to_string());
@@ -585,4 +765,103 @@ pub fn ssh_key_delete(
     store.delete_ssh_key(&id).map_err(|e| e.to_string())?;
     let _ = store.append_audit("key.delete", &label, "");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+
+    fn temp_vault_dir(tag: &str) -> PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("ferriterm-vault-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn host(id: &str) -> ft_store::HostInput {
+        ft_store::HostInput {
+            id: id.to_string(),
+            name: id.to_string(),
+            host: "127.0.0.1".to_string(),
+            port: 22,
+            username: "test".to_string(),
+            auth_method: "password".to_string(),
+            key_path: String::new(),
+            key_id: String::new(),
+            password_id: String::new(),
+            jump_host_id: String::new(),
+            x11: false,
+            protocol: "ssh".to_string(),
+            protocol_options: ft_store::ProtocolOptions::default(),
+            icon: String::new(),
+            parent_id: None,
+            is_folder: false,
+            production: false,
+            notes: String::new(),
+            tag_ids: Vec::new(),
+        }
+    }
+
+    fn provider(tag: &str) -> (VaultProvider, Arc<ft_store::Store>) {
+        let store = Arc::new(ft_store::Store::open_in_memory().unwrap());
+        let credentials = Arc::new(ft_security::CredentialStore::new(temp_vault_dir(tag)));
+        (
+            VaultProvider {
+                credentials,
+                store: store.clone(),
+            },
+            store,
+        )
+    }
+
+    #[test]
+    fn linked_password_credential_wins_over_legacy_secret() {
+        let (provider, store) = provider("linked");
+        store.create_host(&host("h1")).unwrap();
+        provider
+            .credentials
+            .set(&password_ref("h1"), "legacy-secret")
+            .unwrap();
+        provider
+            .credentials
+            .set(&password_credential_ref("c1"), "linked-secret")
+            .unwrap();
+        store.set_host_password_id("h1", "c1").unwrap();
+
+        assert_eq!(
+            provider.host_secret("h1", SecretKind::Password).as_deref(),
+            Some("linked-secret")
+        );
+    }
+
+    #[test]
+    fn legacy_secret_still_resolves_without_a_link() {
+        let (provider, store) = provider("legacy");
+        store.create_host(&host("h1")).unwrap();
+        provider
+            .credentials
+            .set(&password_ref("h1"), "legacy-secret")
+            .unwrap();
+
+        assert_eq!(
+            provider.host_secret("h1", SecretKind::Password).as_deref(),
+            Some("legacy-secret")
+        );
+        assert_eq!(provider.host_secret("missing", SecretKind::Password), None);
+    }
+
+    #[test]
+    fn unlinked_credential_is_not_used() {
+        let (provider, store) = provider("unlinked");
+        store.create_host(&host("h1")).unwrap();
+        provider
+            .credentials
+            .set(&password_credential_ref("c1"), "linked-secret")
+            .unwrap();
+
+        assert_eq!(provider.host_secret("h1", SecretKind::Password), None);
+    }
 }

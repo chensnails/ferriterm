@@ -4,10 +4,10 @@ use super::keys::normalize_expiry;
 use super::vault::{infer_host_id, infer_kind, key_passphrase_ref, key_ref, Credentials};
 use tauri::State;
 
-/// Backup payload v2. Version 1 bundles (hosts/tags/secrets only) still parse;
+/// Backup payload v3. Version 1 bundles (hosts/tags/secrets only) still parse;
 /// every added section defaults to empty, so old `.ftbak` files stay importable.
 /// `scope` records which of the five data types the bundle actually carries.
-const BACKUP_PAYLOAD_VERSION: u32 = 2;
+const BACKUP_PAYLOAD_VERSION: u32 = 3;
 
 pub const SCOPE_HOSTS: &str = "hosts";
 pub const SCOPE_SECRETS: &str = "secrets";
@@ -55,6 +55,9 @@ pub(crate) struct BackupPayload {
     secrets: Vec<BackupSecret>,
     #[serde(default)]
     ssh_keys: Vec<BackupSshKey>,
+    /// Named password credential metadata; plaintext travels in `secrets`.
+    #[serde(default)]
+    password_credentials: Vec<ft_store::PasswordCredential>,
     #[serde(default)]
     command_groups: Vec<ft_store::CommandGroup>,
     /// Raw `keywordHighlights` setting (JSON array of rules).
@@ -166,6 +169,7 @@ pub(crate) fn backup_payload(
         forward_rules: Vec::new(),
         secrets: Vec::new(),
         ssh_keys: Vec::new(),
+        password_credentials: Vec::new(),
         command_groups: Vec::new(),
         highlights: String::new(),
         shortcuts: String::new(),
@@ -223,6 +227,9 @@ pub(crate) fn backup_payload(
                     passphrase,
                 });
             }
+            payload.password_credentials = store
+                .list_password_credentials()
+                .map_err(|e| e.to_string())?;
         }
     }
 
@@ -364,6 +371,7 @@ pub(crate) fn apply_backup_payload(
         stats.secrets_imported = import_backup_secrets(store, credentials, &parsed.secrets, mode)?;
         stats.ssh_keys_imported =
             import_backup_ssh_keys(store, credentials, &parsed.ssh_keys, mode)?;
+        import_backup_password_credentials(store, &parsed.password_credentials, mode)?;
     }
 
     if requested(SCOPE_HIGHLIGHTS) && (!parsed.highlights.trim().is_empty() || replace) {
@@ -486,6 +494,36 @@ fn import_backup_ssh_keys(
     }
     Ok(imported)
 }
+fn import_backup_password_credentials(
+    store: &ft_store::Store,
+    credentials: &[ft_store::PasswordCredential],
+    mode: RestoreMode,
+) -> Result<usize, String> {
+    if mode == RestoreMode::Replace {
+        store
+            .replace_password_credentials(credentials)
+            .map_err(|e| e.to_string())?;
+        return Ok(credentials.len());
+    }
+    let existing: std::collections::HashSet<String> = store
+        .list_password_credentials()
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(|credential| credential.id)
+        .collect();
+    let mut imported = 0;
+    for credential in credentials {
+        if existing.contains(&credential.id) {
+            continue;
+        }
+        store
+            .save_password_credential(credential)
+            .map_err(|e| e.to_string())?;
+        imported += 1;
+    }
+    Ok(imported)
+}
+
 #[cfg(test)]
 mod backup_payload_tests {
     use super::*;

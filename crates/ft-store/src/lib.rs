@@ -15,6 +15,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0007_vault.sql"),
     include_str!("../migrations/0008_host_protocol_icon.sql"),
     include_str!("../migrations/0009_ssh_key_metadata.sql"),
+    include_str!("../migrations/0010_password_credentials.sql"),
 ];
 
 pub const PROTOCOLS: &[&str] = &["ssh", "sftp", "telnet", "serial", "local"];
@@ -101,6 +102,9 @@ pub struct Host {
     pub key_path: String,
     #[serde(default)]
     pub key_id: String,
+    /// Named password credential used for this host, resolved inside Rust.
+    #[serde(default)]
+    pub password_id: String,
     #[serde(default)]
     pub jump_host_id: String,
     #[serde(default)]
@@ -141,6 +145,8 @@ pub struct HostInput {
     pub key_path: String,
     #[serde(default)]
     pub key_id: String,
+    #[serde(default)]
+    pub password_id: String,
     #[serde(default)]
     pub jump_host_id: String,
     #[serde(default)]
@@ -233,6 +239,23 @@ pub struct SshKey {
     /// Optional ISO date (YYYY-MM-DD) used for rotation reminders.
     #[serde(default)]
     pub expires_at: String,
+}
+
+/// Named password credential metadata. The plaintext never leaves Rust; the
+/// webview only sees names, usernames and notes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PasswordCredential {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub username: String,
+    #[serde(default)]
+    pub notes: String,
+    #[serde(default)]
+    pub created_at: String,
+    #[serde(default)]
+    pub updated_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -380,9 +403,9 @@ impl Store {
     pub fn list_hosts(&self) -> rusqlite::Result<Vec<Host>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, host, port, username, auth_method, key_path, key_id, jump_host_id,
-                    x11, parent_id, is_folder, production, sort_order, notes, protocol,
-                    protocol_options, icon
+            "SELECT id, name, host, port, username, auth_method, key_path, key_id, password_id,
+                    jump_host_id, x11, parent_id, is_folder, production, sort_order, notes,
+                    protocol, protocol_options, icon
              FROM hosts ORDER BY is_folder DESC, sort_order, name",
         )?;
         let mut hosts: Vec<Host> = stmt
@@ -396,16 +419,17 @@ impl Store {
                     auth_method: row.get(5)?,
                     key_path: row.get(6)?,
                     key_id: row.get(7)?,
-                    jump_host_id: row.get(8)?,
-                    x11: row.get(9)?,
-                    parent_id: row.get(10)?,
-                    is_folder: row.get(11)?,
-                    production: row.get(12)?,
-                    sort_order: row.get(13)?,
-                    notes: row.get(14)?,
-                    protocol: row.get(15)?,
-                    protocol_options: decode_options(&row.get::<_, String>(16)?),
-                    icon: row.get(17)?,
+                    password_id: row.get(8)?,
+                    jump_host_id: row.get(9)?,
+                    x11: row.get(10)?,
+                    parent_id: row.get(11)?,
+                    is_folder: row.get(12)?,
+                    production: row.get(13)?,
+                    sort_order: row.get(14)?,
+                    notes: row.get(15)?,
+                    protocol: row.get(16)?,
+                    protocol_options: decode_options(&row.get::<_, String>(17)?),
+                    icon: row.get(18)?,
                     tags: Vec::new(),
                 })
             })?
@@ -448,9 +472,9 @@ impl Store {
         )?;
         tx.execute(
             "INSERT INTO hosts(id, name, host, port, username, auth_method, key_path, key_id,
-                               jump_host_id, x11, parent_id, is_folder, production, sort_order,
-                               notes, protocol, protocol_options, icon)
-             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
+                               password_id, jump_host_id, x11, parent_id, is_folder, production,
+                               sort_order, notes, protocol, protocol_options, icon)
+             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
             params![
                 input.id,
                 input.name,
@@ -460,6 +484,7 @@ impl Store {
                 input.auth_method,
                 input.key_path,
                 input.key_id,
+                input.password_id,
                 input.jump_host_id,
                 input.x11,
                 input.parent_id,
@@ -489,9 +514,9 @@ impl Store {
         let changed = tx.execute(
             "UPDATE hosts
              SET name = ?2, host = ?3, port = ?4, username = ?5, auth_method = ?6,
-                 key_path = ?7, key_id = ?8, jump_host_id = ?9, x11 = ?10, parent_id = ?11,
-                 production = ?12, notes = ?13, protocol = ?14, protocol_options = ?15,
-                 icon = ?16, updated_at = datetime('now')
+                 key_path = ?7, key_id = ?8, password_id = ?9, jump_host_id = ?10, x11 = ?11,
+                 parent_id = ?12, production = ?13, notes = ?14, protocol = ?15,
+                 protocol_options = ?16, icon = ?17, updated_at = datetime('now')
              WHERE id = ?1",
             params![
                 input.id,
@@ -502,6 +527,7 @@ impl Store {
                 input.auth_method,
                 input.key_path,
                 input.key_id,
+                input.password_id,
                 input.jump_host_id,
                 input.x11,
                 input.parent_id,
@@ -796,9 +822,9 @@ impl Store {
             }
             tx.execute(
                 "INSERT INTO hosts(id, name, host, port, username, auth_method, key_path, key_id,
-                                   jump_host_id, x11, parent_id, is_folder, production, sort_order,
-                                   notes, protocol, protocol_options, icon)
-                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
+                                   password_id, jump_host_id, x11, parent_id, is_folder, production,
+                                   sort_order, notes, protocol, protocol_options, icon)
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
                 params![
                     host.id,
                     host.name,
@@ -808,6 +834,7 @@ impl Store {
                     host.auth_method,
                     host.key_path,
                     host.key_id,
+                    host.password_id,
                     host.jump_host_id,
                     host.x11,
                     host.parent_id,
@@ -916,9 +943,9 @@ impl Store {
                 .optional()?;
             tx.execute(
                 "INSERT INTO hosts(id, name, host, port, username, auth_method, key_path, key_id,
-                                   jump_host_id, x11, parent_id, is_folder, production, sort_order,
-                                   notes, protocol, protocol_options, icon)
-                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)
+                                   password_id, jump_host_id, x11, parent_id, is_folder, production,
+                                   sort_order, notes, protocol, protocol_options, icon)
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)
                  ON CONFLICT(id) DO UPDATE SET
                    name = excluded.name,
                    host = excluded.host,
@@ -927,6 +954,7 @@ impl Store {
                    auth_method = excluded.auth_method,
                    key_path = excluded.key_path,
                    key_id = excluded.key_id,
+                   password_id = excluded.password_id,
                    jump_host_id = excluded.jump_host_id,
                    x11 = excluded.x11,
                    parent_id = excluded.parent_id,
@@ -947,6 +975,7 @@ impl Store {
                     host.auth_method,
                     host.key_path,
                     host.key_id,
+                    host.password_id,
                     host.jump_host_id,
                     host.x11,
                     parent_id,
@@ -1179,6 +1208,127 @@ impl Store {
         Ok(())
     }
 
+    pub fn list_password_credentials(&self) -> rusqlite::Result<Vec<PasswordCredential>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, name, username, notes, created_at, updated_at
+             FROM password_credentials ORDER BY name",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(PasswordCredential {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                username: row.get(2)?,
+                notes: row.get(3)?,
+                created_at: row.get(4)?,
+                updated_at: row.get(5)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    pub fn save_password_credential(
+        &self,
+        credential: &PasswordCredential,
+    ) -> rusqlite::Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO password_credentials(id, name, username, notes, created_at, updated_at)
+             VALUES(?1, ?2, ?3, ?4,
+                    COALESCE(NULLIF(?5, ''), datetime('now')), datetime('now'))
+             ON CONFLICT(id) DO UPDATE SET
+                 name = excluded.name,
+                 username = excluded.username,
+                 notes = excluded.notes,
+                 updated_at = datetime('now')",
+            params![
+                credential.id,
+                credential.name,
+                credential.username,
+                credential.notes,
+                credential.created_at,
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Removes the credential and detaches every host that pointed at it, so
+    /// those hosts ask for a password again instead of resolving a dead ref.
+    pub fn delete_password_credential(&self, id: &str) -> rusqlite::Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE hosts SET password_id = '' WHERE password_id = ?1",
+            [id],
+        )?;
+        conn.execute("DELETE FROM password_credentials WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    pub fn clear_password_credentials(&self) -> rusqlite::Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE hosts SET password_id = '' WHERE password_id <> ''",
+            [],
+        )?;
+        conn.execute("DELETE FROM password_credentials", [])?;
+        Ok(())
+    }
+
+    /// Rewinds the credential catalogue to a snapshot. Host links are left
+    /// alone: hosts are restored in the same transaction group and already
+    /// carry the ids this list is meant to match.
+    pub fn replace_password_credentials(
+        &self,
+        credentials: &[PasswordCredential],
+    ) -> rusqlite::Result<()> {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction()?;
+        tx.execute("DELETE FROM password_credentials", [])?;
+        for credential in credentials {
+            tx.execute(
+                "INSERT INTO password_credentials(id, name, username, notes, created_at, updated_at)
+                 VALUES(?1, ?2, ?3, ?4,
+                        COALESCE(NULLIF(?5, ''), datetime('now')),
+                        COALESCE(NULLIF(?6, ''), datetime('now')))",
+                params![
+                    credential.id,
+                    credential.name,
+                    credential.username,
+                    credential.notes,
+                    credential.created_at,
+                    credential.updated_at,
+                ],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// The credential a host resolves at connect time, if any.
+    pub fn host_password_id(&self, host_id: &str) -> rusqlite::Result<Option<String>> {
+        let conn = self.conn.lock().unwrap();
+        let value: Option<String> = conn
+            .query_row(
+                "SELECT password_id FROM hosts WHERE id = ?1",
+                [host_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(value.filter(|id| !id.trim().is_empty()))
+    }
+
+    pub fn set_host_password_id(&self, host_id: &str, password_id: &str) -> Result<(), StoreError> {
+        let conn = self.conn.lock().unwrap();
+        let changed = conn.execute(
+            "UPDATE hosts SET password_id = ?2, updated_at = datetime('now') WHERE id = ?1",
+            params![host_id, password_id],
+        )?;
+        if changed == 0 {
+            return Err(StoreError::NotFound);
+        }
+        Ok(())
+    }
+
     pub fn list_vault_entries(&self) -> rusqlite::Result<Vec<VaultEntry>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
@@ -1315,6 +1465,7 @@ mod tests {
             auth_method: "password".into(),
             key_path: String::new(),
             key_id: String::new(),
+            password_id: String::new(),
             jump_host_id: String::new(),
             x11: false,
             protocol: "ssh".into(),
@@ -1338,6 +1489,7 @@ mod tests {
             auth_method: "password".into(),
             key_path: String::new(),
             key_id: String::new(),
+            password_id: String::new(),
             jump_host_id: String::new(),
             x11: false,
             protocol: "ssh".into(),
@@ -1481,6 +1633,7 @@ mod tests {
                 auth_method: "password".into(),
                 key_path: String::new(),
                 key_id: String::new(),
+                password_id: String::new(),
                 jump_host_id: String::new(),
                 x11: false,
                 parent_id: None,
@@ -1502,6 +1655,7 @@ mod tests {
                 auth_method: "password".into(),
                 key_path: String::new(),
                 key_id: String::new(),
+                password_id: String::new(),
                 jump_host_id: String::new(),
                 x11: false,
                 parent_id: Some("f1".into()),
@@ -1565,6 +1719,35 @@ mod tests {
         assert_eq!(stored.auth_method, "key");
         assert_eq!(stored.key_path, "~/.ssh/id_ed25519");
         assert_eq!(stored.tags, vec![tag]);
+    }
+
+    #[test]
+    fn password_credentials_link_and_detach() {
+        let store = Store::open_in_memory().unwrap();
+        store.create_host(&host_input("h1", "web-1", None)).unwrap();
+
+        let credential = PasswordCredential {
+            id: "c1".into(),
+            name: "web admin".into(),
+            username: "root".into(),
+            notes: "primary".into(),
+            created_at: String::new(),
+            updated_at: String::new(),
+        };
+        store.save_password_credential(&credential).unwrap();
+        store.set_host_password_id("h1", "c1").unwrap();
+
+        assert_eq!(store.host_password_id("h1").unwrap().as_deref(), Some("c1"));
+        let stored = store.list_hosts().unwrap();
+        assert_eq!(stored[0].password_id, "c1");
+
+        let listed = store.list_password_credentials().unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].username, "root");
+
+        store.delete_password_credential("c1").unwrap();
+        assert!(store.list_password_credentials().unwrap().is_empty());
+        assert_eq!(store.host_password_id("h1").unwrap(), None);
     }
 
     #[test]

@@ -47,6 +47,7 @@ function toInput(node: HostEntry, parentId: string | null): HostInput {
     authMethod: node.authMethod,
     keyPath: node.keyPath,
     keyId: node.keyId,
+    passwordId: node.passwordId,
     jumpHostId: node.jumpHostId,
     x11: node.x11,
     parentId,
@@ -167,6 +168,7 @@ export function HostTree() {
             const status = await api.credentialStatus(
               node.id,
               node.keyId || undefined,
+              node.passwordId || undefined,
             );
             const keyAuth = node.authMethod === "key";
             const agentAuth = node.authMethod === "agent";
