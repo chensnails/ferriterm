@@ -1089,15 +1089,18 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             ]}
           />
           {customFont && (
-            <label className="field">
-              <span>{t("settings.fontStack")}</span>
-              <input
-                value={terminalFontFamily}
-                spellCheck={false}
-                placeholder={TERMINAL_FONTS[0].stack}
-                onChange={(e) => setTerminalFontFamily(e.target.value)}
-              />
-            </label>
+            <details className="settings-advanced">
+              <summary>{t("settings.advancedFont")}</summary>
+              <label className="field">
+                <span>{t("settings.fontStack")}</span>
+                <input
+                  value={terminalFontFamily}
+                  spellCheck={false}
+                  placeholder={TERMINAL_FONTS[0].stack}
+                  onChange={(e) => setTerminalFontFamily(e.target.value)}
+                />
+              </label>
+            </details>
           )}
           <SettingRow
             title={t("settings.fontSize")}
@@ -1186,24 +1189,27 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               { value: "sound", label: t("settings.bellSound") },
             ]}
           />
-          <ToggleSetting
-            title={t("settings.rightClickPaste")}
-            hint={t("settings.rightClickPasteHint")}
-            checked={terminalRightClickPaste}
-            onChange={setTerminalRightClickPaste}
-          />
-          <ToggleSetting
-            title={t("settings.scrollOnOutput")}
-            hint={t("settings.scrollOnOutputHint")}
-            checked={terminalScrollOnOutput}
-            onChange={setTerminalScrollOnOutput}
-          />
-          <ToggleSetting
-            title={t("settings.autoCopy")}
-            hint={t("settings.autoCopyHint")}
-            checked={terminalAutoCopy}
-            onChange={setTerminalAutoCopy}
-          />
+          <details className="settings-advanced">
+            <summary>{t("settings.advancedInteraction")}</summary>
+            <ToggleSetting
+              title={t("settings.rightClickPaste")}
+              hint={t("settings.rightClickPasteHint")}
+              checked={terminalRightClickPaste}
+              onChange={setTerminalRightClickPaste}
+            />
+            <ToggleSetting
+              title={t("settings.scrollOnOutput")}
+              hint={t("settings.scrollOnOutputHint")}
+              checked={terminalScrollOnOutput}
+              onChange={setTerminalScrollOnOutput}
+            />
+            <ToggleSetting
+              title={t("settings.autoCopy")}
+              hint={t("settings.autoCopyHint")}
+              checked={terminalAutoCopy}
+              onChange={setTerminalAutoCopy}
+            />
+          </details>
         </SettingGroup>
 
         <SettingGroup

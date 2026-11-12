@@ -353,6 +353,8 @@
     "fontCustom": "Custom…",
     "fontStack": "Custom font stack",
     "fontPreview": "Terminal font preview",
+    "advancedFont": "Advanced font",
+    "advancedInteraction": "Advanced interaction",
     "theme_solarized-dark": "Solarized Dark",
     "theme_github-light": "GitHub Light",
     "theme_termius-light": "Termius Light",

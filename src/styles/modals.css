@@ -128,6 +128,43 @@
   margin: var(--space-1) 0 var(--space-2);
 }
 
+/* Generic collapsible "Advanced" block inside settings groups: keeps the
+   frequently-changed controls visible while tucking set-and-forget options
+   one click away. Mirrors the ai-advanced / ssh-algo-advanced disclosures. */
+.settings-advanced {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.settings-advanced > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--font-ui);
+  font-weight: 500;
+  color: var(--fg-primary);
+  user-select: none;
+}
+
+.settings-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-advanced > summary::before {
+  content: "+";
+  margin-right: var(--space-1);
+  color: var(--fg-muted);
+  font-weight: 700;
+}
+
+.settings-advanced[open] > summary::before {
+  content: "\2212";
+}
+
+.settings-advanced[open] > summary {
+  margin-bottom: var(--space-2);
+}
+
 .ssh-algo-group {
   min-width: 0;
   margin-top: var(--space-3);

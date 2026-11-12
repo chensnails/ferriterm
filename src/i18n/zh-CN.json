@@ -353,6 +353,8 @@
     "fontCustom": "自定义…",
     "fontStack": "自定义字体列表",
     "fontPreview": "终端字体预览",
+    "advancedFont": "高级字体",
+    "advancedInteraction": "高级交互",
     "theme_solarized-dark": "Solarized Dark",
     "theme_github-light": "GitHub Light",
     "theme_termius-light": "Termius 浅色",
