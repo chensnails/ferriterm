@@ -1246,6 +1246,11 @@ export interface AiChatMessage {
   content: string;
 }
 
+export interface AiStep {
+  command: string;
+  output: string;
+}
+
 export interface AiContext {
   selection?: string | null;
   lastCommand?: string | null;
@@ -1254,6 +1259,8 @@ export interface AiContext {
   lines: number;
   sendOutput: boolean;
   redact: boolean;
+  /** Steps the continuous agent has already taken; fed back to the model. */
+  history?: AiStep[];
 }
 
 /** Settings persisted under the `aiSettings` key. */

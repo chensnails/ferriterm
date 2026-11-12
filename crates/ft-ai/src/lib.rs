@@ -417,6 +417,15 @@ pub struct ContextOpts {
     pub redact: bool,
 }
 
+/// One step the continuous agent already ran, kept so the model does not
+/// repeat itself once the screen has scrolled past it.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct StepRecord {
+    pub command: String,
+    pub output: String,
+}
+
 /// Serialisable form exchanged with the frontend.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -429,6 +438,8 @@ pub struct ContextRequest {
     pub lines: usize,
     pub send_output: bool,
     pub redact: bool,
+    /// Steps the continuous agent has already taken this run.
+    pub history: Vec<StepRecord>,
 }
 
 impl ContextRequest {
@@ -438,7 +449,7 @@ impl ContextRequest {
             last_command: self.last_command.as_deref(),
             screen: &self.screen,
         };
-        build_context(
+        let (mut text, mut redacted) = build_context(
             &input,
             &ContextOpts {
                 scope: Scope::from_id(&self.scope),
@@ -446,7 +457,19 @@ impl ContextRequest {
                 send_output: self.send_output,
                 redact: self.redact,
             },
-        )
+        );
+        if !self.history.is_empty() {
+            let mut block = String::from(
+                "\n\nSteps already taken this run (do not repeat them; continue from where they left off):\n",
+            );
+            for step in &self.history {
+                block.push_str(&format!("$ {}\n{}\n", step.command, step.output));
+            }
+            let (redacted_block, count) = redact(&block);
+            text.push_str(&redacted_block);
+            redacted += count;
+        }
+        (text, redacted)
     }
 }
 
