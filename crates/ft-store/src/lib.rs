@@ -5,6 +5,9 @@ use std::sync::Mutex;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
+mod ai_history;
+pub use ai_history::{AiMessageRow, AiSession};
+
 const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0001_init.sql"),
     include_str!("../migrations/0002_host_notes.sql"),
@@ -16,6 +19,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0008_host_protocol_icon.sql"),
     include_str!("../migrations/0009_ssh_key_metadata.sql"),
     include_str!("../migrations/0010_password_credentials.sql"),
+    include_str!("../migrations/0011_ai_history.sql"),
 ];
 
 pub const PROTOCOLS: &[&str] = &["ssh", "sftp", "telnet", "serial", "local"];

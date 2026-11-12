@@ -1388,6 +1388,14 @@
     "firstSendAck": "知道了",
     "firstSendWarning": "终端上下文将发送给所选服务商，发送前会先脱敏。",
     "foldSystem": "把系统提示并入首条消息",
+    "history": {
+      "deleteBody": "将删除「{title}」的全部消息，且无法恢复。",
+      "deleteTitle": "删除会话",
+      "label": "历史会话",
+      "new": "新建",
+      "newChat": "新对话",
+      "untitled": "未命名会话"
+    },
     "insert": "插入终端",
     "intro": "可以询问当前终端，或以 {prefix} 开头把需求转成一条命令。",
     "keySaved": "已存密钥",
@@ -1402,6 +1410,7 @@
     "maxTokensField": "输出上限字段",
     "maxTokensField_auto": "自动（被拒绝时重试）",
     "model": "模型",
+    "modelPlaceholder": "输入或选择模型",
     "modelsFailed": "拉取模型失败：{error}",
     "modelsLoaded": "已拉取 {count} 个模型",
     "name": "名称",

@@ -1257,6 +1257,24 @@ export interface AiStep {
   output: string;
 }
 
+/** One stored conversation, newest first in the panel's list. */
+export interface AiSessionRow {
+  id: string;
+  title: string;
+  providerId: string;
+  model: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** A persisted message; `thinking` is the reasoning split out of the stream. */
+export interface AiMessageRow {
+  role: "user" | "assistant";
+  content: string;
+  thinking: string;
+  createdAt: number;
+}
+
 export interface AiContext {
   selection?: string | null;
   lastCommand?: string | null;
@@ -1279,6 +1297,9 @@ export interface AiSettings {
   deniedHosts: string;
   firstSendConfirmed: boolean;
   nlPrefix: string;
+  /** Last model chosen per provider id. Switching in the panel is remembered
+   *  here so the provider's configured default is never rewritten. */
+  modelByProvider: Record<string, string>;
 }
 
 export const DEFAULT_AI_SETTINGS: AiSettings = {
@@ -1290,14 +1311,22 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
   deniedHosts: "",
   firstSendConfirmed: false,
   nlPrefix: "#",
+  modelByProvider: {},
 };
 
 export function parseAiSettings(raw: string | undefined): AiSettings {
-  if (!raw) return { ...DEFAULT_AI_SETTINGS };
+  if (!raw) return { ...DEFAULT_AI_SETTINGS, modelByProvider: {} };
   try {
-    return { ...DEFAULT_AI_SETTINGS, ...(JSON.parse(raw) as Partial<AiSettings>) };
+    const parsed = JSON.parse(raw) as Partial<AiSettings>;
+    const stored = parsed.modelByProvider;
+    return {
+      ...DEFAULT_AI_SETTINGS,
+      ...parsed,
+      modelByProvider:
+        stored && typeof stored === "object" ? { ...stored } : {},
+    };
   } catch {
-    return { ...DEFAULT_AI_SETTINGS };
+    return { ...DEFAULT_AI_SETTINGS, modelByProvider: {} };
   }
 }
 
@@ -1334,8 +1363,15 @@ export function aiChat(
   messages: AiChatMessage[],
   context: AiContext | null,
   system?: string,
+  model?: string,
 ): Promise<AiReply> {
-  return invoke<AiReply>("ai_chat", { providerId, messages, context, system });
+  return invoke<AiReply>("ai_chat", {
+    providerId,
+    messages,
+    context,
+    system,
+    model: model ?? null,
+  });
 }
 
 /** Streaming chat: `onDelta` receives each fragment as it arrives. */
@@ -1345,6 +1381,7 @@ export function aiChatStream(
   context: AiContext | null,
   system: string | undefined,
   onDelta: (delta: string) => void,
+  model?: string,
 ): Promise<AiReply> {
   const channel = new Channel<{ delta: string }>();
   channel.onmessage = (event) => onDelta(event.delta);
@@ -1353,6 +1390,7 @@ export function aiChatStream(
     messages,
     context,
     system,
+    model: model ?? null,
     channel,
   });
 }
@@ -1364,6 +1402,8 @@ export function aiGenerateCommand(
     host?: string | null;
     shell?: string | null;
     context: AiContext | null;
+    /** Overrides the provider's default (and its fast command model). */
+    model?: string | null;
   },
 ): Promise<AiCommandReply> {
   return invoke<AiCommandReply>("ai_generate_command", {
@@ -1372,6 +1412,7 @@ export function aiGenerateCommand(
     host: options.host ?? null,
     shell: options.shell ?? null,
     context: options.context,
+    model: options.model ?? null,
   });
 }
 
@@ -1382,6 +1423,7 @@ export function aiExplain(
   host: string | null,
   outputTail: string,
   context: AiContext | null,
+  model?: string,
 ): Promise<AiReply> {
   return invoke<AiReply>("ai_explain", {
     providerId,
@@ -1390,7 +1432,49 @@ export function aiExplain(
     host,
     outputTail,
     context,
+    model: model ?? null,
   });
+}
+
+// ------------------------------------------------------------------ history
+
+export function aiSessions(): Promise<AiSessionRow[]> {
+  return invoke<AiSessionRow[]>("ai_sessions");
+}
+
+export function aiSessionCreate(
+  title: string,
+  providerId: string,
+  model: string,
+): Promise<AiSessionRow> {
+  return invoke<AiSessionRow>("ai_session_create", { title, providerId, model });
+}
+
+export function aiSessionMessages(id: string): Promise<AiMessageRow[]> {
+  return invoke<AiMessageRow[]>("ai_session_messages", { id });
+}
+
+/** Append a final message; returns null when the session was deleted meanwhile. */
+export function aiSessionAppend(
+  id: string,
+  role: "user" | "assistant",
+  content: string,
+  thinking: string,
+): Promise<AiSessionRow | null> {
+  return invoke<AiSessionRow | null>("ai_session_append", {
+    id,
+    role,
+    content,
+    thinking,
+  });
+}
+
+export function aiSessionRename(id: string, title: string): Promise<void> {
+  return invoke<void>("ai_session_rename", { id, title });
+}
+
+export function aiSessionDelete(id: string): Promise<boolean> {
+  return invoke<boolean>("ai_session_delete", { id });
 }
 
 // ------------------------------------------------------------------ policy

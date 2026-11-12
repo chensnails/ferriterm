@@ -1388,6 +1388,14 @@
     "firstSendAck": "Got it",
     "firstSendWarning": "Terminal context will be sent to the selected provider. Secrets are redacted first.",
     "foldSystem": "Fold the system prompt into the first message",
+    "history": {
+      "deleteBody": "This deletes every message in “{title}” and cannot be undone.",
+      "deleteTitle": "Delete conversation",
+      "label": "History",
+      "new": "New",
+      "newChat": "New conversation",
+      "untitled": "Untitled conversation"
+    },
     "insert": "Insert into terminal",
     "intro": "Ask about the current terminal, or start a line with {prefix} to turn a request into one command.",
     "keySaved": "key saved",
@@ -1402,6 +1410,7 @@
     "maxTokensField": "Output cap field",
     "maxTokensField_auto": "Auto (retry if rejected)",
     "model": "Model",
+    "modelPlaceholder": "Type or pick a model",
     "modelsFailed": "Could not load models: {error}",
     "modelsLoaded": "{count} models loaded",
     "name": "Name",

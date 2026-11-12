@@ -81,6 +81,21 @@ fn find_provider(store: &Store, id: &str) -> Result<Provider, String> {
         .ok_or_else(|| format!("unknown AI provider: {id}"))
 }
 
+/// Apply the panel's per-request model choice. The stored provider is left
+/// alone on purpose: switching models for one conversation must not rewrite the
+/// configured default that settings, presets and the CLI all read.
+fn with_model(provider: Provider, model: Option<String>) -> Provider {
+    let chosen = model.unwrap_or_default();
+    let chosen = chosen.trim();
+    if chosen.is_empty() {
+        return provider;
+    }
+    Provider {
+        model: chosen.to_string(),
+        ..provider
+    }
+}
+
 fn key_for(credentials: &Credentials, provider: &Provider) -> Result<String, String> {
     let key = credentials
         .get(&provider.secret_ref())
@@ -202,8 +217,9 @@ pub async fn ai_chat(
     messages: Vec<ChatMessage>,
     context: Option<ContextRequest>,
     system: Option<String>,
+    model: Option<String>,
 ) -> Result<Reply, String> {
-    let provider = find_provider(&store, &provider_id)?;
+    let provider = with_model(find_provider(&store, &provider_id)?, model);
     let key = key_for(&credentials, &provider)?;
     let mut messages = messages;
     attach_context(&mut messages, context.as_ref());
@@ -223,8 +239,9 @@ pub async fn ai_chat_stream(
     context: Option<ContextRequest>,
     system: Option<String>,
     channel: Channel<StreamDelta>,
+    model: Option<String>,
 ) -> Result<Reply, String> {
-    let provider = find_provider(&store, &provider_id)?;
+    let provider = with_model(find_provider(&store, &provider_id)?, model);
     let key = key_for(&credentials, &provider)?;
     let mut messages = messages;
     attach_context(&mut messages, context.as_ref());
@@ -260,6 +277,7 @@ pub async fn ai_generate_command(
     host: Option<String>,
     shell: Option<String>,
     context: Option<ContextRequest>,
+    model: Option<String>,
 ) -> Result<CommandReply, String> {
     let mut provider = find_provider(&store, &provider_id)?;
     let key = key_for(&credentials, &provider)?;
@@ -273,10 +291,18 @@ pub async fn ai_generate_command(
         host.as_deref().unwrap_or("local"),
         &context_text,
     );
-    // Command generation is a one-shot task; prefer the cheaper model when set.
-    let fast = provider.command_model().to_string();
-    if fast != provider.model {
-        provider.model = fast;
+    // An explicit choice from the panel wins over the cheaper command model:
+    // silently swapping it would answer with a different model than the one
+    // shown above the composer.
+    let chosen = model.unwrap_or_default().trim().to_string();
+    if !chosen.is_empty() {
+        provider.model = chosen;
+    } else {
+        // Command generation is a one-shot task; prefer the cheaper model when set.
+        let fast = provider.command_model().to_string();
+        if fast != provider.model {
+            provider.model = fast;
+        }
     }
     let reply = ft_ai::chat(
         &provider,
@@ -368,8 +394,9 @@ pub async fn ai_explain(
     host: Option<String>,
     output_tail: String,
     context: Option<ContextRequest>,
+    model: Option<String>,
 ) -> Result<Reply, String> {
-    let provider = find_provider(&store, &provider_id)?;
+    let provider = with_model(find_provider(&store, &provider_id)?, model);
     let key = key_for(&credentials, &provider)?;
     // The tail is redacted like any other context before it leaves.
     let (tail, _) = ft_ai::redact(&output_tail);

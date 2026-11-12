@@ -3,7 +3,13 @@ import { useTranslation } from "react-i18next";
 import {
   aiChatStream,
   aiGenerateCommand,
+  aiListModels,
   aiListProviders,
+  aiSessionAppend,
+  aiSessionCreate,
+  aiSessionDelete,
+  aiSessionMessages,
+  aiSessions,
   api,
   isTauri,
   parseAiSettings,
@@ -11,6 +17,7 @@ import {
   type AiCommandReply,
   type AiContext,
   type AiProvider,
+  type AiSessionRow,
   type AiSettings,
   DEFAULT_AI_SETTINGS,
 } from "../api";
@@ -23,9 +30,17 @@ import {
 } from "../agent-loop";
 import { runGuarded } from "../policy";
 import { useAppStore } from "../store";
-import { EmptyState, ErrorState, Notice, Switch } from "./ui";
+import { EmptyState, ErrorState, LoadingState, Notice, Switch } from "./ui";
 import { Modal } from "./Modal";
+import { ModelCombo } from "./ModelCombo";
 import { SparkleIcon } from "./icons";
+
+/** A title is the first thing the person typed, folded onto one line. */
+function titleFrom(text: string): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  const clipped = flat.length > 48 ? `${flat.slice(0, 48)}…` : flat;
+  return clipped || "";
+}
 
 /** Glob over `*` / `?`, matched against the tab title. */
 function matchesHost(pattern: string, title: string): boolean {
@@ -94,6 +109,22 @@ export function AiPanel() {
   const [loading, setLoading] = useState(true);
   const listRef = useRef<HTMLDivElement>(null);
 
+  // Model selection for this conversation. It only overrides the request; the
+  // provider's configured default is never rewritten.
+  const [model, setModel] = useState("");
+  const [modelOptions, setModelOptions] = useState<string[]>([]);
+  const [modelLoading, setModelLoading] = useState(false);
+  const modelCache = useRef<Map<string, string[]>>(new Map());
+  // Read inside effects that must not re-run whenever a setting changes.
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+
+  // Stored conversations. The open one is created lazily on the first message,
+  // so opening the panel never leaves empty sessions behind.
+  const [chatSessions, setChatSessions] = useState<AiSessionRow[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   // Continuous mode: an autonomous agent loop that drives the active session.
   const [continuousOn, setContinuousOn] = useState(false);
   const [goal, setGoal] = useState("");
@@ -110,13 +141,15 @@ export function AiPanel() {
     let cancelled = false;
     void (async () => {
       try {
-        const [list, stored] = await Promise.all([
+        const [list, stored, history] = await Promise.all([
           aiListProviders(),
           api.getSettings(),
+          aiSessions(),
         ]);
         if (cancelled) return;
         setProviders(list);
         setSettings(parseAiSettings(stored.aiSettings));
+        setChatSessions(history);
         const saved = stored.aiProviderId;
         setProviderId((current) =>
           current && list.some((item) => item.id === current)
@@ -125,6 +158,25 @@ export function AiPanel() {
               ? saved
               : (list[0]?.id ?? null),
         );
+        // Reopen whatever was open last time; fall back to the newest session.
+        const wanted = stored.aiSessionId ?? "";
+        const target =
+          history.find((item) => item.id === wanted) ?? null;
+        if (target) {
+          setSessionId(target.id);
+          const rows = await aiSessionMessages(target.id);
+          if (cancelled) return;
+          setMessages(
+            rows.map((row) => ({
+              role: row.role === "assistant" ? "assistant" : "user",
+              content: row.content,
+              thinking: row.thinking || undefined,
+            })),
+          );
+        } else {
+          setSessionId(null);
+          setMessages([]);
+        }
       } catch (err) {
         if (!cancelled) setError(String(err));
       } finally {
@@ -135,6 +187,48 @@ export function AiPanel() {
       cancelled = true;
     };
   }, [aiConfigVersion]);
+
+  // Pull the catalogue for the selected provider once, then remember it. The
+  // chosen model is restored from settings so reopening the panel keeps the
+  // same conversation on the same model.
+  useEffect(() => {
+    const current = providers.find((item) => item.id === providerId) ?? null;
+    if (!current) {
+      setModel("");
+      setModelOptions([]);
+      return;
+    }
+    const remembered = settingsRef.current.modelByProvider[current.id] ?? "";
+    setModel(remembered.trim() ? remembered : current.model);
+    const cached = modelCache.current.get(current.id);
+    if (cached) {
+      setModelOptions(cached);
+      return;
+    }
+    setModelOptions([current.model].filter(Boolean));
+    if (!current.hasKey) return;
+    let cancelled = false;
+    const { hasKey: _hasKey, ...input } = current;
+    setModelLoading(true);
+    void aiListModels(input)
+      .then((list) => {
+        if (cancelled) return;
+        const merged = Array.from(
+          new Set([current.model, ...list].filter(Boolean)),
+        );
+        modelCache.current.set(current.id, merged);
+        setModelOptions(merged);
+      })
+      .catch(() => {
+        // An offline vendor must not block typing a model by hand.
+      })
+      .finally(() => {
+        if (!cancelled) setModelLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [providerId, providers]);
 
   useEffect(() => {
     const node = listRef.current;
@@ -155,6 +249,89 @@ export function AiPanel() {
   const pickProvider = (id: string) => {
     setProviderId(id);
     if (isTauri) api.setSetting("aiProviderId", id).catch(() => {});
+  };
+
+  /** Remember the choice per provider; never rewrite the provider's default. */
+  const pickModel = (next: string) => {
+    setModel(next);
+    if (!providerId) return;
+    const map = { ...settings.modelByProvider };
+    const trimmed = next.trim();
+    if (trimmed) map[providerId] = trimmed;
+    else delete map[providerId];
+    persistSettings({ ...settings, modelByProvider: map });
+  };
+
+  const rememberSession = (id: string | null) => {
+    setSessionId(id);
+    if (isTauri) api.setSetting("aiSessionId", id ?? "").catch(() => {});
+  };
+
+  const refreshSessions = () => {
+    void aiSessions()
+      .then(setChatSessions)
+      .catch(() => {
+        // A failed list refresh must not interrupt the conversation.
+      });
+  };
+
+  const loadMessages = (id: string) => {
+    return aiSessionMessages(id).then((rows) =>
+      rows.map((row) => ({
+        role: row.role === "assistant" ? ("assistant" as const) : ("user" as const),
+        content: row.content,
+        thinking: row.thinking || undefined,
+      })),
+    );
+  };
+
+  const openSession = async (id: string) => {
+    if (!id || id === sessionId || busy) return;
+    setError(null);
+    setDraft(null);
+    setHistoryLoading(true);
+    try {
+      const rows = await loadMessages(id);
+      setMessages(rows);
+      rememberSession(id);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const newChat = () => {
+    if (busy) return;
+    setMessages([]);
+    setDraft(null);
+    setError(null);
+    rememberSession(null);
+  };
+
+  const deleteChat = async () => {
+    if (!sessionId || busy) return;
+    const target = chatSessions.find((item) => item.id === sessionId) ?? null;
+    const confirmed = await useAppStore.getState().askConfirm({
+      title: t("ai.history.deleteTitle"),
+      body: t("ai.history.deleteBody", {
+        title: target?.title || t("ai.history.untitled"),
+      }),
+      confirmLabel: t("common.delete"),
+      danger: true,
+    });
+    if (!confirmed) return;
+    try {
+      await aiSessionDelete(sessionId);
+      const list = await aiSessions();
+      setChatSessions(list);
+      setMessages([]);
+      setDraft(null);
+      rememberSession(list[0]?.id ?? null);
+      if (list[0]) setMessages(await loadMessages(list[0].id));
+    } catch (err) {
+      setError(String(err));
+    }
   };
 
   const buildContext = (): AiContext => {
@@ -181,6 +358,34 @@ export function AiPanel() {
     return base;
   };
 
+  /**
+   * Guarantee a stored session for this turn. The user message is written as
+   * part of it, so a failed reply still leaves the question in history. Returns
+   * null when history could not be written — the chat itself continues, it just
+   * will not be remembered.
+   */
+  const ensureSession = async (first: string): Promise<string | null> => {
+    if (!isTauri || !providerId) return null;
+    try {
+      if (sessionId) {
+        const updated = await aiSessionAppend(sessionId, "user", first, "");
+        if (updated) {
+          refreshSessions();
+          return sessionId;
+        }
+        // Deleted from another window: fall through and start a fresh session.
+      }
+      const created = await aiSessionCreate(titleFrom(first), providerId, model);
+      rememberSession(created.id);
+      await aiSessionAppend(created.id, "user", first, "");
+      refreshSessions();
+      return created.id;
+    } catch (err) {
+      setError(String(err));
+      return null;
+    }
+  };
+
   const send = async () => {
     const text = input.trim();
     if (!text || busy || !providerId) return;
@@ -197,6 +402,7 @@ export function AiPanel() {
           host: title || null,
           shell: null,
           context: buildContext(),
+          model: model || null,
         });
         setDraft(reply);
         setNotes(reply.notes);
@@ -209,6 +415,7 @@ export function AiPanel() {
       return;
     }
 
+    const persistId = await ensureSession(text);
     const history: AiChatMessage[] = [
       ...messages,
       { role: "user", content: text },
@@ -237,9 +444,19 @@ export function AiPanel() {
             return copy;
           });
         },
+        model || undefined,
       );
       // The vendor may have refused a parameter; say so instead of hiding it.
       setNotes(reply.notes);
+      const finalText = raw || reply.text;
+      const final = splitThinking(finalText);
+      if (persistId && (final.answer || final.thinking)) {
+        void aiSessionAppend(persistId, "assistant", final.answer, final.thinking)
+          .then(refreshSessions)
+          .catch(() => {
+            // Losing the write must not surface as a chat error.
+          });
+      }
     } catch (err) {
       setError(String(err));
       setMessages((previous) => {
@@ -382,6 +599,7 @@ export function AiPanel() {
       sessionId: id,
       goal: goal.trim(),
       providerId,
+      model: model || undefined,
       host: title,
       onUpdate: (next) => setAgentState({ ...next, steps: [...next.steps] }),
     });
@@ -452,15 +670,56 @@ export function AiPanel() {
             </option>
           ))}
         </select>
-        <span className="ai-model" title={provider?.model}>
-          {provider?.model}
-        </span>
+        <ModelCombo
+          className="ai-model-combo"
+          ariaLabel={t("ai.model")}
+          value={model}
+          options={modelOptions}
+          placeholder={t("ai.modelPlaceholder")}
+          disabled={busy || historyLoading || modelLoading}
+          onChange={pickModel}
+        />
         <button
           type="button"
           className="link-btn"
           onClick={() => setSettingsOpen(true)}
         >
           {t("ai.openSettings")}
+        </button>
+      </div>
+
+      <div className="ai-history">
+        <select
+          className="ai-select ai-history-select"
+          aria-label={t("ai.history.label")}
+          value={sessionId ?? ""}
+          onChange={(event) => void openSession(event.target.value)}
+          disabled={busy || historyLoading}
+        >
+          {sessionId === null && (
+            <option value="">{t("ai.history.newChat")}</option>
+          )}
+          {chatSessions.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.title || t("ai.history.untitled")}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className="link-btn"
+          onClick={newChat}
+          disabled={busy || (sessionId === null && messages.length === 0)}
+        >
+          {t("ai.history.new")}
+        </button>
+        <button
+          type="button"
+          className="link-btn danger"
+          onClick={() => void deleteChat()}
+          disabled={!sessionId || busy}
+        >
+          {t("common.delete")}
         </button>
       </div>
 
@@ -597,7 +856,8 @@ export function AiPanel() {
       </div>
 
       <div className="ai-messages" ref={listRef}>
-        {messages.length === 0 && !draft && (
+        {historyLoading && <LoadingState label={t("common.loading")} />}
+        {!historyLoading && messages.length === 0 && !draft && (
           <p className="ai-intro">{t("ai.intro", { prefix: settings.nlPrefix })}</p>
         )}
         {messages.map((message, index) => (

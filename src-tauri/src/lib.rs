@@ -1,5 +1,6 @@
 mod agent;
 mod ai;
+mod ai_history;
 mod commands;
 mod logging;
 mod net_tools;
@@ -234,6 +235,12 @@ pub fn run() {
             ai::ai_chat_stream,
             ai::ai_generate_command,
             ai::ai_explain,
+            ai_history::ai_sessions,
+            ai_history::ai_session_create,
+            ai_history::ai_session_messages,
+            ai_history::ai_session_append,
+            ai_history::ai_session_rename,
+            ai_history::ai_session_delete,
             policy::policy_get,
             policy::policy_save,
             policy::policy_evaluate,

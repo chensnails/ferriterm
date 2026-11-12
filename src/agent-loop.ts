@@ -47,6 +47,8 @@ export interface AgentLoopOptions {
   sessionId: string;
   goal: string;
   providerId: string;
+  /** Model chosen in the panel; empty uses the provider default. */
+  model?: string;
   host: string;
   /** Ceiling on executed steps. */
   maxSteps?: number;
@@ -179,6 +181,7 @@ export function startAgentLoop(options: AgentLoopOptions): AgentLoopHandle {
     sessionId,
     goal,
     providerId,
+    model,
     host,
     maxSteps = 20,
     maxStepMs = 15000,
@@ -240,6 +243,7 @@ export function startAgentLoop(options: AgentLoopOptions): AgentLoopHandle {
           const candidate = await aiGenerateCommand(providerId, buildRequest(goal, index), {
             host: host || null,
             shell: null,
+            model: model || null,
             context: {
               selection: null,
               lastCommand: null,

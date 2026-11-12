@@ -50,6 +50,24 @@
   white-space: nowrap;
 }
 
+/* Conversation picker: the select takes the room, the two actions stay put. */
+.ai-history {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.ai-history-select {
+  flex: 1;
+  max-width: none;
+}
+
+.ai-history .link-btn {
+  flex: none;
+  white-space: nowrap;
+}
+
 .ai-messages {
   display: flex;
   flex: 1;
