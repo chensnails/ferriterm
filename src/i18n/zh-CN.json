@@ -1416,6 +1416,7 @@
     "noteMaxTokens": "已改用 max_completion_tokens",
     "noteSampling": "已去掉采样参数",
     "noteSystem": "已把系统提示并入首条消息",
+    "noteJsonMode": "已去掉 JSON 输出格式（供应商不支持）",
     "openSettings": "打开设置",
     "placeholder": "问点什么，或输入 {prefix} 找出这里最大的文件",
     "preset": "预设",

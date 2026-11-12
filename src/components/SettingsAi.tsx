@@ -49,6 +49,7 @@ const EMPTY_PROVIDER: AiProviderInput = {
   stop: [],
   foldSystem: false,
   streamUsage: false,
+  jsonMode: false,
   reasoning: "off",
   apiVersion: "",
   extraHeaders: [],

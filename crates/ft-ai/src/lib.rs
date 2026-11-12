@@ -52,7 +52,7 @@ impl Kind {
 
     /// Azure speaks the OpenAI body shape, so most decisions only care about
     /// "is this the Anthropic dialect".
-    fn is_anthropic(self) -> bool {
+    pub fn is_anthropic(self) -> bool {
         matches!(self, Kind::Anthropic)
     }
 }
@@ -196,6 +196,9 @@ pub struct Provider {
     pub fold_system: bool,
     /// Ask for a usage block on the stream (`stream_options.include_usage`).
     pub stream_usage: bool,
+    /// Send `response_format: {"type": "json_object"}` on JSON-only calls.
+    /// Enabled per preset; a vendor that rejects it is retried without it.
+    pub json_mode: bool,
     /// `reasoning_effort` for vendors that accept it; `Off` sends nothing.
     pub reasoning: Reasoning,
     /// Azure `api-version`; ignored by the other protocols.
@@ -225,6 +228,7 @@ impl Default for Provider {
             stop: Vec::new(),
             fold_system: false,
             stream_usage: false,
+            json_mode: false,
             reasoning: Reasoning::Off,
             api_version: String::new(),
             extra_headers: Vec::new(),
@@ -510,6 +514,13 @@ pub const COMMAND_SYSTEM_PROMPT: &str = "You translate a natural-language reques
 Reply ONLY with JSON. To run something: {\"command\": \"...\", \"explanation\": \"one short sentence\"}. \
 When the goal is already met and nothing should run: {\"done\": true, \"explanation\": \"why it is complete\"}. \
 Never chain unrelated commands. Prefer safe, read-only commands when the request is ambiguous.";
+
+/// Second attempt after a reply that was prose instead of JSON. It repeats the
+/// contract and nothing else, so the retry cannot drift into a new task.
+pub const COMMAND_REPAIR_PROMPT: &str = "You convert a request into ONE shell command. \
+Reply with ONLY a JSON object and nothing else: either {\"command\": \"...\", \"explanation\": \"one short sentence\"} \
+or, when the goal is already met, {\"done\": true, \"explanation\": \"why it is complete\"}. \
+No prose, no markdown, no code fences, no empty command.";
 
 pub const CHAT_SYSTEM_PROMPT: &str =
     "You are the Ferriterm terminal assistant. Reply in plain sentences without bold or headings. \
@@ -893,6 +904,7 @@ fn request_body(
     provider: &Provider,
     system: &str,
     messages: &[(String, String)],
+    json: bool,
 ) -> serde_json::Value {
     let mut wire: Vec<serde_json::Value> = messages
         .iter()
@@ -904,6 +916,14 @@ fn request_body(
         provider.token_field().into(),
         serde_json::json!(provider.max_tokens),
     );
+    // Ask for strict JSON only when the caller needs an object back. Anthropic
+    // has no such field; its protocol is left untouched.
+    if json && provider.json_mode && !provider.kind.is_anthropic() {
+        body.insert(
+            "response_format".into(),
+            serde_json::json!({ "type": "json_object" }),
+        );
+    }
     if provider.send_sampling {
         body.insert(
             "temperature".into(),
@@ -941,22 +961,44 @@ fn request_body(
 fn reply_text(provider: &Provider, value: &serde_json::Value) -> Option<String> {
     if provider.kind.is_anthropic() {
         let blocks = value.get("content")?.as_array()?;
-        return blocks
+        let text = blocks
             .iter()
-            .find(|block| {
+            .filter(|block| {
                 block
                     .get("type")
                     .and_then(|node| node.as_str())
                     .unwrap_or("text")
                     == "text"
             })
-            .and_then(|block| block.get("text").and_then(|node| node.as_str()))
+            .filter_map(|block| block.get("text").and_then(|node| node.as_str()))
+            .collect::<Vec<_>>()
+            .join("");
+        if !text.trim().is_empty() {
+            return Some(text);
+        }
+        // Extended-thinking replies can carry no text block at all; returning
+        // the thinking text beats failing with a raw JSON dump.
+        return blocks
+            .iter()
+            .find(|block| block.get("type").and_then(|node| node.as_str()) == Some("thinking"))
+            .and_then(|block| block.get("thinking").and_then(|node| node.as_str()))
             .map(str::to_string);
     }
-    value
-        .pointer("/choices/0/message/content")
-        .or_else(|| value.pointer("/choices/0/text"))
-        .and_then(|node| node.as_str())
+    // Some OpenAI-compatible relays put the whole answer in a reasoning field
+    // and leave `content` empty, or return `null` for a filtered reply. Take
+    // the first non-empty candidate instead of declaring failure.
+    let message = value.pointer("/choices/0/message");
+    let candidates = [
+        message.and_then(|node| node.get("content")),
+        message.and_then(|node| node.get("reasoning_content")),
+        message.and_then(|node| node.get("reasoning")),
+        value.pointer("/choices/0/text"),
+    ];
+    candidates
+        .iter()
+        .filter_map(|node| node.and_then(|node| node.as_str()))
+        .map(str::trim)
+        .find(|text| !text.is_empty())
         .map(str::to_string)
 }
 
@@ -979,6 +1021,13 @@ fn adjustment(provider: &Provider, status: u16, body: &str) -> Option<(Provider,
         return None;
     }
     let text = body.to_ascii_lowercase();
+    if provider.json_mode
+        && (text.contains("response_format") || text.contains("json_object"))
+    {
+        let mut next = provider.clone();
+        next.json_mode = false;
+        return Some((next, "ai.noteJsonMode"));
+    }
     if !provider.kind.is_anthropic()
         && provider.max_tokens_field != MaxTokensField::MaxCompletionTokens
         && text.contains("max_completion_tokens")
@@ -1026,13 +1075,14 @@ pub async fn chat(
     system: &str,
     user: &str,
     max_tokens: Option<u32>,
+    json: bool,
 ) -> Result<Reply> {
     let provider = provider.clone().sanitize();
     let messages = vec![("user".to_string(), user.to_string())];
     let mut current = provider.clone();
     let mut notes: Vec<String> = Vec::new();
     for attempt in 0..3 {
-        let mut body = request_body(&current, system, &messages);
+        let mut body = request_body(&current, system, &messages, json);
         if let Some(limit) = max_tokens {
             body[current.token_field()] = serde_json::json!(limit);
         }
@@ -1071,7 +1121,7 @@ pub async fn chat(
 
 /// A minimal real request used by "test connection".
 pub async fn test_connection(provider: &Provider, key: &str) -> Result<Reply> {
-    chat(provider, key, "ping", "ping", Some(16)).await
+    chat(provider, key, "ping", "ping", Some(16), false).await
 }
 
 /// List the models the vendor exposes. Used by the settings picker; a failure
@@ -1157,7 +1207,7 @@ where
     let mut current = provider.clone();
     let mut notes: Vec<String> = Vec::new();
     for attempt in 0..3 {
-        let mut body = request_body(&current, system, messages);
+        let mut body = request_body(&current, system, messages, false);
         body["stream"] = serde_json::json!(true);
         if current.stream_usage && !current.kind.is_anthropic() {
             body["stream_options"] = serde_json::json!({ "include_usage": true });
@@ -1366,6 +1416,43 @@ AKIAABCDEFGHIJKLMNOP\n\
     }
 
     #[test]
+    fn falls_back_to_reasoning_and_thinking_fields() {
+        let openai = Provider::default();
+        let relay = serde_json::json!({
+            "choices": [{ "message": { "content": "", "reasoning_content": "{\"command\":\"uptime\"}" } }]
+        });
+        assert_eq!(
+            reply_text(&openai, &relay).as_deref(),
+            Some("{\"command\":\"uptime\"}")
+        );
+
+        let anthropic = Provider {
+            kind: Kind::Anthropic,
+            ..Default::default()
+        };
+        let thinking = serde_json::json!({
+            "content": [{ "type": "thinking", "thinking": "check the link first" }]
+        });
+        assert_eq!(
+            reply_text(&anthropic, &thinking).as_deref(),
+            Some("check the link first")
+        );
+    }
+
+    #[test]
+    fn json_mode_is_sent_only_when_requested() {
+        let provider = Provider {
+            json_mode: true,
+            ..Default::default()
+        };
+        let messages = vec![("user".to_string(), "hi".to_string())];
+        let body = request_body(&provider, "sys", &messages, true);
+        assert_eq!(body["response_format"]["type"], "json_object");
+        let plain = request_body(&provider, "sys", &messages, false);
+        assert!(plain.get("response_format").is_none());
+    }
+
+    #[test]
     fn salvages_a_command_from_truncated_json() {
         // The exact shape a reasoning model produced: budget ran out mid-string.
         let reply =
@@ -1501,6 +1588,7 @@ AKIAABCDEFGHIJKLMNOP\n\
             &provider(Kind::OpenAi, "https://x/v1", "m"),
             "sys",
             &messages,
+            false,
         );
         assert_eq!(openai["messages"][0]["role"], "system");
         assert_eq!(openai["max_tokens"], serde_json::json!(1024));
@@ -1510,6 +1598,7 @@ AKIAABCDEFGHIJKLMNOP\n\
             &provider(Kind::Anthropic, "https://x/v1", "claude"),
             "sys",
             &messages,
+            false,
         );
         assert_eq!(anthropic["system"], "sys");
         assert_eq!(anthropic["messages"][0]["role"], "user");
@@ -1518,7 +1607,12 @@ AKIAABCDEFGHIJKLMNOP\n\
         assert!(anthropic.get("reasoning_effort").is_none());
 
         // Azure reuses the OpenAI body shape.
-        let azure = request_body(&provider(Kind::Azure, "https://x", "d"), "sys", &messages);
+        let azure = request_body(
+            &provider(Kind::Azure, "https://x", "d"),
+            "sys",
+            &messages,
+            false,
+        );
         assert_eq!(azure["messages"][0]["role"], "system");
 
         // Reasoning models: no sampling block, different cap field name.
@@ -1526,7 +1620,7 @@ AKIAABCDEFGHIJKLMNOP\n\
         strict.send_sampling = false;
         strict.max_tokens_field = MaxTokensField::MaxCompletionTokens;
         strict.top_p = Some(0.5);
-        let body = request_body(&strict, "sys", &messages);
+        let body = request_body(&strict, "sys", &messages, false);
         assert!(body.get("temperature").is_none());
         assert!(body.get("top_p").is_none());
         assert_eq!(body["max_completion_tokens"], serde_json::json!(1024));
@@ -1535,7 +1629,7 @@ AKIAABCDEFGHIJKLMNOP\n\
         // Vendors without a `system` role: the prompt folds into the first turn.
         let mut folded = provider(Kind::OpenAi, "https://x/v1", "m");
         folded.fold_system = true;
-        let body = request_body(&folded, "sys", &messages);
+        let body = request_body(&folded, "sys", &messages, false);
         assert_eq!(body["messages"].as_array().unwrap().len(), 1);
         assert_eq!(body["messages"][0]["content"], "sys\n\nhi");
 
@@ -1543,7 +1637,7 @@ AKIAABCDEFGHIJKLMNOP\n\
         let mut rich = provider(Kind::OpenAi, "https://x/v1", "m");
         rich.stop = vec!["###".into()];
         rich.reasoning = Reasoning::Medium;
-        let body = request_body(&rich, "sys", &messages);
+        let body = request_body(&rich, "sys", &messages, false);
         assert_eq!(body["stop"], serde_json::json!(["###"]));
         assert_eq!(body["reasoning_effort"], "medium");
     }
@@ -1728,7 +1822,7 @@ AKIAABCDEFGHIJKLMNOP\n\
             model: "o3".into(),
             ..Default::default()
         };
-        let reply = chat(&provider, "sk-TESTKEY-9999", "sys", "hi", None)
+        let reply = chat(&provider, "sk-TESTKEY-9999", "sys", "hi", None, false)
             .await
             .unwrap();
         assert_eq!(reply.text, "ok");
@@ -1794,6 +1888,7 @@ AKIAABCDEFGHIJKLMNOP\n\
             COMMAND_SYSTEM_PROMPT,
             &build_user_prompt("disk usage", "bash", "local", &context),
             None,
+            true,
         )
         .await
         .unwrap();

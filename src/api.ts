@@ -1209,6 +1209,8 @@ export interface AiProvider {
   foldSystem: boolean;
   /** Ask for a usage block on the stream. */
   streamUsage: boolean;
+  /** Send `response_format: json_object` on JSON-only calls. */
+  jsonMode: boolean;
   reasoning: AiReasoning;
   /** Azure `api-version`. */
   apiVersion: string;

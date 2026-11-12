@@ -286,21 +286,57 @@ pub async fn ai_generate_command(
         // Reasoning models spend part of the budget on `reasoning_content`
         // before emitting the JSON, so keep this well above the reply size.
         Some(2048),
+        // One-shot task that must return an object.
+        true,
     )
     .await
     .map_err(|err| err.to_string())?;
     if reply.text.trim().is_empty() {
         return Err(ERR_EMPTY_REPLY.into());
     }
-    let extract = ft_ai::extract_command_reply(&reply.text);
+    let mut notes = reply.notes.clone();
+    let mut model = reply.model.clone();
+    let mut latency_ms = reply.latency_ms;
+    let mut extract = ft_ai::extract_command_reply(&reply.text);
+    // The reply was prose rather than JSON: ask once more, spelling out the
+    // contract and showing the model what it actually sent. A blank reply is
+    // not retried here because repeating the same request would not help.
+    if !extract.done && extract.command.is_empty() {
+        let repair_user = format!(
+            "{user}\n\nYour previous reply was:\n{}",
+            clip(&reply.text, 600)
+        );
+        if let Ok(second) = ft_ai::chat(
+            &provider,
+            &key,
+            ft_ai::COMMAND_REPAIR_PROMPT,
+            &repair_user,
+            Some(1024),
+            true,
+        )
+        .await
+        {
+            let retried = ft_ai::extract_command_reply(&second.text);
+            if retried.done || !retried.command.is_empty() {
+                extract = retried;
+                latency_ms += second.latency_ms;
+                model = second.model;
+                for note in second.notes {
+                    if !notes.contains(&note) {
+                        notes.push(note);
+                    }
+                }
+            }
+        }
+    }
     if extract.done {
         return Ok(CommandReply {
             command: String::new(),
             explanation: extract.explanation,
             done: true,
-            latency_ms: reply.latency_ms,
-            model: reply.model,
-            notes: reply.notes,
+            latency_ms,
+            model,
+            notes,
         });
     }
     if extract.command.is_empty() {
@@ -310,10 +346,15 @@ pub async fn ai_generate_command(
         command: extract.command,
         explanation: extract.explanation,
         done: false,
-        latency_ms: reply.latency_ms,
-        model: reply.model,
-        notes: reply.notes,
+        latency_ms,
+        model,
+        notes,
     })
+}
+
+/// First `max` characters of `text`, on a char boundary.
+fn clip(text: &str, max: usize) -> String {
+    text.chars().take(max).collect()
 }
 
 #[tauri::command]
@@ -346,6 +387,7 @@ pub async fn ai_explain(
         ft_ai::EXPLAIN_SYSTEM_PROMPT,
         &user,
         Some(600),
+        false,
     )
     .await
     .map_err(|err| err.to_string())
@@ -519,6 +561,14 @@ pub fn ai_presets() -> Vec<ProviderPreset> {
     // Azure needs a version for the classic deployment path.
     if let Some(azure) = list.iter_mut().find(|item| item.id == "azure") {
         azure.provider.api_version = "2024-10-21".into();
+    }
+    // Cloud OpenAI-compatible vendors accept a JSON response format, which is
+    // what keeps command generation parseable on small models. Ollama's local
+    // shim is left alone because older builds reject the field outright.
+    for item in list.iter_mut() {
+        if item.id != "ollama" && !item.provider.kind.is_anthropic() {
+            item.provider.json_mode = true;
+        }
     }
     // OpenRouter asks callers to identify themselves; other vendors ignore it.
     if let Some(router) = list.iter_mut().find(|item| item.id == "openrouter") {

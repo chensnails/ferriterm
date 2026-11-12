@@ -1416,6 +1416,7 @@
     "noteMaxTokens": "switched to max_completion_tokens",
     "noteSampling": "sampling parameters dropped",
     "noteSystem": "system prompt folded into the first message",
+    "noteJsonMode": "JSON response format dropped (vendor rejected it)",
     "openSettings": "Open settings",
     "placeholder": "Ask anything, or {prefix} list the largest files here",
     "preset": "Preset",
