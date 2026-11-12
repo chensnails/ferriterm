@@ -45,12 +45,6 @@ export interface GateOptions {
   run: () => void;
   /** Who is asking. Defaults to `"ui"`; the continuous agent passes `"agent"`. */
   origin?: AuditOrigin;
-  /**
-   * When true, an `ask` verdict is auto-cancelled instead of opening the
-   * approval card — there is nobody at the keyboard to approve. The step is
-   * recorded as `cancelled` and the caller decides whether to skip or stop.
-   */
-  autonomous?: boolean;
 }
 
 /**
@@ -76,7 +70,7 @@ export async function runGuarded(
 ): Promise<GateOutcome> {
   const line = command.trim();
   if (!line) return { status: "cancelled" };
-  const { host, elevated, run, origin = "ui", autonomous = false } = options;
+  const { host, elevated, run, origin = "ui" } = options;
 
   let decision: PolicyDecision;
   try {
@@ -100,17 +94,14 @@ export async function runGuarded(
     return { status: "ran" };
   }
 
-  // Autonomous runs have no person to approve with: refuse the step rather than
-  // stall forever on a decision card nobody will dismiss.
-  if (autonomous) {
-    record(line, host, decision, "cancelled", origin);
-    return { status: "cancelled" };
-  }
-
+  // Nobody approves on the person's behalf: even the autonomous loop stops
+  // here and waits for the card. A step that cannot be approved is a step the
+  // person never saw, and silently refusing it would look like a failure.
   const choice = await useAppStore.getState().askApprove({
     command: line,
     host,
     decision,
+    origin,
   });
   if (!choice) {
     record(line, host, decision, "cancelled", origin);

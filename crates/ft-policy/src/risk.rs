@@ -321,6 +321,126 @@ const READ_ONLY_WITH_FLAGS: &[(&str, &[&str])] = &[
     ),
 ];
 
+/// Disk-inspection tools. They are not in [`READ_ONLY`] because the same
+/// binary can rewrite drive firmware settings, and not in [`WRITE_*`] because
+/// the common use is a health read. The lists below are *allow* lists: a flag
+/// that is not named keeps the cautious `unknown` grade, so `smartctl -s off`
+/// still asks while `smartctl -H` does not.
+const SMARTCTL_READ_FLAGS: &[&str] = &[
+    "-H",
+    "-a",
+    "-A",
+    "-i",
+    "-x",
+    "-c",
+    "-l",
+    "-n",
+    "-j",
+    "-d",
+    "-T",
+    "-V",
+    "-q",
+    "--all",
+    "--attributes",
+    "--health",
+    "--info",
+    "--xall",
+    "--capabilities",
+    "--log",
+    "--nocheck",
+    "--json",
+    "--device",
+    "--quiet",
+    "--version",
+];
+
+const HDPARM_READ_FLAGS: &[&str] = &["-I", "-i", "-t", "-T", "-C", "-g", "-v", "-h"];
+
+/// Sub-commands that only read. Everything else (format, write, set-feature,
+/// fw-download) changes the drive.
+const NVME_READ_SUBCOMMANDS: &[&str] = &[
+    "list",
+    "list-subsys",
+    "id-ctrl",
+    "id-ns",
+    "id-namespace",
+    "smart-log",
+    "error-log",
+    "effects-log",
+    "get-feature",
+    "get-log",
+    "show-regs",
+    "show-topology",
+    "version",
+    "help",
+];
+
+const MDADM_READ_SUBCOMMANDS: &[&str] = &[
+    "--detail",
+    "--examine",
+    "--query",
+    "--detail-platform",
+    "-D",
+    "-E",
+];
+
+/// One word is allowed when it is a listed flag, or a cluster of short flags
+/// that are each listed (`hdparm -tT` is `-t` plus `-T`).
+fn flag_is_listed(word: &str, allowed: &[&str]) -> bool {
+    let name = word.split('=').next().unwrap_or(word);
+    if allowed.iter().any(|flag| name == *flag) {
+        return true;
+    }
+    if name.starts_with('-') && !name.starts_with("--") && name.len() > 2 {
+        return name[1..].chars().all(|ch| {
+            let single = format!("-{ch}");
+            allowed.iter().any(|flag| flag == &single)
+        });
+    }
+    false
+}
+
+/// True when every flag on the line is one the tool only reads with.
+fn only_listed_flags(segment: &Segment, allowed: &[&str]) -> bool {
+    let mut saw_flag = false;
+    for word in segment.rest() {
+        if !word.starts_with('-') {
+            continue;
+        }
+        saw_flag = true;
+        if !flag_is_listed(word, allowed) {
+            return false;
+        }
+    }
+    saw_flag
+}
+
+/// `mdadm --detail` and `nvme smart-log` both spell their verb as a bare word,
+/// so the check is "one of these words is present" — never "the first one is".
+fn has_any_word(segment: &Segment, allowed: &[&str]) -> bool {
+    segment
+        .rest()
+        .iter()
+        .any(|word| allowed.iter().any(|name| word == name))
+}
+
+/// `true` when this is an inspection call with no flag that can change the
+/// drive. Callers use it to clear the `Unknown` grade *and* the device bump,
+/// which is what makes `smartctl -H /dev/sda` a read instead of an R4.
+fn is_device_inspection(segment: &Segment, program: &str) -> bool {
+    match program {
+        "smartctl" => only_listed_flags(segment, SMARTCTL_READ_FLAGS),
+        "hdparm" => only_listed_flags(segment, HDPARM_READ_FLAGS),
+        "nvme" => has_any_word(segment, NVME_READ_SUBCOMMANDS),
+        "mdadm" => has_any_word(segment, MDADM_READ_SUBCOMMANDS),
+        // `fdisk -l` / `parted -l` list the table without entering the editor.
+        "fdisk" | "parted" | "sfdisk" | "sgdisk" => {
+            only_listed_flags(segment, &["-l", "--list", "-v", "--version", "-s", "--summary"])
+        }
+        _ => false,
+    }
+}
+
 const SYSTEM_ROOTS: &[&str] = &[
     "/etc",
     "/boot",
@@ -409,6 +529,11 @@ fn base_of(segment: &Segment) -> Assessment {
     };
 
     if program.is_empty() {
+        return Assessment::default();
+    }
+    // A health read is a read: clear the `Unknown` grade so the device path
+    // in the argument list does not get treated as a write target.
+    if is_device_inspection(segment, &program) {
         return Assessment::default();
     }
     if FATAL_PROGRAMS
@@ -550,11 +675,11 @@ fn grade_segment(segment: &Segment) -> Assessment {
             assessment.note(Reason::SecretFile);
             assessment.risk = assessment.risk.bump(1);
         }
-        if is_device(word) {
+        // Naming a device only matters for a program that can write to it;
+        // `smartctl -H /dev/sda` is a read, so it gets no disk-write claim.
+        if is_device(word) && writes {
             assessment.note(Reason::DiskDevice);
-            if writes {
-                assessment.risk = Risk::R4;
-            }
+            assessment.risk = Risk::R4;
         }
         if is_system_path(word) && writes {
             assessment.note(Reason::SystemPath);
@@ -715,6 +840,47 @@ mod tests {
         assert_eq!(grade("mv a b").risk, Risk::R2);
         assert_eq!(grade("apt-get install nginx").risk, Risk::R2);
         assert_eq!(grade("systemctl restart nginx").risk, Risk::R2);
+    }
+
+    #[test]
+    fn disk_health_reads_are_free() {
+        for line in [
+            "smartctl -H /dev/sda",
+            "smartctl -a /dev/sda",
+            "smartctl -H /dev/sda && smartctl -H /dev/sdb",
+            "smartctl -i -A /dev/nvme0 -d nvme",
+            "smartctl --all --device=sat /dev/sda",
+            "nvme smart-log /dev/nvme0",
+            "nvme list",
+            "mdadm --detail /dev/md0",
+            "mdadm -E /dev/sda1",
+            "fdisk -l",
+            "parted --list",
+            "hdparm -I /dev/sda",
+            "hdparm -tT /dev/sdb",
+        ] {
+            let assessment = grade(line);
+            assert_eq!(assessment.risk, Risk::R0, "{line}");
+            assert!(assessment.reasons.is_empty(), "{line}");
+            assert!(!assessment.hard, "{line}");
+        }
+    }
+
+    #[test]
+    fn disk_writes_still_ask() {
+        for line in [
+            "smartctl -s off /dev/sda",
+            "smartctl --set=standby,0 /dev/sda",
+            "smartctl -o on /dev/sda",
+            "smartctl -t long /dev/sda",
+            "nvme format /dev/nvme0",
+            "nvme write /dev/nvme0 -b 0 -d data.bin",
+            "mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/sda1 /dev/sdb1",
+            "hdparm -W 0 /dev/sda",
+            "fdisk /dev/sda",
+        ] {
+            assert!(grade(line).risk >= Risk::R3, "{line}");
+        }
     }
 
     #[test]

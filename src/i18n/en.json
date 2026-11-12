@@ -1479,7 +1479,7 @@
     "continuous": {
       "title": "Continuous mode",
       "enable": "Continuous mode",
-      "enableHint": "The assistant reads the terminal and runs one command at a time on its own. Every command still passes the policy gate.",
+      "enableHint": "The assistant reads the terminal and runs one command at a time on its own. Read-only commands run straight away; anything it needs you to confirm pauses the loop until you decide.",
       "goalLabel": "Goal",
       "goalPlaceholder": "What should the assistant accomplish? Be specific, e.g. find the 5 largest log files.",
       "start": "Start",
@@ -1487,7 +1487,7 @@
       "running": "Running",
       "stepCount": "Step {n}",
       "confirmTitle": "Start continuous mode?",
-      "confirmBody": "Continuous mode lets the assistant send commands to this terminal without you approving each one. It can only run what the policy gate allows; risky commands are blocked or skipped.",
+      "confirmBody": "Continuous mode lets the assistant send commands to this terminal without approving each one. Low-risk commands run; anything doubtful or system-changing pauses and asks you, and destructive commands are refused.",
       "confirmRisks": "Commands run unattended. Watch the step log and stop at any time.",
       "confirmStart": "Start anyway",
       "stepLog": "Steps",
@@ -1495,6 +1495,10 @@
       "thinkingNow": "AI is thinking…",
       "showThinking": "Show thinking",
       "dismiss": "Clear",
+      "note": {
+        "authPrompt": "The command asks for a password, so the run stopped — only you can type it",
+        "userStopped": "Stopped by you"
+      },
       "status": {
         "done": "Goal reached",
         "denied": "Blocked by policy",
@@ -1502,13 +1506,15 @@
         "timeout": "Timed out",
         "errors": "Too many errors",
         "blocked": "Repeatedly held back",
+        "waiting": "Waiting for your approval",
+        "password": "Waiting for a password",
         "noSession": "No terminal open",
         "finished": "Finished",
         "maxSteps": "Step limit reached"
       },
       "verdict": {
         "ran": "Ran",
-        "askCancelled": "Held",
+        "askDenied": "Not approved",
         "denied": "Denied",
         "failed": "Failed",
         "done": "Goal reached",
@@ -1525,6 +1531,7 @@
       "once": "Once",
       "session": "This session",
       "always": "Always allow",
+      "fromAgent": "Continuous mode is paused. Approving runs this step; refusing lets the assistant try another route.",
       "hint": "Only this exact command is approved; anything else asks again. Always-allow adds a rule for this host."
     },
     "risk": {

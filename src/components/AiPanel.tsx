@@ -535,6 +535,10 @@ export function AiPanel() {
         return t("ai.continuous.status.noSession");
       case "maxSteps":
         return t("ai.continuous.status.maxSteps");
+      case "waiting":
+        return t("ai.continuous.status.waiting");
+      case "password":
+        return t("ai.continuous.status.password");
       case "finished":
         return t("ai.continuous.status.finished");
       default:
@@ -546,8 +550,8 @@ export function AiPanel() {
     switch (verdict) {
       case "ran":
         return t("ai.continuous.verdict.ran");
-      case "ask-cancelled":
-        return t("ai.continuous.verdict.askCancelled");
+      case "ask-denied":
+        return t("ai.continuous.verdict.askDenied");
       case "denied":
         return t("ai.continuous.verdict.denied");
       case "failed":
@@ -568,6 +572,10 @@ export function AiPanel() {
         return t("ai.err.emptyReply");
       case "ai.err.emptyCommand":
         return t("ai.err.emptyCommand");
+      case "authPrompt":
+        return t("ai.continuous.note.authPrompt");
+      case "user-stopped":
+        return t("ai.continuous.note.userStopped");
       default:
         return note;
     }
@@ -608,6 +616,11 @@ export function AiPanel() {
 
   const stopRun = () => {
     agentHandleRef.current?.stop();
+    // A card left open for a stopped run would approve a step nobody wants.
+    const pending = useAppStore.getState().appPrompt;
+    if (pending?.request.kind === "approve") {
+      useAppStore.getState().settlePrompt(null);
+    }
   };
 
   const dismissRun = () => {
@@ -776,8 +789,7 @@ export function AiPanel() {
               placeholder={t("ai.continuous.goalPlaceholder")}
               onChange={(event) => setGoal(event.target.value)}
             />
-            <div className="ai-composer-bar">
-              <span className="ai-hint">{t("ai.continuous.enableHint")}</span>
+            <div className="ai-composer-bar ai-continuous-start">
               <div className="plugin-actions">
                 <button
                   type="button"
@@ -797,9 +809,11 @@ export function AiPanel() {
             <div className="ai-continuous-status">
               <span className="ai-continuous-status-text">
                 {agentState.running
-                  ? `${t("ai.continuous.running")} · ${t("ai.continuous.stepCount", {
-                      n: agentState.steps.length,
-                    })}`
+                  ? agentState.status === "waiting"
+                    ? t("ai.continuous.status.waiting")
+                    : `${t("ai.continuous.running")} · ${t("ai.continuous.stepCount", {
+                        n: agentState.steps.length,
+                      })}`
                   : labelForStatus(agentState.status)}
               </span>
               {agentState.running ? (

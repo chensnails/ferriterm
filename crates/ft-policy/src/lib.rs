@@ -44,8 +44,8 @@ pub enum Mode {
     /// Nothing runs; commands are only shown.
     Plan,
     /// The built-in continuous agent: R0–R2 run on their own, R3+ bounce to a
-    /// person, and R4 stays hard-denied. Pair it with the loop's autonomous
-    /// flag, which auto-cancels any "ask" instead of waiting for nobody.
+    /// person, and R4 stays hard-denied. The loop pauses on an "ask" and waits
+    /// for the approval card rather than deciding on the person's behalf.
     Agent,
 }
 
@@ -334,8 +334,22 @@ mod tests {
     fn agent_mode_matches_auto_threshold() {
         assert_eq!(decide(Mode::Agent, "ls -la").verdict, Verdict::Allow);
         assert_eq!(decide(Mode::Agent, "mkdir build").verdict, Verdict::Allow);
-        // R3 still asks, and the loop auto-cancels it rather than waiting.
+        // R3 still asks; the loop holds that step until a person answers.
         assert_eq!(decide(Mode::Agent, "rm -rf build").verdict, Verdict::Ask);
+    }
+
+    #[test]
+    fn agent_mode_lets_disk_health_reads_through() {
+        // The shape that used to be stopped in continuous mode: a read-only
+        // health check that names block devices.
+        assert_eq!(
+            decide(Mode::Agent, "smartctl -H /dev/sda && smartctl -H /dev/sdb").verdict,
+            Verdict::Allow
+        );
+        assert_eq!(decide(Mode::Agent, "nvme smart-log /dev/nvme0").verdict, Verdict::Allow);
+        // The same binary with a flag that rewrites drive settings must still
+        // reach a person.
+        assert_eq!(decide(Mode::Agent, "smartctl -s off /dev/sda").verdict, Verdict::Ask);
     }
 
     #[test]

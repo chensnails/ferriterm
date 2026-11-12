@@ -7,7 +7,7 @@ import { runGuarded } from "./policy";
  *
  * Drives one terminal session on its own: read the screen, ask the model for
  * the next single command, run it through the policy gate (as `agent`, so an
- * `ask` verdict is auto-cancelled instead of waiting for a person), wait for the
+ * `ask` verdict pauses the loop and waits for the approval card), wait for the
  * output to settle, and repeat until the goal is met or a stop condition hits.
  *
  * It never types without the newline, and every command still goes through
@@ -17,7 +17,7 @@ import { runGuarded } from "./policy";
 
 export type AgentStepVerdict =
   | "ran"
-  | "ask-cancelled"
+  | "ask-denied"
   | "denied"
   | "failed"
   | "done"
@@ -100,6 +100,26 @@ function looksLikePager(text: string): boolean {
   return PAGER_PATTERNS.some((pattern) => pattern.test(bottom));
 }
 
+/**
+ * A console waiting for a password looks exactly like a console waiting for the
+ * next command: quiet. Typing the next command into it would feed that line to
+ * `sudo` as the password, so the loop has to recognise the prompt and stop —
+ * only a person can answer it.
+ */
+const AUTH_PROMPTS = [
+  /\[sudo\]\s+password\s+for\s+\S+/i,
+  /password\s+for\s+\S+\s*:\s*$/i,
+  /^\s*(?:current\s+)?(?:unix\s+)?password\s*:\s*$/im,
+  /\(current\)\s+unix\s+password/i,
+  /enter\s+passphrase\s+for\s+key/i,
+  /^\s*passphrase\s*.*:\s*$/im,
+];
+
+function awaitingPassword(text: string): boolean {
+  const bottom = text.slice(-400);
+  return AUTH_PROMPTS.some((pattern) => pattern.test(bottom));
+}
+
 /** Page through whatever the console already has waiting, before typing. */
 async function drainPager(
   handle: ReturnType<typeof terminalHandle> | null,
@@ -128,12 +148,18 @@ function tail(text: string, max = OUTPUT_TAIL): string {
   return text.length > max ? text.slice(text.length - max) : text;
 }
 
+interface SettledOutput {
+  text: string;
+  /** The console is asking for a password; nothing else may be typed. */
+  paused: boolean;
+}
+
 async function waitForSettled(
   handle: ReturnType<typeof terminalHandle> | null,
   max: number,
   timeoutMs: number,
-): Promise<string> {
-  if (!handle) return "";
+): Promise<SettledOutput> {
+  if (!handle) return { text: "", paused: false };
   const deadline0 = Date.now() + timeoutMs;
   // Paging is genuine progress, so each page may extend the wait — but never
   // past a hard ceiling, or a console stuck on a pager would run forever.
@@ -148,6 +174,10 @@ async function waitForSettled(
     if (current === last) {
       stable += 1;
       if (stable >= STABLE_SAMPLES) {
+        // A password prompt is stable too, but it is waiting on a person.
+        if (awaitingPassword(current)) {
+          return { text: current, paused: true };
+        }
         // A pager prompt is stable too, but it is not the end of the output.
         if (pages < MAX_PAGES && looksLikePager(current)) {
           handle.insert(" ");
@@ -163,7 +193,7 @@ async function waitForSettled(
       last = current;
     }
   }
-  return last;
+  return { text: last, paused: awaitingPassword(last) };
 }
 
 const TERMINAL = new Set([
@@ -173,6 +203,7 @@ const TERMINAL = new Set([
   "timeout",
   "errors",
   "blocked",
+  "password",
   "no-session",
 ]);
 
@@ -235,6 +266,13 @@ export function startAgentLoop(options: AgentLoopOptions): AgentLoopHandle {
       // A previous command (or the user) may have left the console on a pager
       // page; page it out first so the model reads the whole reply.
       await drainPager(handle, lines);
+      // A prompt nobody answered outranks the plan: typing here would feed the
+      // next command to `sudo` as the password.
+      if (awaitingPassword(handle.screenLines(lines).join("\n"))) {
+        pushStep({ index, command: "", verdict: "failed", note: "authPrompt" });
+        state.status = "password";
+        break;
+      }
       const screen = handle.screenLines(lines);
       let reply: AiCommandReply | null = null;
       let lastError = "";
@@ -291,18 +329,47 @@ export function startAgentLoop(options: AgentLoopOptions): AgentLoopHandle {
         break;
       }
 
+      // The gate may stop here to ask a person. Say so before awaiting, so the
+      // panel explains the pause instead of looking stuck.
+      state.status = "waiting";
+      emit();
       const outcome = await runGuarded(command, {
         host,
         elevated: false,
         origin: "agent",
-        autonomous: true,
-        run: () => handle.insert(`${command}\n`),
+        run: () => {
+          // A stop pressed while the approval card was open outranks a late
+          // approval: the person already said the run is over.
+          if (token.aborted) return;
+          handle.insert(`${command}\n`);
+        },
       });
+      state.status = `step ${index + 1}/${maxSteps}`;
+      emit();
 
       if (outcome.status === "ran") {
+        if (token.aborted) {
+          pushStep({ index, command, verdict: "aborted", note: "user-stopped", thinking });
+          state.status = "aborted";
+          break;
+        }
         consecutiveSkips = 0;
         const after = await waitForSettled(handle, lines, maxStepMs);
-        const output = tail(after);
+        if (after.paused) {
+          // The command itself asked for a password. Stop here rather than
+          // typing the next step into that prompt.
+          pushStep({
+            index,
+            command,
+            verdict: "failed",
+            note: "authPrompt",
+            output: tail(after.text, 800),
+            thinking,
+          });
+          state.status = "password";
+          break;
+        }
+        const output = tail(after.text);
         history.push({ command, output });
         pushStep({ index, command, verdict: "ran", output, thinking });
       } else if (outcome.status === "denied") {
@@ -313,10 +380,12 @@ export function startAgentLoop(options: AgentLoopOptions): AgentLoopHandle {
         state.status = "denied";
         break;
       } else if (outcome.status === "cancelled") {
+        // A person said no. The model gets to pick another route, but two
+        // refusals in a row mean the run has lost the plot.
         pushStep({
           index,
           command,
-          verdict: "ask-cancelled",
+          verdict: "ask-denied",
           note: "policy-ask",
           thinking,
         });
@@ -346,6 +415,8 @@ export function startAgentLoop(options: AgentLoopOptions): AgentLoopHandle {
       // last status is still a "step N/M" string rather than a terminal one.
       state.status = state.status.startsWith("step") ? "maxSteps" : "finished";
     }
+    // Whatever ended the run, nothing is being generated any more.
+    state.thinking = false;
     state.running = false;
     emit();
   })();

@@ -14,6 +14,7 @@ import {
   type SshPreset,
   type SshSecuritySettings,
   type PolicyDecision,
+  type AuditOrigin,
 } from "./api";
 import {
   DEFAULT_SSH_SECURITY,
@@ -246,6 +247,8 @@ export interface ApprovePrompt {
   command: string;
   host: string;
   decision: PolicyDecision;
+  /** Who proposed the command; `"agent"` means the continuous loop is waiting. */
+  origin?: AuditOrigin;
 }
 
 interface PendingPrompt {
@@ -429,6 +432,7 @@ interface AppState {
     command: string;
     host: string;
     decision: PolicyDecision;
+    origin?: AuditOrigin;
   }) => Promise<ApprovalChoice | null>;
   clearStatus: () => void;
   connectRetry: { hostId: string; error: string } | null;

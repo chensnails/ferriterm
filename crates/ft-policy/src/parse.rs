@@ -295,6 +295,20 @@ fn split(input: &str) -> Vec<Segment> {
                     raw.push('>');
                     index += 1;
                 }
+                // `2>&1`, `>&2`, `2>&-`: a descriptor copy, not a file target
+                // and not a command separator. Left alone, the `&` would split
+                // the line and `1` would be graded as an unknown program.
+                if index < chars.len() && chars[index] == '&' {
+                    raw.push('&');
+                    index += 1;
+                    while index < chars.len()
+                        && (chars[index].is_ascii_digit() || chars[index] == '-')
+                    {
+                        raw.push(chars[index]);
+                        index += 1;
+                    }
+                    continue;
+                }
                 while index < chars.len() && (chars[index] == ' ' || chars[index] == '\t') {
                     raw.push(chars[index]);
                     index += 1;
@@ -476,6 +490,21 @@ mod tests {
         let command = parse("cmd 2> err.log");
         assert_eq!(command.segments[0].argv, vec!["cmd"]);
         assert_eq!(command.segments[0].redirects[0].target, "err.log");
+    }
+
+    #[test]
+    fn descriptor_copies_are_not_separators() {
+        // `2>&1` used to split the line, leaving `1` as an unknown program and
+        // pushing a read-only command up to R2.
+        let command = parse("smartctl -H /dev/sda 2>&1");
+        assert_eq!(command.segments.len(), 1);
+        assert_eq!(
+            command.segments[0].argv,
+            vec!["smartctl", "-H", "/dev/sda"]
+        );
+        assert!(command.segments[0].redirects.is_empty());
+        assert_eq!(parse("cmd >&2").segments[0].program(), "cmd");
+        assert_eq!(parse("cmd 2>&-").segments.len(), 1);
     }
 
     #[test]

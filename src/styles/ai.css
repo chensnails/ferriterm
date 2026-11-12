@@ -170,6 +170,11 @@
   gap: var(--space-2);
 }
 
+/* The continuous start row holds only the button, so keep it on the right. */
+.ai-continuous-start {
+  justify-content: flex-end;
+}
+
 .ai-hint {
   color: var(--fg-muted);
   font-size: var(--font-ui-sm);
@@ -320,6 +325,18 @@
   line-height: var(--line-ui);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* Continuous mode pauses here; say so where the decision is made. */
+.approve-origin {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  color: var(--fg-primary);
+  font-size: var(--font-ui-sm);
+  line-height: var(--line-ui);
 }
 
 /* Policy settings: one inline form, one hairline list for rules and one for

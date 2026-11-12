@@ -18,7 +18,7 @@ export function ApproveDialog() {
   const settle = useAppStore((s) => s.settlePrompt);
 
   if (!pending || pending.request.kind !== "approve") return null;
-  const { command, host, decision } = pending.request;
+  const { command, host, decision, origin } = pending.request;
 
   const cancel = () => settle(null);
 
@@ -63,6 +63,9 @@ export function ApproveDialog() {
           ))}
         </div>
         <pre className="approve-command">{command}</pre>
+        {origin === "agent" && (
+          <p className="approve-origin">{t("policy.approve.fromAgent")}</p>
+        )}
         <p className="hint">{t("policy.approve.hint")}</p>
       </div>
     </Modal>
