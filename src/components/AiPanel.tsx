@@ -344,6 +344,18 @@ export function AiPanel() {
     }
   };
 
+  /** Backend error tokens become localized text instead of raw English. */
+  const labelForNote = (note: string): string => {
+    switch (note) {
+      case "ai.err.emptyReply":
+        return t("ai.err.emptyReply");
+      case "ai.err.emptyCommand":
+        return t("ai.err.emptyCommand");
+      default:
+        return note;
+    }
+  };
+
   const toggleContinuous = (next: boolean) => {
     setContinuousOn(next);
     // Turning the mode off while a run is live stops the loop rather than
@@ -570,7 +582,7 @@ export function AiPanel() {
                       </span>
                       <code className="ai-step-command">{step.command || "—"}</code>
                       {step.note && (
-                        <span className="ai-step-note">{step.note}</span>
+                        <span className="ai-step-note">{labelForNote(step.note)}</span>
                       )}
                       {showThinking && step.thinking && (
                         <p className="ai-step-thinking">{step.thinking}</p>

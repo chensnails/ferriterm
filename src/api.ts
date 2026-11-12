@@ -1236,6 +1236,8 @@ export interface AiReply {
 export interface AiCommandReply {
   command: string;
   explanation: string;
+  /** The model declared the goal met and deliberately returned no command. */
+  done?: boolean;
   latencyMs: number;
   model: string;
   notes: string[];

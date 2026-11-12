@@ -1462,6 +1462,10 @@
     "you": "你",
     "run": "执行",
     "thinkingTitle": "AI 思考过程",
+    "err": {
+      "emptyReply": "模型返回了空内容（可能触达长度上限或被供应商过滤）",
+      "emptyCommand": "模型没有给出命令（可能未理解目标或输出被截断），已自动重试"
+    },
     "continuous": {
       "title": "连续模式",
       "enable": "连续模式",

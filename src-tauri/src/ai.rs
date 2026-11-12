@@ -43,12 +43,20 @@ pub struct StreamDelta {
 pub struct CommandReply {
     pub command: String,
     pub explanation: String,
+    /// The model declared the goal met and deliberately returned no command.
+    #[serde(default)]
+    pub done: bool,
     pub latency_ms: u64,
     pub model: String,
     /// i18n keys for parameters that had to be dropped (see `ft_ai::Reply`).
     #[serde(default)]
     pub notes: Vec<String>,
 }
+
+/// Error tokens the frontend maps to localized text. A raw English sentence
+/// here would end up untranslated in the step log.
+const ERR_EMPTY_REPLY: &str = "ai.err.emptyReply";
+const ERR_EMPTY_COMMAND: &str = "ai.err.emptyCommand";
 
 fn load_providers(store: &Store) -> Result<Vec<Provider>, String> {
     let raw = store
@@ -281,13 +289,27 @@ pub async fn ai_generate_command(
     )
     .await
     .map_err(|err| err.to_string())?;
-    let (command, explanation) = ft_ai::extract_command(&reply.text);
-    if command.is_empty() {
-        return Err("the model did not return a command".into());
+    if reply.text.trim().is_empty() {
+        return Err(ERR_EMPTY_REPLY.into());
+    }
+    let extract = ft_ai::extract_command_reply(&reply.text);
+    if extract.done {
+        return Ok(CommandReply {
+            command: String::new(),
+            explanation: extract.explanation,
+            done: true,
+            latency_ms: reply.latency_ms,
+            model: reply.model,
+            notes: reply.notes,
+        });
+    }
+    if extract.command.is_empty() {
+        return Err(ERR_EMPTY_COMMAND.into());
     }
     Ok(CommandReply {
-        command,
-        explanation,
+        command: extract.command,
+        explanation: extract.explanation,
+        done: false,
         latency_ms: reply.latency_ms,
         model: reply.model,
         notes: reply.notes,

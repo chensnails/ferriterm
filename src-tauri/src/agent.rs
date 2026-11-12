@@ -336,6 +336,7 @@ fn mode_label(mode: ft_policy::Mode) -> String {
         ft_policy::Mode::Auto => "auto",
         ft_policy::Mode::Ask => "ask",
         ft_policy::Mode::Plan => "plan",
+        ft_policy::Mode::Agent => "agent",
     }
     .to_string()
 }

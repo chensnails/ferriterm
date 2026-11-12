@@ -1,4 +1,4 @@
-import { aiGenerateCommand, type AiStep } from "./api";
+import { aiGenerateCommand, type AiCommandReply, type AiStep } from "./api";
 import { terminalHandle } from "./terminal-registry";
 import { runGuarded } from "./policy";
 
@@ -69,14 +69,18 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 const STABLE_SAMPLES = 3;
 const SAMPLE_MS = 300;
 const OUTPUT_TAIL = 3000;
+/** One extra attempt per step before the miss counts against the run. */
+const RETRY_DELAYS_MS = [400];
+/** Consecutive unusable replies before the run gives up with a reason. */
+const MAX_SKIPS = 2;
 
 function buildRequest(goal: string, index: number): string {
   return (
     `Goal: ${goal}\n` +
     `You are in continuous mode and act step by step; this is step ${index + 1}. ` +
-    `If the goal is already met, return an EMPTY command so the run ends. ` +
-    `Otherwise return exactly ONE shell command that makes progress. ` +
-    `Do not repeat a command whose result you have already seen.`
+    `If the goal is already met, reply {"done": true, "explanation": "..."} and stop. ` +
+    `Otherwise reply {"command": "...", "explanation": "..."} with exactly ONE command that makes progress. ` +
+    `Never send an empty command. Do not repeat a command whose result you have already seen.`
   );
 }
 
@@ -173,37 +177,55 @@ export function startAgentLoop(options: AgentLoopOptions): AgentLoopHandle {
       emit();
 
       const screen = handle.screenLines(lines);
-      let reply;
-      try {
-        reply = await aiGenerateCommand(providerId, buildRequest(goal, index), {
-          host: host || null,
-          shell: null,
-          context: {
-            selection: null,
-            lastCommand: null,
-            screen,
-            scope: "screen",
-            lines,
-            sendOutput: true,
-            redact: true,
-            history,
-          },
-        });
-      } catch (err) {
-        state.thinking = false;
-        pushStep({ index, command: "", verdict: "failed", note: String(err) });
+      let reply: AiCommandReply | null = null;
+      let lastError = "";
+      for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
+        try {
+          const candidate = await aiGenerateCommand(providerId, buildRequest(goal, index), {
+            host: host || null,
+            shell: null,
+            context: {
+              selection: null,
+              lastCommand: null,
+              screen,
+              scope: "screen",
+              lines,
+              sendOutput: true,
+              redact: true,
+              history,
+            },
+          });
+          // `done` is the only finish signal. An empty command without it means
+          // the model broke the contract, which is retried rather than treated
+          // as either success or an immediate failure.
+          if (candidate.done || (candidate.command || "").trim()) {
+            reply = candidate;
+            break;
+          }
+          lastError = "ai.err.emptyCommand";
+        } catch (err) {
+          lastError = String(err);
+        }
+        if (attempt < RETRY_DELAYS_MS.length) {
+          await sleep(RETRY_DELAYS_MS[attempt]);
+          if (token.aborted) break;
+        }
+      }
+
+      state.thinking = false;
+      if (!reply) {
+        pushStep({ index, command: "", verdict: "failed", note: lastError });
         consecutiveSkips += 1;
-        if (consecutiveSkips >= STABLE_SAMPLES) {
+        if (consecutiveSkips >= MAX_SKIPS) {
           state.status = "errors";
           break;
         }
         continue;
       }
 
-      state.thinking = false;
       const command = (reply.command || "").trim();
       const thinking = (reply.explanation || "").trim();
-      if (!command) {
+      if (reply.done) {
         pushStep({ index, command: "", verdict: "done", thinking });
         state.status = "done";
         break;
@@ -239,7 +261,7 @@ export function startAgentLoop(options: AgentLoopOptions): AgentLoopHandle {
           thinking,
         });
         consecutiveSkips += 1;
-        if (consecutiveSkips >= STABLE_SAMPLES) {
+        if (consecutiveSkips >= MAX_SKIPS) {
           state.status = "blocked";
           break;
         }
@@ -252,7 +274,7 @@ export function startAgentLoop(options: AgentLoopOptions): AgentLoopHandle {
           thinking,
         });
         consecutiveSkips += 1;
-        if (consecutiveSkips >= STABLE_SAMPLES) {
+        if (consecutiveSkips >= MAX_SKIPS) {
           state.status = "errors";
           break;
         }

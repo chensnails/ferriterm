@@ -1462,6 +1462,10 @@
     "you": "You",
     "run": "Run",
     "thinkingTitle": "AI thinking",
+    "err": {
+      "emptyReply": "The model returned nothing (hit a length cap or was filtered by the vendor)",
+      "emptyCommand": "The model gave no command (misread the goal or the reply was cut off); retried automatically"
+    },
     "continuous": {
       "title": "Continuous mode",
       "enable": "Continuous mode",

@@ -507,8 +507,9 @@ pub fn build_context(input: &ContextInput<'_>, opts: &ContextOpts) -> (String, u
 // ------------------------------------------------------------------ prompts
 
 pub const COMMAND_SYSTEM_PROMPT: &str = "You translate a natural-language request into ONE shell command for the user's terminal. \
-Reply ONLY with JSON: {\"command\": \"...\", \"explanation\": \"one short sentence\"}. Never chain unrelated commands. \
-Prefer safe, read-only commands when the request is ambiguous.";
+Reply ONLY with JSON. To run something: {\"command\": \"...\", \"explanation\": \"one short sentence\"}. \
+When the goal is already met and nothing should run: {\"done\": true, \"explanation\": \"why it is complete\"}. \
+Never chain unrelated commands. Prefer safe, read-only commands when the request is ambiguous.";
 
 pub const CHAT_SYSTEM_PROMPT: &str =
     "You are the Ferriterm terminal assistant. Reply in plain sentences without bold or headings. \
@@ -600,23 +601,56 @@ fn salvage_json_string(source: &str, key: &str) -> Option<String> {
     None
 }
 
-/// Pull `{command, explanation}` out of a model reply (JSON, fenced code or the
-/// first non-empty line).
-pub fn extract_command(reply: &str) -> (String, String) {
+/// What one model reply turned out to be.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct CommandExtract {
+    pub command: String,
+    pub explanation: String,
+    /// The model explicitly declared the goal met and returned no command.
+    ///
+    /// This is deliberately distinct from "the command was empty": an empty
+    /// command without `done` means the model failed to follow the contract,
+    /// which the caller may retry. Collapsing the two is what made a finished
+    /// run look like three errors in a row.
+    pub done: bool,
+}
+
+/// Pull `{command, explanation, done}` out of a model reply (JSON, fenced code
+/// or the first non-empty line).
+pub fn extract_command_reply(reply: &str) -> CommandExtract {
     let trimmed = reply.trim();
     if let (Some(start), Some(end)) = (trimmed.find('{'), trimmed.rfind('}')) {
         if start < end {
             if let Ok(value) = serde_json::from_str::<serde_json::Value>(&trimmed[start..=end]) {
+                let done = value
+                    .get("done")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
                 if let Some(command) = value.get("command").and_then(|v| v.as_str()) {
-                    return (
-                        command.trim().to_string(),
-                        value
+                    let command = command.trim().to_string();
+                    let explanation = value
+                        .get("explanation")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .trim()
+                        .to_string();
+                    return CommandExtract {
+                        done: done && command.is_empty(),
+                        command,
+                        explanation,
+                    };
+                }
+                if done {
+                    return CommandExtract {
+                        done: true,
+                        command: String::new(),
+                        explanation: value
                             .get("explanation")
                             .and_then(|v| v.as_str())
                             .unwrap_or("")
                             .trim()
                             .to_string(),
-                    );
+                    };
                 }
             }
         }
@@ -625,22 +659,36 @@ pub fn extract_command(reply: &str) -> (String, String) {
         let rest = &trimmed[open + 3..];
         let body = rest.split_once('\n').map(|(_, tail)| tail).unwrap_or(rest);
         if let Some(close) = body.find("```") {
-            return (
-                trim_command(body[..close].trim().lines().next().unwrap_or("")),
-                String::new(),
-            );
+            return CommandExtract {
+                command: trim_command(body[..close].trim().lines().next().unwrap_or("")),
+                explanation: String::new(),
+                done: false,
+            };
         }
     }
     // Truncated JSON: the reply starts a `{...}` object but never closes it.
     // Reasoning models hit this routinely once the token budget is spent.
     if trimmed.starts_with('{') {
+        let done = salvage_json_bool(trimmed, "done").unwrap_or(false);
         if let Some(command) = salvage_json_string(trimmed, "command") {
             let explanation = salvage_json_string(trimmed, "explanation").unwrap_or_default();
-            return (trim_command(&command), explanation);
+            let command = trim_command(&command);
+            return CommandExtract {
+                done: done && command.is_empty(),
+                command,
+                explanation,
+            };
+        }
+        if done {
+            return CommandExtract {
+                done: true,
+                command: String::new(),
+                explanation: salvage_json_string(trimmed, "explanation").unwrap_or_default(),
+            };
         }
     }
-    (
-        trim_command(
+    CommandExtract {
+        command: trim_command(
             trimmed
                 .lines()
                 .next()
@@ -648,8 +696,30 @@ pub fn extract_command(reply: &str) -> (String, String) {
                 .trim()
                 .trim_matches('`'),
         ),
-        String::new(),
-    )
+        explanation: String::new(),
+        done: false,
+    }
+}
+
+/// Pull `{command, explanation}` out of a model reply.
+pub fn extract_command(reply: &str) -> (String, String) {
+    let extract = extract_command_reply(reply);
+    (extract.command, extract.explanation)
+}
+
+/// Read a JSON boolean for `key` out of a possibly truncated document.
+fn salvage_json_bool(source: &str, key: &str) -> Option<bool> {
+    let needle = format!("\"{key}\"");
+    let offset = source.find(&needle)?;
+    let rest = source[offset + needle.len()..].trim_start();
+    let rest = rest.strip_prefix(':')?.trim_start();
+    if rest.starts_with("true") {
+        Some(true)
+    } else if rest.starts_with("false") {
+        Some(false)
+    } else {
+        None
+    }
 }
 
 // --------------------------------------------------------------------- HTTP
@@ -1256,6 +1326,7 @@ AKIAABCDEFGHIJKLMNOP\n\
             lines: 3,
             send_output: true,
             redact: true,
+            history: Vec::new(),
         };
         assert_eq!(request.build(), (context, count));
     }
@@ -1268,6 +1339,30 @@ AKIAABCDEFGHIJKLMNOP\n\
         );
         assert_eq!(extract_command("Sure:\n```bash\nls -la\n```").0, "ls -la");
         assert_eq!(extract_command("`uptime`").0, "uptime");
+    }
+
+    #[test]
+    fn separates_an_explicit_done_from_an_empty_command() {
+        // The contract: `done` means finished, an empty command alone does not.
+        let done = extract_command_reply("{\"done\": true, \"explanation\": \"all up\"}");
+        assert!(done.done);
+        assert!(done.command.is_empty());
+        assert_eq!(done.explanation, "all up");
+
+        // `done` together with a command is not a finish signal.
+        let both = extract_command_reply("{\"done\": true, \"command\": \"uptime\"}");
+        assert!(!both.done);
+        assert_eq!(both.command, "uptime");
+
+        // An empty command without `done` is a contract miss, not a finish.
+        let empty = extract_command_reply("{\"command\": \"\"}");
+        assert!(!empty.done);
+        assert!(empty.command.is_empty());
+
+        // A truncated `{"done": true` still reads as done.
+        let cut = extract_command_reply("{\"done\": true, \"explanation\": \"finish");
+        assert!(cut.done);
+        assert_eq!(cut.explanation, "finish");
     }
 
     #[test]
