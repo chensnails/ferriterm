@@ -642,3 +642,51 @@
   font-size: var(--font-ui-sm);
   line-height: var(--line-ui);
 }
+
+/* "AI is thinking…" indicator shown while the model decides the next command. */
+.ai-continuous-thinking {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  color: var(--accent);
+  font-size: var(--font-ui-sm);
+  line-height: var(--line-ui);
+}
+
+.ai-continuous-thinking::before {
+  content: "";
+  flex: none;
+  width: 0.7em;
+  height: 0.7em;
+  border: 2px solid var(--accent);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: ai-think-spin 0.8s linear infinite;
+}
+
+@keyframes ai-think-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-continuous-thinking::before {
+    animation: none;
+  }
+}
+
+/* The model's one-sentence rationale for a step, shown beneath the command.
+   Reuses the wrap-to-new-line trick the note already uses (flex-basis: 100%). */
+.ai-step-thinking {
+  flex-basis: 100%;
+  margin: 0;
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--accent);
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+  line-height: var(--line-ui);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

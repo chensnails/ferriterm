@@ -1477,6 +1477,8 @@
       "confirmStart": "仍然开始",
       "stepLog": "执行步骤",
       "stepEmpty": "还没有执行步骤。",
+      "thinkingNow": "AI 正在思考…",
+      "showThinking": "显示思考",
       "dismiss": "清除",
       "status": {
         "done": "已完成目标",

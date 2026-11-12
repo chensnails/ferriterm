@@ -29,6 +29,8 @@ export interface AgentStep {
   verdict: AgentStepVerdict;
   output?: string;
   note?: string;
+  /** The model's one-sentence rationale for this step, shown as its "thinking". */
+  thinking?: string;
 }
 
 export interface AgentLoopState {
@@ -37,6 +39,8 @@ export interface AgentLoopState {
   sessionId: string;
   steps: AgentStep[];
   status: string;
+  /** True while the model is generating the next command. */
+  thinking: boolean;
 }
 
 export interface AgentLoopOptions {
@@ -134,6 +138,7 @@ export function startAgentLoop(options: AgentLoopOptions): AgentLoopHandle {
     sessionId,
     steps,
     status: "starting",
+    thinking: false,
   };
   const emit = () => onUpdate?.(state);
   const pushStep = (step: AgentStep) => {
@@ -164,6 +169,7 @@ export function startAgentLoop(options: AgentLoopOptions): AgentLoopHandle {
         break;
       }
       state.status = `step ${index + 1}/${maxSteps}`;
+      state.thinking = true;
       emit();
 
       const screen = handle.screenLines(lines);
@@ -184,6 +190,7 @@ export function startAgentLoop(options: AgentLoopOptions): AgentLoopHandle {
           },
         });
       } catch (err) {
+        state.thinking = false;
         pushStep({ index, command: "", verdict: "failed", note: String(err) });
         consecutiveSkips += 1;
         if (consecutiveSkips >= STABLE_SAMPLES) {
@@ -193,9 +200,11 @@ export function startAgentLoop(options: AgentLoopOptions): AgentLoopHandle {
         continue;
       }
 
+      state.thinking = false;
       const command = (reply.command || "").trim();
+      const thinking = (reply.explanation || "").trim();
       if (!command) {
-        pushStep({ index, command: "", verdict: "done" });
+        pushStep({ index, command: "", verdict: "done", thinking });
         state.status = "done";
         break;
       }
@@ -213,16 +222,22 @@ export function startAgentLoop(options: AgentLoopOptions): AgentLoopHandle {
         const after = await waitForSettled(handle, lines, maxStepMs);
         const output = tail(after);
         history.push({ command, output });
-        pushStep({ index, command, verdict: "ran", output });
+        pushStep({ index, command, verdict: "ran", output, thinking });
       } else if (outcome.status === "denied") {
         const reason = outcome.decision.hard
           ? "fatal"
           : outcome.decision.reasons.join(",") || "policy";
-        pushStep({ index, command, verdict: "denied", note: reason });
+        pushStep({ index, command, verdict: "denied", note: reason, thinking });
         state.status = "denied";
         break;
       } else if (outcome.status === "cancelled") {
-        pushStep({ index, command, verdict: "ask-cancelled", note: "policy-ask" });
+        pushStep({
+          index,
+          command,
+          verdict: "ask-cancelled",
+          note: "policy-ask",
+          thinking,
+        });
         consecutiveSkips += 1;
         if (consecutiveSkips >= STABLE_SAMPLES) {
           state.status = "blocked";
@@ -234,6 +249,7 @@ export function startAgentLoop(options: AgentLoopOptions): AgentLoopHandle {
           command,
           verdict: "failed",
           note: outcome.message,
+          thinking,
         });
         consecutiveSkips += 1;
         if (consecutiveSkips >= STABLE_SAMPLES) {

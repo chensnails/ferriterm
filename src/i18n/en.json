@@ -1477,6 +1477,8 @@
       "confirmStart": "Start anyway",
       "stepLog": "Steps",
       "stepEmpty": "No steps yet.",
+      "thinkingNow": "AI is thinking…",
+      "showThinking": "Show thinking",
       "dismiss": "Clear",
       "status": {
         "done": "Goal reached",

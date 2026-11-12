@@ -79,6 +79,7 @@ export function AiPanel() {
   const [goal, setGoal] = useState("");
   const [agentState, setAgentState] = useState<AgentLoopState | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [showThinking, setShowThinking] = useState(true);
   const agentHandleRef = useRef<AgentLoopHandle | null>(null);
 
   useEffect(() => {
@@ -515,6 +516,20 @@ export function AiPanel() {
                 </button>
               )}
             </div>
+
+            <label className="ai-toggle">
+              <input
+                type="checkbox"
+                checked={showThinking}
+                onChange={(event) => setShowThinking(event.target.checked)}
+              />
+              {t("ai.continuous.showThinking")}
+            </label>
+
+            {agentState.thinking && (
+              <p className="ai-continuous-thinking">{t("ai.continuous.thinkingNow")}</p>
+            )}
+
             <div className="ai-continuous-steps">
               <span className="ai-continuous-steps-title">
                 {t("ai.continuous.stepLog")}
@@ -531,6 +546,9 @@ export function AiPanel() {
                       <code className="ai-step-command">{step.command || "—"}</code>
                       {step.note && (
                         <span className="ai-step-note">{step.note}</span>
+                      )}
+                      {showThinking && step.thinking && (
+                        <p className="ai-step-thinking">{step.thinking}</p>
                       )}
                     </li>
                   ))}
