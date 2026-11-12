@@ -51,6 +51,26 @@ function denied(patterns: string, title: string): boolean {
 }
 
 /**
+ * Split a streamed chat reply into its reasoning (inside <think:6124c78e>…</think:6124c78e>) and
+ * the final answer (everything after the closing tag). Until the closing tag
+ * arrives we treat the text as provisional reasoning so the panel can show it
+ * live; if no opening tag appears at all the whole reply is the answer.
+ */
+function splitThinking(raw: string): { thinking: string; answer: string } {
+  const end = raw.indexOf("</think:6124c78e>");
+  if (end === -1) {
+    if (/^\s*<think:6124c78e>/i.test(raw)) {
+      return { thinking: raw.replace(/^\s*<think:6124c78e>/i, "").trim(), answer: "" };
+    }
+    return { thinking: "", answer: raw };
+  }
+  const head = raw.slice(0, end);
+  const thinking = head.replace(/^\s*<think:6124c78e>/i, "").trim();
+  const answer = raw.slice(end + "</think:6124c78e>".length).trim();
+  return { thinking, answer };
+}
+
+/**
  * Built-in assistant panel. It never executes anything on its own: it answers,
  * or proposes a single command that the user has to insert into the terminal.
  */
@@ -193,9 +213,10 @@ export function AiPanel() {
       ...messages,
       { role: "user", content: text },
     ];
-    setMessages([...history, { role: "assistant", content: "" }]);
+    setMessages([...history, { role: "assistant", content: "", thinking: "" }]);
     setInput("");
     setBusy(true);
+    let raw = "";
     try {
       const reply = await aiChatStream(
         providerId,
@@ -203,12 +224,15 @@ export function AiPanel() {
         buildContext(),
         undefined,
         (delta) => {
+          raw += delta;
+          const { thinking, answer } = splitThinking(raw);
           setMessages((previous) => {
             const copy = previous.slice();
             const last = copy[copy.length - 1];
             copy[copy.length - 1] = {
               role: "assistant",
-              content: last.content + delta,
+              content: answer,
+              thinking,
             };
             return copy;
           });
@@ -220,7 +244,8 @@ export function AiPanel() {
       setError(String(err));
       setMessages((previous) => {
         const copy = previous.slice();
-        if (copy[copy.length - 1]?.content === "") copy.pop();
+        const last = copy[copy.length - 1];
+        if (last?.content === "" && !last?.thinking) copy.pop();
         return copy;
       });
     } finally {
@@ -568,6 +593,12 @@ export function AiPanel() {
             <span className="ai-role">
               {message.role === "user" ? t("ai.you") : t("ai.assistant")}
             </span>
+            {message.thinking && (
+              <details className="ai-thinking-box" open>
+                <summary>{t("ai.thinkingTitle")}</summary>
+                <div className="ai-thinking">{message.thinking}</div>
+              </details>
+            )}
             <div className="ai-bubble">
               {message.content || (busy ? t("ai.thinking") : "")}
             </div>
@@ -579,7 +610,10 @@ export function AiPanel() {
             <span className="ai-role">{t("ai.commandTitle")}</span>
             <pre className="ai-draft-command">{draft.command}</pre>
             {draft.explanation && (
-              <p className="ai-draft-note">{draft.explanation}</p>
+              <details className="ai-thinking-box" open>
+                <summary>{t("ai.thinkingTitle")}</summary>
+                <div className="ai-thinking">{draft.explanation}</div>
+              </details>
             )}
             <div className="ai-draft-actions plugin-actions">
               <button type="button" onClick={insertDraft}>

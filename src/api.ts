@@ -1244,6 +1244,8 @@ export interface AiCommandReply {
 export interface AiChatMessage {
   role: "user" | "assistant";
   content: string;
+  /** The model's reasoning, split out of the stream when wrapped in <think:6124c78e>…</think:6124c78e>. */
+  thinking?: string;
 }
 
 export interface AiStep {

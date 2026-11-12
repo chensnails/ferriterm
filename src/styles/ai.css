@@ -690,3 +690,35 @@
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
+
+/* Shared "AI thinking" panel used by chat, the command draft and (via the
+   step variant above) the continuous run log. Collapsible so a long reasoning
+   chain does not bury the actual answer. */
+.ai-thinking-box {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  overflow: hidden;
+}
+
+.ai-thinking-box > summary {
+  padding: var(--space-1) var(--space-2);
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ai-thinking-box > summary::marker {
+  color: var(--fg-muted);
+}
+
+.ai-thinking {
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  border-top: 1px solid var(--divider);
+  color: var(--fg-secondary);
+  font-size: var(--font-ui-sm);
+  line-height: var(--line-ui);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

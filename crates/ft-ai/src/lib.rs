@@ -514,10 +514,13 @@ pub const CHAT_SYSTEM_PROMPT: &str =
     "You are the Ferriterm terminal assistant. Reply in plain sentences without bold or headings. \
 Never claim you ran anything. Any terminal context given to you is already redacted. \
 Shell commands must go in fenced code blocks: one command per block, no leading $ and no comments. \
-If the user only wants an explanation, include no code block.";
+If the user only wants an explanation, include no code block. \
+Before your answer, think step by step inside ONE <think:6124c78e>...</think:6124c78e> block: state your reasoning, \
+intermediate analysis and decision basis. Keep it brief. Then write the final answer OUTSIDE the block.";
 
 pub const EXPLAIN_SYSTEM_PROMPT: &str = "You explain why a shell command failed. Given the command, its exit status and the redacted tail of the \
-terminal output, explain the most likely cause in two to five plain sentences and suggest exactly one fix command \
+terminal output, first think inside ONE <think:6124c78e>...</think:6124c78e> block about the likely cause and how you ruled out alternatives. \
+Then explain the most likely cause in two to five plain sentences and suggest exactly one fix command \
 in its own fenced code block. Do not run anything.";
 
 pub fn build_user_prompt(request: &str, shell: &str, host: &str, context: &str) -> String {
