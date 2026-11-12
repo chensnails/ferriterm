@@ -73,6 +73,44 @@ const OUTPUT_TAIL = 3000;
 const RETRY_DELAYS_MS = [400];
 /** Consecutive unusable replies before the run gives up with a reason. */
 const MAX_SKIPS = 2;
+/** Ceiling on pager advances so a stuck console cannot spin forever. */
+const MAX_PAGES = 200;
+
+/**
+ * Network consoles page long output and then sit waiting for a key. The screen
+ * looks perfectly stable at that point, so a plain "is it quiet?" check would
+ * declare the command finished and the next command would be eaten as a pager
+ * keystroke. These patterns are what Huawei VRP, H3C Comware and Cisco IOS
+ * print at the bottom of a full page.
+ */
+const PAGER_PATTERNS = [
+  /-{2,}\s*more\s*-{2,}/i,
+  /--\s*more\s*--/i,
+  /\(\s*more\s*\)/i,
+  /<\s*-+\s*more\s*-+\s*>/i,
+  /--\s*more\s*--\s*,\s*next\s*page/i,
+  /press\s+any\s+key/i,
+  /\(\s*q\s*\)\s*uit/i,
+];
+
+function looksLikePager(text: string): boolean {
+  const bottom = text.slice(-400);
+  return PAGER_PATTERNS.some((pattern) => pattern.test(bottom));
+}
+
+/** Page through whatever the console already has waiting, before typing. */
+async function drainPager(
+  handle: ReturnType<typeof terminalHandle> | null,
+  max: number,
+): Promise<void> {
+  if (!handle) return;
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const screen = handle.screenLines(max).join("\n");
+    if (!looksLikePager(screen)) return;
+    handle.insert(" ");
+    await sleep(150);
+  }
+}
 
 function buildRequest(goal: string, index: number): string {
   return (
@@ -94,15 +132,30 @@ async function waitForSettled(
   timeoutMs: number,
 ): Promise<string> {
   if (!handle) return "";
-  const deadline = Date.now() + timeoutMs;
+  const deadline0 = Date.now() + timeoutMs;
+  // Paging is genuine progress, so each page may extend the wait — but never
+  // past a hard ceiling, or a console stuck on a pager would run forever.
+  const hardDeadline = Date.now() + timeoutMs * 4;
+  let deadline = deadline0;
   let last = handle.screenLines(max).join("\n");
   let stable = 0;
+  let pages = 0;
   while (Date.now() < deadline) {
     await sleep(SAMPLE_MS);
     const current = handle.screenLines(max).join("\n");
     if (current === last) {
       stable += 1;
-      if (stable >= STABLE_SAMPLES) break;
+      if (stable >= STABLE_SAMPLES) {
+        // A pager prompt is stable too, but it is not the end of the output.
+        if (pages < MAX_PAGES && looksLikePager(current)) {
+          handle.insert(" ");
+          pages += 1;
+          stable = 0;
+          deadline = Math.min(hardDeadline, Date.now() + timeoutMs);
+          continue;
+        }
+        break;
+      }
     } else {
       stable = 0;
       last = current;
@@ -128,7 +181,7 @@ export function startAgentLoop(options: AgentLoopOptions): AgentLoopHandle {
     providerId,
     host,
     maxSteps = 20,
-    maxStepMs = 8000,
+    maxStepMs = 15000,
     maxDurationMs = 10 * 60 * 1000,
     screenLines: lines = 60,
     onUpdate,
@@ -176,6 +229,9 @@ export function startAgentLoop(options: AgentLoopOptions): AgentLoopHandle {
       state.thinking = true;
       emit();
 
+      // A previous command (or the user) may have left the console on a pager
+      // page; page it out first so the model reads the whole reply.
+      await drainPager(handle, lines);
       const screen = handle.screenLines(lines);
       let reply: AiCommandReply | null = null;
       let lastError = "";
