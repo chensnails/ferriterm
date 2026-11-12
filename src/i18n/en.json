@@ -329,7 +329,7 @@
       "about": "Version, storage locations and disclaimer.",
       "credentials": "Vault, SSH keys and known hosts.",
       "ai": "Model providers, context scope and redaction for the built-in assistant.",
-      "security": "Approval mode, rules and the run audit.",
+      "security": "Approval mode, rules and the execution audit.",
       "agent": "Hand this app to an external agent over MCP."
     },
     "tabsTitle": "Tabs",
@@ -573,7 +573,7 @@
     "historyEmpty": "Commands you run will appear here.",
     "historyLocal": "Local",
     "clearHistory": "Clear history",
-    "variablesTitle": "Run {name}",
+    "variablesTitle": "Execute {name}",
     "variablesHint": "Fill in the template variables, then insert the command into the focused terminal.",
     "insert": "Insert",
     "editCommand": "Edit command",
@@ -617,7 +617,7 @@
     "deleteExtra": "Delete extra entries in the target",
     "deleteExtraHint": "Entries that do not exist in the source will be deleted from the target.",
     "previewButton": "Preview",
-    "applyButton": "Apply",
+    "applyButton": "Execute",
     "summary": "{dirs} folders, {files} files, {bytes} to copy, {deletes} to delete",
     "upToDate": "Already in sync.",
     "more": "… and {count} more",
@@ -1470,7 +1470,7 @@
     "toggle": "AI assistant",
     "topP": "Top P",
     "you": "You",
-    "run": "Run",
+    "run": "Execute",
     "thinkingTitle": "AI thinking",
     "err": {
       "emptyReply": "The model returned nothing (hit a length cap or was filtered by the vendor)",
@@ -1513,7 +1513,7 @@
         "maxSteps": "Step limit reached"
       },
       "verdict": {
-        "ran": "Ran",
+        "ran": "Executed",
         "askDenied": "Not approved",
         "denied": "Denied",
         "failed": "Failed",
@@ -1524,10 +1524,10 @@
   },
   "policy": {
     "approve": {
-      "title": "Run this command?",
+      "title": "Execute this command?",
       "subtitle": "The assistant generated it for {host}.",
       "localHost": "this machine",
-      "deny": "Do not run",
+      "deny": "Do not execute",
       "once": "Once",
       "session": "This session",
       "always": "Always allow",
@@ -1567,7 +1567,7 @@
     },
     "settings": {
       "modeGroup": "Approval mode",
-      "modeHint": "Applies to commands the app runs for you — the assistant's run button today, agents later. Anything typed at a prompt is never gated.",
+      "modeHint": "Applies to commands the app runs for you — the assistant's execute button today, agents later. Anything typed at a prompt is never gated.",
       "mode": "Mode",
       "modeDetail": "How much runs without asking.",
       "manualUnless": "Typed commands",
@@ -1592,7 +1592,7 @@
       "onAnyHost": "every host",
       "removeRule": "Delete this rule?",
       "removeRuleBody": "Commands it allowed will ask again.",
-      "auditGroup": "Run audit",
+      "auditGroup": "Execution audit",
       "auditHint": "Every decision is appended to a hash-chained file. Editing a line breaks the chain, and verifying finds where.",
       "auditMonth": "Month",
       "auditMonthHint": "One file per month, 12 kept.",

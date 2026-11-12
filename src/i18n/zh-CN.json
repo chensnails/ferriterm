@@ -651,7 +651,7 @@
     "secretSaved": "已保存",
     "secretHint": "已加密保存，之后不会再显示明文。",
     "secretPlaceholder": "已保存，输入新值即可替换",
-    "forget": "清除",
+    "forget": "忘记",
     "secretCleared": "已删除保存的凭据。",
     "includeSecrets": "包含已保存的凭据（密码、口令、托管密钥凭据）",
     "includeSecretsHint": "默认关闭。开启后会一起加密进同一份口令保护的备份。",
