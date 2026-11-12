@@ -301,3 +301,75 @@ Acceptance = perform each path in Ferriterm and in the reference install; record
 ## 5. Phase maintenance rule
 
 Each phase (P1…) updates this file before implementation: add/adjust screen checklist items, then implement, then sign the checklist in the phase review. Token additions require a table row here first.
+
+## 6. Copy & terminology conventions (文案与术语规范)
+
+All user-visible strings live in `src/i18n/{en,zh-CN}.json`; components must not
+hardcode visible copy. This section is the ruling source for wording, alongside
+the token table in §2. Both languages are first-class: every value change
+updates both files, and leaf keys stay parity-checked (no orphan keys, no silent
+fallback to the other language).
+
+### 6.1 Term glossary (术语对照)
+
+Recurring concepts use **one term per concept, in both languages**, with no drift
+between modules. When an existing string violates the table, the table wins and
+the string is migrated.
+
+| Concept | zh-CN | en | Notes |
+|---|---|---|---|
+| Saved host profile | 主机 | Host | The stored entity. Not 连接. |
+| The act of connecting | 连接 | Connect | Verb/state, not the stored profile. |
+| Live terminal/SFTP tab | 会话 | Session | An open tab. |
+| Permanently remove an item | 删除 | Delete | Destructive; item is gone. |
+| Detach from a list (item survives) | 移除 | Remove | From queue, detach a tag, etc. |
+| Wipe a single value/state (container kept) | 清除 | Clear | A field, "clear finished", etc. |
+| Empty a container/collection | 清空 | Clear all / Empty | History, cache, all credentials. |
+| Stop remembering a saved secret | 忘记 | Forget | Credential-specific; not 清除. |
+| Restore to default (non-destructive) | 恢复默认 | Reset / Restore defaults | Settings only; never deletes data. |
+| Establish a session | 连接 | Connect | Connect-dialog action. |
+| Begin a continuous service | 开始 | Start | Forwarding, broadcast, sync, monitor. |
+| Run a one-shot program/command/script | 运行 | Run | Plugin run, run a chosen command. |
+| Execute a gated / AI-suggested op | 执行 | Execute | Policy-gated or AI command. |
+| Stop a continuous service | 停止 | Stop | Distinct from 取消 (cancel an op). |
+| Acknowledge / generic OK | 确定 | OK | Button only; no punctuation. |
+| Confirm an action (title/verb) | 确认 | Confirm | Confirm-dialog titles. |
+| Dismiss / abort | 取消 | Cancel | |
+| Create a new entity (host/folder) | 新建 | New | |
+| Add to an existing list (tag/rule/pw) | 添加 | Add | |
+| Persist changes | 保存 | Save | |
+
+### 6.2 Titles (标题)
+
+- Dialog / panel / group titles are noun phrases or gerunds. **No trailing period.**
+- Confirmation titles may end with `？` (zh) / `?` (en) when they ask a question:
+  `关闭会话？` / `Close session?`.
+- One concept per title; avoid full sentences.
+
+### 6.3 Hints / descriptions (说明文字)
+
+- One short sentence. en ends with a period; zh ends with `。` when it is a full
+  sentence, omitted when a fragment (e.g. a placeholder-style hint).
+- Describe the **effect**, not the mechanism, where possible.
+- Field hints stay in the control column; legend / hint / action / message blocks
+  share the left content edge (see §4.9).
+
+### 6.4 Button labels (按钮标签)
+
+- Verb-first, **no trailing punctuation**: `保存`, `连接`, `新建主机`, `开始转发`.
+- A destructive confirm names the verb (`删除`) and pairs it with `取消`; do not
+  use a bare `确定` for destructive actions.
+- Icon + label buttons centre the glyph against the text; the label is the verb.
+
+### 6.5 Selects / options (选择框与选项)
+
+- `<select>` (`.ui-select`) and the custom combobox (`ModelCombo`) are **one
+  control family**: same height, same border/radius tokens, same focus ring.
+- Option labels are short nouns/phrases, no period.
+- Placeholders are example-style hints (`192.168.1.10`), not sentences.
+
+### 6.6 Icons (图标)
+
+- Functional buttons use the shared stroke set in `icons.tsx`; never use raw
+  text glyphs as button labels.
+- Icon + label toolbars centre the glyph against the text.
