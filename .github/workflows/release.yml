@@ -29,9 +29,11 @@ jobs:
           - platform: macos-13
             target: x86_64-apple-darwin
             bundles: app,dmg
-          - platform: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            bundles: appimage,deb
+          # Linux bundles are paused (2026-11-12). The code stays in tree and
+          # the Linux CI jobs still run, so this entry can be restored as-is.
+          # - platform: ubuntu-22.04
+          #   target: x86_64-unknown-linux-gnu
+          #   bundles: appimage,deb
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
             bundles: nsis,msi

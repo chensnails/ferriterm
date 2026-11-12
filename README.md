@@ -25,10 +25,12 @@ other client; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Install
 
-Prebuilt bundles for macOS (arm64/x64), Windows (x64) and Linux (x64) are
-attached to [GitHub releases](https://github.com/chensnails/ferriterm/releases).
-Updates are checked against the release `latest.json` manifest; artifacts are
-verified by SHA-256 and size before installation (Settings → About).
+Prebuilt bundles for macOS (arm64/x64) and Windows (x64) are attached to
+[GitHub releases](https://github.com/chensnails/ferriterm/releases). Linux
+bundles are paused as of 2026-11-12; the code is still in tree and builds from
+source. Updates are checked against the release `latest.json` manifest;
+artifacts are verified by SHA-256 and size before installation (Settings →
+About).
 
 ## Build from source
 

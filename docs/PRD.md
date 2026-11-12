@@ -6,7 +6,7 @@
 
 ## 1. Product summary
 
-Ferriterm is a cross-platform (macOS / Windows / Linux) SSH terminal client built with Rust + Tauri 2 + xterm.js. UI style and core interaction flows follow Termora; selected advanced terminal capabilities and engineering practices are adopted from ShellAX.
+Ferriterm is a cross-platform (macOS / Windows) SSH terminal client built with Rust + Tauri 2 + xterm.js. UI style and core interaction flows follow Termora; selected advanced terminal capabilities and engineering practices are adopted from ShellAX. Linux release builds are paused (2026-11-12): the source stays in tree and builds, but no Linux installers are shipped (see `docs/backlog.md` §0).
 
 Language strategy: development is English-first (code, comments, commits, specs). The product ships `en` + `zh-CN` bundled; `en` is the source locale. Additional locales are delivered as data-only language packs through the plugin-host manifest interface.
 
@@ -114,7 +114,7 @@ Milestone tags: M1 = internal dogfood, M2 = public beta, M3 = v1.0.
 | SEC-02 | Credentials in an encrypted local vault (the system keychain is never used); never in config files | M1 |
 | SEC-03 | Audit-log and permission-decision traits reserved at P0 even though enforcement lands later | M1 |
 | SEC-04 | Recording/history masking defaults (see TERM-09, TERM-08) | M3 |
-| REL-01 | Signed packages: macOS notarized, Windows signed, Linux deb/AppImage | M3 |
+| REL-01 | Signed packages: macOS notarized, Windows signed; Linux paused (source only, no installers) | M3 |
 | REL-02 | Auto-update with SHA256 verification; failed verification refuses install | M3 |
 | REL-03 | Distribution via brew / winget | M3 |
 

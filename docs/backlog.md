@@ -3,6 +3,26 @@
 Work that is not finished yet, with the state and evidence needed to resume.
 Items are ordered by priority.
 
+## 0. Platform scope: Linux paused (2026-11-12)
+
+Decision: stop shipping Linux versions; keep the code.
+
+- `.github/workflows/release.yml` no longer builds `x86_64-unknown-linux-gnu`
+  (the matrix entry is commented out, not deleted). No AppImage/deb and no
+  `linux-x86_64` entry in `latest.json` until this is reversed.
+- All Linux-specific source, `scripts/ci-apt.sh`, and the Linux CI jobs
+  (`Backend (ubuntu-24.04)` and `End-to-end (WebDriver)`, the latter is
+  Linux-only) stay as-is. They are the only guard against the retained code
+  rotting while support is paused.
+- `README.md`, `docs/RELEASING.md` and `docs/development-plan.md` (P7, M3)
+  now describe macOS/Windows as the release platforms.
+- To resume: uncomment the `ubuntu-22.04` matrix entry, restore the README and
+  RELEASING wording, then cut a release and verify the `linux-x86_64` updater
+  artifact. Nothing else was removed, so no porting work is expected.
+- Still to decide if Linux stays paused: whether the ubuntu backend and e2e
+  jobs should keep running on every PR, or move to a scheduled workflow. Keep
+  them for now: "code retained" is only meaningful if it keeps compiling.
+
 ## 1. CI matrix
 
 The End-to-end (WebDriver) job now passes on `ubuntu-24.04`

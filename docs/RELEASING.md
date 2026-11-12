@@ -1,8 +1,10 @@
 # Releasing Ferriterm
 
-The release workflow builds signed bundles for macOS (arm64 and x64), Linux
-(x64) and Windows (x64), then publishes `latest.json` with a SHA-256 digest for
-every updater artifact.
+The release workflow builds signed bundles for macOS (arm64 and x64) and
+Windows (x64), then publishes `latest.json` with a SHA-256 digest for every
+updater artifact. Linux bundles are paused as of 2026-11-12: the source and
+Linux CI jobs stay in tree, and the `ubuntu-22.04` matrix entry in
+`.github/workflows/release.yml` is commented out rather than deleted.
 
 ## 1. Bump the version
 
@@ -57,7 +59,9 @@ the bundles are unsigned.
 Each matrix job builds with `src-tauri/tauri.release.conf.json`, which enables
 `bundle.createUpdaterArtifacts`. Tauri emits `.app.tar.gz`, `.AppImage.tar.gz`,
 `.nsis.zip` and `.msi.zip` updater bundles next to their installers, each with a
-`.sig` sidecar. All jobs upload to the same draft GitHub release.
+`.sig` sidecar. All jobs upload to the same draft GitHub release. While Linux
+bundles are paused no `.AppImage.tar.gz` is produced, so `latest.json` has no
+`linux-x86_64` entry.
 
 The final `manifest` job downloads the draft assets and runs
 `scripts/release_manifest.py`, which writes `latest.json`:

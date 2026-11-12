@@ -119,6 +119,9 @@ the Cargo workspace.
 
 ### Changed
 
+- Linux bundles are paused (2026-11-12): releases are built for macOS
+  (arm64/x64) and Windows (x64). Linux source and CI jobs remain in tree, and
+  the release matrix entry is commented out so resuming needs no porting.
 - AI model compatibility is now driven by three protocol families behind one
   adapter — OpenAI-compatible, Anthropic Messages and Azure OpenAI — so adding
   a vendor is a preset, not a new client. Eighteen presets ship with their base
