@@ -1460,7 +1460,44 @@
     "toggle": "AI 助手",
     "topP": "Top P",
     "you": "你",
-    "run": "执行"
+    "run": "执行",
+    "continuous": {
+      "title": "连续模式",
+      "enable": "连续模式",
+      "enableHint": "助手会自行读取终端并逐条执行命令，但每条命令仍需通过策略闸门。",
+      "goalLabel": "目标任务",
+      "goalPlaceholder": "助手要完成什么？尽量具体，例如找出最大的 5 个日志文件。",
+      "start": "开始",
+      "stop": "停止",
+      "running": "运行中",
+      "stepCount": "第 {n} 步",
+      "confirmTitle": "开始连续模式？",
+      "confirmBody": "连续模式会让助手未经你逐条确认就向终端发送命令。它只能执行策略闸门允许的内容，高危命令会被拦截或跳过。",
+      "confirmRisks": "命令在无值守下运行，请关注步骤日志，随时可停止。",
+      "confirmStart": "仍然开始",
+      "stepLog": "执行步骤",
+      "stepEmpty": "还没有执行步骤。",
+      "dismiss": "清除",
+      "status": {
+        "done": "已完成目标",
+        "denied": "被策略拦截",
+        "aborted": "你已停止",
+        "timeout": "已超时",
+        "errors": "错误过多",
+        "blocked": "多次被拦截",
+        "noSession": "未打开终端",
+        "finished": "已结束",
+        "maxSteps": "已达步数上限"
+      },
+      "verdict": {
+        "ran": "已执行",
+        "askCancelled": "已拦截",
+        "denied": "被拒绝",
+        "failed": "失败",
+        "done": "目标达成",
+        "aborted": "已停止"
+      }
+    }
   },
   "policy": {
     "approve": {

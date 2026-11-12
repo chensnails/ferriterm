@@ -244,7 +244,9 @@ export function startAgentLoop(options: AgentLoopOptions): AgentLoopHandle {
     }
 
     if (state.running && !TERMINAL.has(state.status)) {
-      state.status = "finished";
+      // Reaching here means the for-loop ended by hitting maxSteps, so the
+      // last status is still a "step N/M" string rather than a terminal one.
+      state.status = state.status.startsWith("step") ? "maxSteps" : "finished";
     }
     state.running = false;
     emit();

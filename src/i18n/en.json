@@ -1460,7 +1460,44 @@
     "toggle": "AI assistant",
     "topP": "Top P",
     "you": "You",
-    "run": "Run"
+    "run": "Run",
+    "continuous": {
+      "title": "Continuous mode",
+      "enable": "Continuous mode",
+      "enableHint": "The assistant reads the terminal and runs one command at a time on its own. Every command still passes the policy gate.",
+      "goalLabel": "Goal",
+      "goalPlaceholder": "What should the assistant accomplish? Be specific, e.g. find the 5 largest log files.",
+      "start": "Start",
+      "stop": "Stop",
+      "running": "Running",
+      "stepCount": "Step {n}",
+      "confirmTitle": "Start continuous mode?",
+      "confirmBody": "Continuous mode lets the assistant send commands to this terminal without you approving each one. It can only run what the policy gate allows; risky commands are blocked or skipped.",
+      "confirmRisks": "Commands run unattended. Watch the step log and stop at any time.",
+      "confirmStart": "Start anyway",
+      "stepLog": "Steps",
+      "stepEmpty": "No steps yet.",
+      "dismiss": "Clear",
+      "status": {
+        "done": "Goal reached",
+        "denied": "Blocked by policy",
+        "aborted": "Stopped by you",
+        "timeout": "Timed out",
+        "errors": "Too many errors",
+        "blocked": "Repeatedly held back",
+        "noSession": "No terminal open",
+        "finished": "Finished",
+        "maxSteps": "Step limit reached"
+      },
+      "verdict": {
+        "ran": "Ran",
+        "askCancelled": "Held",
+        "denied": "Denied",
+        "failed": "Failed",
+        "done": "Goal reached",
+        "aborted": "Stopped"
+      }
+    }
   },
   "policy": {
     "approve": {

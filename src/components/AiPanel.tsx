@@ -15,9 +15,16 @@ import {
   DEFAULT_AI_SETTINGS,
 } from "../api";
 import { terminalHandle } from "../terminal-registry";
+import {
+  startAgentLoop,
+  type AgentLoopHandle,
+  type AgentLoopState,
+  type AgentStepVerdict,
+} from "../agent-loop";
 import { runGuarded } from "../policy";
 import { useAppStore } from "../store";
-import { EmptyState, ErrorState, Notice } from "./ui";
+import { EmptyState, ErrorState, Notice, Switch } from "./ui";
+import { Modal } from "./Modal";
 import { SparkleIcon } from "./icons";
 
 /** Glob over `*` / `?`, matched against the tab title. */
@@ -66,6 +73,13 @@ export function AiPanel() {
   const [notes, setNotes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Continuous mode: an autonomous agent loop that drives the active session.
+  const [continuousOn, setContinuousOn] = useState(false);
+  const [goal, setGoal] = useState("");
+  const [agentState, setAgentState] = useState<AgentLoopState | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const agentHandleRef = useRef<AgentLoopHandle | null>(null);
 
   useEffect(() => {
     if (!isTauri) {
@@ -260,6 +274,91 @@ export function AiPanel() {
     }
   };
 
+  const labelForStatus = (status: string): string => {
+    switch (status) {
+      case "done":
+        return t("ai.continuous.status.done");
+      case "denied":
+        return t("ai.continuous.status.denied");
+      case "aborted":
+        return t("ai.continuous.status.aborted");
+      case "timeout":
+        return t("ai.continuous.status.timeout");
+      case "errors":
+        return t("ai.continuous.status.errors");
+      case "blocked":
+        return t("ai.continuous.status.blocked");
+      case "no-session":
+        return t("ai.continuous.status.noSession");
+      case "maxSteps":
+        return t("ai.continuous.status.maxSteps");
+      case "finished":
+        return t("ai.continuous.status.finished");
+      default:
+        return status;
+    }
+  };
+
+  const labelForVerdict = (verdict: AgentStepVerdict): string => {
+    switch (verdict) {
+      case "ran":
+        return t("ai.continuous.verdict.ran");
+      case "ask-cancelled":
+        return t("ai.continuous.verdict.askCancelled");
+      case "denied":
+        return t("ai.continuous.verdict.denied");
+      case "failed":
+        return t("ai.continuous.verdict.failed");
+      case "done":
+        return t("ai.continuous.verdict.done");
+      case "aborted":
+        return t("ai.continuous.verdict.aborted");
+      default:
+        return verdict;
+    }
+  };
+
+  const toggleContinuous = (next: boolean) => {
+    setContinuousOn(next);
+    // Turning the mode off while a run is live stops the loop rather than
+    // leaving it running invisibly in the background.
+    if (!next && agentHandleRef.current) {
+      agentHandleRef.current.stop();
+    }
+  };
+
+  const openConfirm = () => {
+    if (!activeId) {
+      setError(t("ai.noSession"));
+      return;
+    }
+    if (!providerId) return;
+    setConfirmOpen(true);
+  };
+
+  const startRun = () => {
+    setConfirmOpen(false);
+    const id = activeId;
+    if (!id || !providerId) return;
+    const handle = startAgentLoop({
+      sessionId: id,
+      goal: goal.trim(),
+      providerId,
+      host: title,
+      onUpdate: (next) => setAgentState({ ...next, steps: [...next.steps] }),
+    });
+    agentHandleRef.current = handle;
+  };
+
+  const stopRun = () => {
+    agentHandleRef.current?.stop();
+  };
+
+  const dismissRun = () => {
+    agentHandleRef.current = null;
+    setAgentState(null);
+  };
+
   if (!isTauri) {
     return (
       <div className="ai-panel">
@@ -356,6 +455,92 @@ export function AiPanel() {
           </Notice>
         )}
 
+      <div className="ai-continuous">
+        <div className="ai-continuous-head">
+          <Switch
+            checked={continuousOn}
+            onChange={toggleContinuous}
+            label={t("ai.continuous.enable")}
+          />
+          <span className="ai-continuous-label">{t("ai.continuous.enable")}</span>
+        </div>
+        <p className="ai-continuous-hint">{t("ai.continuous.enableHint")}</p>
+
+        {continuousOn && !agentState && (
+          <div className="ai-continuous-setup">
+            <label className="ai-continuous-goal-label" htmlFor="ai-continuous-goal">
+              {t("ai.continuous.goalLabel")}
+            </label>
+            <textarea
+              id="ai-continuous-goal"
+              className="ai-input ai-continuous-goal"
+              rows={2}
+              value={goal}
+              placeholder={t("ai.continuous.goalPlaceholder")}
+              onChange={(event) => setGoal(event.target.value)}
+            />
+            <div className="ai-composer-bar">
+              <span className="ai-hint">{t("ai.continuous.enableHint")}</span>
+              <div className="plugin-actions">
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={!goal.trim() || !providerId || !activeId}
+                  onClick={() => openConfirm()}
+                >
+                  {t("ai.continuous.start")}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {agentState && (
+          <div className="ai-continuous-run">
+            <div className="ai-continuous-status">
+              <span className="ai-continuous-status-text">
+                {agentState.running
+                  ? `${t("ai.continuous.running")} · ${t("ai.continuous.stepCount", {
+                      n: agentState.steps.length,
+                    })}`
+                  : labelForStatus(agentState.status)}
+              </span>
+              {agentState.running ? (
+                <button type="button" className="link-btn danger" onClick={stopRun}>
+                  {t("ai.continuous.stop")}
+                </button>
+              ) : (
+                <button type="button" className="link-btn" onClick={dismissRun}>
+                  {t("ai.continuous.dismiss")}
+                </button>
+              )}
+            </div>
+            <div className="ai-continuous-steps">
+              <span className="ai-continuous-steps-title">
+                {t("ai.continuous.stepLog")}
+              </span>
+              {agentState.steps.length === 0 ? (
+                <p className="ai-continuous-empty">{t("ai.continuous.stepEmpty")}</p>
+              ) : (
+                <ul className="ai-step-list">
+                  {agentState.steps.map((step) => (
+                    <li key={step.index} className={`ai-step ai-step-${step.verdict}`}>
+                      <span className="ai-step-verdict">
+                        {labelForVerdict(step.verdict)}
+                      </span>
+                      <code className="ai-step-command">{step.command || "—"}</code>
+                      {step.note && (
+                        <span className="ai-step-note">{step.note}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="ai-messages" ref={listRef}>
         {messages.length === 0 && !draft && (
           <p className="ai-intro">{t("ai.intro", { prefix: settings.nlPrefix })}</p>
@@ -437,6 +622,26 @@ export function AiPanel() {
           </div>
         </div>
       </div>
+
+      {confirmOpen && (
+        <Modal
+          title={t("ai.continuous.confirmTitle")}
+          onClose={() => setConfirmOpen(false)}
+          footer={
+            <div className="plugin-actions">
+              <button type="button" onClick={() => setConfirmOpen(false)}>
+                {t("ai.cancel")}
+              </button>
+              <button type="button" className="primary" onClick={() => startRun()}>
+                {t("ai.continuous.confirmStart")}
+              </button>
+            </div>
+          }
+        >
+          <p>{t("ai.continuous.confirmBody")}</p>
+          <p className="ai-continuous-risk">{t("ai.continuous.confirmRisks")}</p>
+        </Modal>
+      )}
     </div>
   );
 }

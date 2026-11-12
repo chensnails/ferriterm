@@ -481,3 +481,164 @@
   gap: var(--space-1);
   flex: none;
 }
+
+/* Continuous mode: an autonomous loop that drives the active session. The
+   block sits between the panel notices and the chat, so it stays visible while
+   the agent runs without scrolling the conversation away. */
+.ai-continuous {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+}
+
+.ai-continuous-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ai-continuous-label {
+  font-weight: 500;
+  color: var(--fg-primary);
+  font-size: var(--font-ui);
+}
+
+.ai-continuous-hint {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+  line-height: var(--line-ui);
+}
+
+.ai-continuous-setup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.ai-continuous-goal-label {
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+}
+
+.ai-continuous-run {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.ai-continuous-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.ai-continuous-status-text {
+  font-weight: 600;
+  color: var(--fg-primary);
+  font-size: var(--font-ui-sm);
+}
+
+.ai-continuous-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.ai-continuous-steps-title {
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+}
+
+.ai-continuous-empty {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+}
+
+.ai-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.ai-step {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-top: 1px solid var(--divider);
+  background: var(--bg-base);
+}
+
+.ai-step:first-child {
+  border-top: 0;
+}
+
+.ai-step-verdict {
+  flex: none;
+  font-size: var(--font-ui-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--fg-muted);
+}
+
+.ai-step-command {
+  flex: 1 1 12em;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  color: var(--fg-primary);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.ai-step-note {
+  flex-basis: 100%;
+  color: var(--fg-muted);
+  font-size: var(--font-ui-sm);
+  overflow-wrap: anywhere;
+}
+
+.ai-step-ran .ai-step-verdict {
+  color: var(--success);
+}
+
+.ai-step-done .ai-step-verdict {
+  color: var(--success);
+}
+
+.ai-step-ask-cancelled .ai-step-verdict {
+  color: var(--warning);
+}
+
+.ai-step-denied .ai-step-verdict,
+.ai-step-failed .ai-step-verdict {
+  color: var(--danger);
+}
+
+.ai-step-aborted .ai-step-verdict {
+  color: var(--fg-muted);
+}
+
+.ai-continuous-risk {
+  margin: 0;
+  color: var(--warning);
+  font-size: var(--font-ui-sm);
+  line-height: var(--line-ui);
+}
