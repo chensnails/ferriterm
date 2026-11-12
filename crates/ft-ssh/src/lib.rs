@@ -265,6 +265,12 @@ pub struct SshConnectArgs {
 trait DynStream: AsyncRead + AsyncWrite + Unpin + Send {}
 impl<T: AsyncRead + AsyncWrite + Unpin + Send> DynStream for T {}
 
+/// How long a hop gets to open its TCP connection.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+/// Key exchange is bounded so a silent server cannot hang the app, but the
+/// window must fit a person reading and approving an unknown host key.
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(120);
+
 pub async fn connect(
     sink: Arc<dyn TerminalSink>,
     registry: &SessionRegistry,
@@ -315,17 +321,29 @@ pub async fn connect(
         }
         let mut connected = match stream.take() {
             Some(stream) => tokio::time::timeout(
-                Duration::from_secs(15),
+                HANDSHAKE_TIMEOUT,
                 client::connect_stream(config.clone(), stream, handler),
             )
             .await
-            .map_err(|_| format!("connection to {} timed out (15s)", hop.host))?,
-            None => tokio::time::timeout(
-                Duration::from_secs(15),
-                client::connect(config.clone(), (hop.host.as_str(), hop.port), handler),
-            )
-            .await
-            .map_err(|_| format!("connection to {} timed out (15s)", hop.host))?,
+            .map_err(|_| format!("key exchange with {} timed out", hop.host))?,
+            None => {
+                let stream = tokio::time::timeout(
+                    CONNECT_TIMEOUT,
+                    TcpStream::connect((hop.host.as_str(), hop.port)),
+                )
+                .await
+                .map_err(|_| format!("connection to {} timed out (15s)", hop.host))?
+                .map_err(|e| e.to_string())?;
+                if config.nodelay {
+                    let _ = stream.set_nodelay(true);
+                }
+                tokio::time::timeout(
+                    HANDSHAKE_TIMEOUT,
+                    client::connect_stream(config.clone(), stream, handler),
+                )
+                .await
+                .map_err(|_| format!("key exchange with {} timed out", hop.host))?
+            }
         }
         .map_err(|e| {
             if matches!(e, russh::Error::UnknownKey) {
