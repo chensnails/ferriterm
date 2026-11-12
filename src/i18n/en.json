@@ -316,7 +316,7 @@
       "credentials": "Credentials",
       "ai": "AI assistant",
       "security": "Permissions",
-      "agent": "External access"
+      "agent": "Agent access"
     },
     "desc": {
       "general": "Language and tab behaviour.",
@@ -330,7 +330,7 @@
       "credentials": "Vault, SSH keys and known hosts.",
       "ai": "Model providers, context scope and redaction for the built-in assistant.",
       "security": "Approval mode, rules and the execution audit.",
-      "agent": "Hand this app to an external agent over MCP."
+      "agent": "How an external agent reaches this app: a local service, the command line and MCP."
     },
     "tabsTitle": "Tabs",
     "tabNumbering": "Tab numbering",
@@ -1622,7 +1622,7 @@
   },
   "agent": {
     "settings": {
-      "serviceGroup": "Control service",
+      "serviceGroup": "Local service",
       "serviceHint": "The loopback interface the CLI and MCP clients talk to. Switching it off closes the socket and deletes the endpoint file; hosts, rules and the audit chain stay exactly as they are.",
       "serviceTitle": "Accept local connections",
       "serviceDetail": "New connections are refused while this is off. Turning it back on reuses the same port and token, so a client configured before still works.",
