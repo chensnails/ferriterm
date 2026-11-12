@@ -3,6 +3,7 @@ import {
   policyEvaluate,
   policyRecord,
   type AuditChoice,
+  type AuditOrigin,
   type PolicyDecision,
 } from "./api";
 import { useAppStore } from "./store";
@@ -42,6 +43,14 @@ export interface GateOptions {
   elevated: boolean;
   /** Actually run it. Only ever called after the verdict says so. */
   run: () => void;
+  /** Who is asking. Defaults to `"ui"`; the continuous agent passes `"agent"`. */
+  origin?: AuditOrigin;
+  /**
+   * When true, an `ask` verdict is auto-cancelled instead of opening the
+   * approval card — there is nobody at the keyboard to approve. The step is
+   * recorded as `cancelled` and the caller decides whether to skip or stop.
+   */
+  autonomous?: boolean;
 }
 
 /**
@@ -54,12 +63,11 @@ function record(
   host: string,
   decision: PolicyDecision,
   choice: AuditChoice,
+  origin: AuditOrigin,
 ) {
   // Everything the window does says so, so a record without an origin really
   // does mean "written before the field existed".
-  void policyRecord({ command, host, decision, choice, origin: "ui" }).catch(
-    () => {},
-  );
+  void policyRecord({ command, host, decision, choice, origin }).catch(() => {});
 }
 
 export async function runGuarded(
@@ -68,7 +76,7 @@ export async function runGuarded(
 ): Promise<GateOutcome> {
   const line = command.trim();
   if (!line) return { status: "cancelled" };
-  const { host, elevated, run } = options;
+  const { host, elevated, run, origin = "ui", autonomous = false } = options;
 
   let decision: PolicyDecision;
   try {
@@ -78,18 +86,25 @@ export async function runGuarded(
   }
 
   if (decision.verdict === "allow") {
-    record(line, host, decision, "auto");
+    record(line, host, decision, "auto", origin);
     run();
     return { status: "ran" };
   }
   if (decision.verdict === "deny") {
-    record(line, host, decision, "denied");
+    record(line, host, decision, "denied", origin);
     return { status: "denied", decision };
   }
   if (sessionGrants.has(grantKey(host, line))) {
-    record(line, host, decision, "session");
+    record(line, host, decision, "session", origin);
     run();
     return { status: "ran" };
+  }
+
+  // Autonomous runs have no person to approve with: refuse the step rather than
+  // stall forever on a decision card nobody will dismiss.
+  if (autonomous) {
+    record(line, host, decision, "cancelled", origin);
+    return { status: "cancelled" };
   }
 
   const choice = await useAppStore.getState().askApprove({
@@ -98,7 +113,7 @@ export async function runGuarded(
     decision,
   });
   if (!choice) {
-    record(line, host, decision, "cancelled");
+    record(line, host, decision, "cancelled", origin);
     return { status: "cancelled" };
   }
 
@@ -115,7 +130,7 @@ export async function runGuarded(
     sessionGrants.add(grantKey(host, line));
   }
 
-  record(line, host, decision, choice);
+  record(line, host, decision, choice, origin);
   run();
   return { status: "ran" };
 }
