@@ -917,6 +917,36 @@
   "session": {
     "localTitle": "本地终端"
   },
+  "connection": {
+    "connecting": "正在连接…",
+    "connected": "已连接",
+    "disconnected": "已断开",
+    "error": "连接异常",
+    "errorWithDetail": "连接异常：{error}",
+    "cancel": "取消连接",
+    "cancelledByUser": "已取消连接",
+    "reconnect": "重新连接",
+    "reconnecting": "正在重新连接（第 {attempt} 次）…",
+    "detail": "详情：{message}",
+    "reason": {
+      "user": "已主动断开连接",
+      "remote_eof": "对端已关闭连接",
+      "transport_error": "连接异常中断",
+      "timeout": "连接超时",
+      "device_removed": "设备已断开或不可用",
+      "shell_exit": "本地 Shell 已退出",
+      "connect_failed": "连接失败",
+      "unknown": "会话已断开"
+    },
+    "failure": {
+      "cancelled": "已取消连接",
+      "auth": "认证失败，请检查用户名或凭据",
+      "timeout": "连接超时，请检查网络与目标端口",
+      "duplicate": "该会话已有连接在进行中",
+      "network": "无法建立连接，请检查地址、端口与网络",
+      "unknown": "连接失败"
+    }
+  },
   "sessions": {
     "title": "会话",
     "count": "{count, plural, =0 {暂无活动会话} other {# 个活动会话}}",

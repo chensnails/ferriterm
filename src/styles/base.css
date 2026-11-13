@@ -550,6 +550,34 @@ body {
   background: var(--bg-base);
 }
 
+/* Connection phase is visible on the tab itself: a spinner while the transport
+   is being set up, and a red dot once a connect/drop left the tab in error. */
+.tab.connecting .tab-label {
+  color: var(--fg-muted);
+}
+
+.tab.error .tab-label {
+  color: var(--danger);
+}
+
+.tab-spinner {
+  width: var(--status-dot);
+  height: var(--status-dot);
+  flex-shrink: 0;
+  border: 1.5px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: ui-loading-spin 800ms linear infinite;
+}
+
+.tab-error-dot {
+  width: var(--status-dot);
+  height: var(--status-dot);
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
 #terminal-host {
   flex: 1;
   position: relative;
@@ -616,6 +644,74 @@ body {
   pointer-events: none;
   background: var(--accent);
   opacity: 0.18;
+}
+
+/* Connection state strip: floats over the top of a terminal pane so connect
+   progress, failures and drop reasons never steal rows from the shell. The
+   strip itself is click-through; only its buttons take pointer events. */
+.terminal-notice {
+  position: absolute;
+  z-index: 6;
+  top: var(--space-2);
+  left: var(--space-2);
+  right: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-panel);
+  color: var(--fg-primary);
+  font-size: var(--fs-sm);
+  pointer-events: none;
+}
+
+.terminal-notice .link-btn {
+  flex-shrink: 0;
+  pointer-events: auto;
+  white-space: nowrap;
+}
+
+.terminal-notice.danger {
+  border-color: var(--danger);
+}
+
+.terminal-notice.muted {
+  color: var(--fg-muted);
+}
+
+.terminal-notice-text {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-notice-detail {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-notice .ui-loading-spinner {
+  width: 12px;
+  height: 12px;
+  border-width: 1.5px;
+}
+
+.sftp-status .ui-loading-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: var(--space-2);
+  border-width: 1.5px;
+  vertical-align: middle;
 }
 
 .term-suggest {

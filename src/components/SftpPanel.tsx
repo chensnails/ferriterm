@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri, onClosed, type VfsEntry } from "../api";
 import { useAppStore, type SessionMeta } from "../store";
@@ -35,6 +35,7 @@ export function SftpPanel({
 }) {
   const { t } = useTranslation();
   const [phase, setPhase] = useState<Phase>(isTauri ? "connecting" : "ready");
+  const attemptRef = useRef<string | null>(null);
   const [path, setPath] = useState("");
   const [showHidden, setShowHidden] = useState(
     () => useAppStore.getState().sftpShowHidden,
@@ -49,14 +50,22 @@ export function SftpPanel({
 
   useEffect(() => {
     if (!isTauri) return;
+    // One dial per (session, epoch). Without the guard, any unrelated re-render
+    // that changes this effect's identity would re-run it, find the pending
+    // connect already consumed, and flip a healthy tab to "failed".
+    const attempt = `${session.id}:${session.connectEpoch}`;
+    if (attemptRef.current === attempt) return;
+    attemptRef.current = attempt;
     const store = useAppStore.getState();
     const pending = store.consumePending(session.id);
     if (!pending || (pending.type !== "ssh" && pending.type !== "sftp")) {
       setPhase("failed");
       setError(t("sftp.noLink"));
+      store.markSessionError(session.id, t("sftp.noLink"));
       return;
     }
     let cancelled = false;
+    store.markConnecting(session.id);
     store.setStatus(t("sftp.connecting"));
     const algorithms = connectAlgorithms(store.sshSecurity);
     api
@@ -69,29 +78,37 @@ export function SftpPanel({
       .then(() => {
         if (cancelled) return;
         setPhase("ready");
+        setError("");
+        useAppStore.getState().markConnected(session.id);
         useAppStore.getState().setStatus("");
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(String(err));
+        const message = String(err);
+        setError(message);
         setPhase("failed");
-        useAppStore.getState().setStatus(String(err), true);
-        useAppStore.getState().markClosed(session.id);
+        useAppStore.getState().setStatus(message, true);
+        useAppStore.getState().markSessionError(session.id, message);
+        // Surface the failure on the host row the same way the terminal does,
+        // so a bad key or password is visible where the host was launched.
+        if (pending.args.hostId) {
+          useAppStore.getState().reportConnectError(pending.args.hostId, message);
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [session.id, t]);
+  }, [session.id, session.connectEpoch, t]);
 
   useEffect(() => {
     if (!isTauri) return;
     let disposed = false;
     let unlisten: (() => void) | null = null;
-    void onClosed(session.id, () => {
+    void onClosed(session.id, (payload) => {
       if (disposed) return;
       setPhase("failed");
-      setError(t("sftp.disconnected"));
-      useAppStore.getState().markClosed(session.id);
+      setError(t(`connection.reason.${payload?.reason ?? "unknown"}`));
+      useAppStore.getState().markClosed(session.id, payload);
     }).then((fn) => {
       if (disposed) fn();
       else unlisten = fn;
@@ -166,11 +183,25 @@ export function SftpPanel({
         />
       ) : (
         <div className="sftp-status">
-          <p className="hint">
-            {phase === "connecting"
-              ? t("sftp.connectingHint")
-              : t("sftp.failedHint")}
-          </p>
+          {phase === "connecting" ? (
+            <p className="hint">
+              <span className="ui-loading-spinner" aria-hidden="true" />
+              {t("sftp.connectingHint")}
+            </p>
+          ) : (
+            <>
+              <p className="hint">{t("sftp.failedHint")}</p>
+              {session.lastConnect && (
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => useAppStore.getState().reconnect(session.id)}
+                >
+                  {t("connection.reconnect")}
+                </button>
+              )}
+            </>
+          )}
         </div>
       )}
       {editing && (

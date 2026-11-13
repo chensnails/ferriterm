@@ -9,3 +9,4 @@ license.workspace = true
 [dependencies]
 ft-core.workspace = true
 portable-pty.workspace = true
+tokio.workspace = true

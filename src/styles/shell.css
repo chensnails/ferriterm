@@ -140,8 +140,25 @@
   background: var(--success);
 }
 
-.statusbar-session.closed .statusbar-dot {
+/* Connecting pulses so a slow handshake never looks like a frozen bar. */
+.statusbar-session.connecting .statusbar-dot {
+  background: var(--accent);
+  animation: statusbar-pulse 1.2s ease-in-out infinite;
+}
+
+.statusbar-session.error .statusbar-dot {
   background: var(--danger);
+}
+
+@keyframes statusbar-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* A clean disconnect is not a failure; only the error phase turns red. */
+.statusbar-session.closed .statusbar-dot {
+  background: var(--fg-muted);
 }
 
 .statusbar-title {

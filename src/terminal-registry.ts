@@ -12,6 +12,10 @@ export interface TerminalHandle {
   /** Last `max` visible/buffered lines, newest last. Used for AI context. */
   screenLines(max: number): string[];
   selectionText(): string;
+  /** Cancels an in-flight connect. Only live `TerminalView`s implement it. */
+  cancelConnect?(): void;
+  /** Re-dials in place, keeping scrollback. */
+  retryNow?(): void;
 }
 
 const handles = new Map<string, TerminalHandle>();

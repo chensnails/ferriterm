@@ -6,8 +6,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ft_core::{
-    RemoteForwardHandler, ServerKeyVerifier, Session, SessionRegistry, SshHandler, SshSession,
-    TerminalSink, X11ChannelHandler,
+    CloseReason, RemoteForwardHandler, ServerKeyVerifier, Session, SessionGuard, SessionRegistry,
+    SshHandler, SshSession, TerminalSink, X11ChannelHandler,
 };
 use russh::client::{self, Config};
 use russh::keys::{Algorithm, HashAlg, PrivateKey, PublicKey};
@@ -270,6 +270,17 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 /// Key exchange is bounded so a silent server cannot hang the app, but the
 /// window must fit a person reading and approving an unknown host key.
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(120);
+/// Authentication, channel setup and jump-host tunnels are network operations
+/// with no human in the loop: a server that stops replying must not leave a
+/// connect command pending forever. Host-key and keyboard-interactive prompts
+/// get a much longer (but still finite) window so a person can read and answer
+/// them; the cancellation path handles the user closing the tab instead.
+const AUTH_TIMEOUT: Duration = Duration::from_secs(60);
+const INTERACTIVE_TIMEOUT: Duration = Duration::from_secs(300);
+const CHANNEL_TIMEOUT: Duration = Duration::from_secs(30);
+/// Bounded teardown: disconnect, forward cancellation and SFTP invalidation
+/// must never hold the closed event (or the UI) hostage.
+const CLEANUP_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub async fn connect(
     sink: Arc<dyn TerminalSink>,
@@ -277,6 +288,34 @@ pub async fn connect(
     id: String,
     args: SshConnectArgs,
     ctx: ConnectContext,
+) -> Result<(), String> {
+    // Reserve the id for the entire connect. A disconnect that lands while the
+    // handshake is in flight must be able to see (and cancel) this attempt.
+    let Some(guard) = registry.guards.begin(&id, sink.clone()) else {
+        return Err("a connection for this session is already in progress".to_string());
+    };
+    let result = connect_inner(
+        sink.clone(),
+        registry,
+        id.clone(),
+        args,
+        ctx,
+        guard.clone(),
+    )
+    .await;
+    if result.is_err() {
+        registry.guards.take_if(&id, &guard);
+    }
+    result
+}
+
+async fn connect_inner(
+    sink: Arc<dyn TerminalSink>,
+    registry: &SessionRegistry,
+    id: String,
+    args: SshConnectArgs,
+    ctx: ConnectContext,
+    guard: SessionGuard,
 ) -> Result<(), String> {
     let x11 = if args.x11 {
         Some(x11_target().ok_or_else(|| {
@@ -325,14 +364,25 @@ pub async fn connect(
                 client::connect_stream(config.clone(), stream, handler),
             )
             .await
-            .map_err(|_| format!("key exchange with {} timed out", hop.host))?,
+            .map_err(|_| {
+                format!(
+                    "key exchange with {} timed out (waiting for the server or a host key decision)",
+                    hop.host
+                )
+            })?,
             None => {
                 let stream = tokio::time::timeout(
                     CONNECT_TIMEOUT,
                     TcpStream::connect((hop.host.as_str(), hop.port)),
                 )
                 .await
-                .map_err(|_| format!("connection to {} timed out (15s)", hop.host))?
+                .map_err(|_| {
+                    format!(
+                        "connection to {} timed out ({}s)",
+                        hop.host,
+                        CONNECT_TIMEOUT.as_secs()
+                    )
+                })?
                 .map_err(|e| e.to_string())?;
                 if config.nodelay {
                     let _ = stream.set_nodelay(true);
@@ -356,25 +406,45 @@ pub async fn connect(
             }
         })?;
 
-        authenticate_hop(&mut connected, hop, &ctx).await?;
+        let interactive = hop.keyboard_interactive
+            || hop
+                .auth_method
+                .eq_ignore_ascii_case("keyboard-interactive")
+            || ctx.keyboard_interactive.is_some();
+        let auth_window = if interactive {
+            INTERACTIVE_TIMEOUT
+        } else {
+            AUTH_TIMEOUT
+        };
+        tokio::time::timeout(auth_window, authenticate_hop(&mut connected, hop, &ctx))
+            .await
+            .map_err(|_| format!("authentication with {} timed out", hop.host))??;
 
         if is_last {
             handle = Some(Arc::new(connected));
         } else {
             let next = &route[index + 1];
-            let channel = connected
-                .channel_open_direct_tcpip(next.host.clone(), u32::from(next.port), "127.0.0.1", 0)
-                .await
-                .map_err(|e| format!("failed to open tunnel to {}: {e}", next.host))?;
+            let channel = tokio::time::timeout(
+                CHANNEL_TIMEOUT,
+                connected.channel_open_direct_tcpip(
+                    next.host.clone(),
+                    u32::from(next.port),
+                    "127.0.0.1",
+                    0,
+                ),
+            )
+            .await
+            .map_err(|_| format!("opening tunnel to {} timed out", next.host))?
+            .map_err(|e| format!("failed to open tunnel to {}: {e}", next.host))?;
             stream = Some(Box::new(channel.into_stream()));
         }
     }
 
     let handle = handle.ok_or_else(|| "no SSH connection was established".to_string())?;
 
-    let channel = handle
-        .channel_open_session()
+    let channel = tokio::time::timeout(CHANNEL_TIMEOUT, handle.channel_open_session())
         .await
+        .map_err(|_| "opening an SSH channel timed out".to_string())?
         .map_err(|e| e.to_string())?;
     if args.x11 {
         channel
@@ -382,14 +452,23 @@ pub async fn connect(
             .await
             .map_err(|e| format!("failed to request X11 forwarding: {e}"))?;
     }
-    channel
-        .request_pty(true, "xterm-256color", args.cols, args.rows, 0, 0, &[])
+    tokio::time::timeout(
+        CHANNEL_TIMEOUT,
+        channel.request_pty(true, "xterm-256color", args.cols, args.rows, 0, 0, &[]),
+    )
+    .await
+    .map_err(|_| "requesting a pseudo-terminal timed out".to_string())?
+    .map_err(|e| e.to_string())?;
+    tokio::time::timeout(CHANNEL_TIMEOUT, channel.request_shell(true))
         .await
+        .map_err(|_| "starting the remote shell timed out".to_string())?
         .map_err(|e| e.to_string())?;
-    channel
-        .request_shell(true)
-        .await
-        .map_err(|e| e.to_string())?;
+
+    // The user may have closed the tab while the handshake was running. Do not
+    // publish a session that nobody is listening to.
+    if guard.is_stopped() {
+        return Err("connection cancelled".to_string());
+    }
 
     let (mut reader, writer) = channel.split();
     let event_id = id.clone();
@@ -400,12 +479,15 @@ pub async fn connect(
             handle: handle.clone(),
             writer,
             encoding: encoding.clone(),
+            guard: guard.clone(),
+            reader_abort: None,
         }),
     );
 
     let cleanup = ctx.cleanup.clone();
-    let registry = registry.clone();
-    tokio::spawn(async move {
+    let reader_registry = registry.clone();
+    let reader_guard = guard.clone();
+    let task = tokio::spawn(async move {
         let mut decoder = (!ft_core::encoding::is_utf8_label(&encoding))
             .then(|| ft_core::encoding::StreamingDecoder::new(&encoding));
         while let Some(msg) = reader.wait().await {
@@ -426,11 +508,9 @@ pub async fn connect(
         }
         // The connection stopped producing output, so this session is finished
         // whether the server hung up, the shell exited, or a keepalive gave up.
-        // Reap it here and only then announce the closure: the UI reconnects on
-        // the closed event under the same id, and a reconnect must never find
-        // its fresh session torn down by the loop it replaced.
+        // Only the generation that still owns the id gets to tear it down.
         let reaped = {
-            let mut sessions = registry.sessions.lock().await;
+            let mut sessions = reader_registry.sessions.lock().await;
             match sessions.get(&event_id) {
                 Some(Session::Ssh(session)) if Arc::ptr_eq(&session.handle, &handle) => {
                     sessions.remove(&event_id)
@@ -439,16 +519,41 @@ pub async fn connect(
             }
         };
         if let Some(Session::Ssh(dead)) = reaped {
-            let _ = dead
-                .handle
-                .disconnect(Disconnect::ByApplication, "session ended", "")
-                .await;
+            let _ = tokio::time::timeout(
+                CLEANUP_TIMEOUT,
+                dead.handle
+                    .disconnect(Disconnect::ByApplication, "session ended", ""),
+            )
+            .await;
             if let Some(cleanup) = &cleanup {
-                cleanup.cleanup(&event_id).await;
+                let _ = tokio::time::timeout(CLEANUP_TIMEOUT, cleanup.cleanup(&event_id)).await;
             }
-            sink.closed(&event_id);
+            // Announce once, after cleanup, so a reconnect on this id cannot
+            // find its fresh forwards torn down by the loop it replaced.
+            if let Some((owned_sink, owned_guard)) =
+                reader_registry.guards.take_if(&event_id, &reader_guard)
+            {
+                owned_guard.finish(
+                    owned_sink.as_ref(),
+                    &event_id,
+                    CloseReason::RemoteEof,
+                    None,
+                );
+            }
         }
     });
+    // Store the abort handle on the entry we just published. If a disconnect
+    // raced us and removed it, abort the orphan task instead of leaking it.
+    let mut sessions = registry.sessions.lock().await;
+    let still_ours = matches!(sessions.get(&id), Some(Session::Ssh(s)) if s.guard.same(&guard));
+    if still_ours && !guard.is_stopped() {
+        if let Some(Session::Ssh(session)) = sessions.get_mut(&id) {
+            session.reader_abort = Some(task.abort_handle());
+        }
+    } else {
+        drop(sessions);
+        task.abort();
+    }
     Ok(())
 }
 
@@ -802,7 +907,13 @@ pub async fn write(registry: &SessionRegistry, id: &str, data: String) -> Result
     match sessions.get(id) {
         Some(Session::Ssh(s)) => {
             let bytes = ft_core::encoding::encode_text(&s.encoding, &data);
-            s.writer.data_bytes(bytes).await.map_err(|e| e.to_string())
+            // A stalled SSH write used to hold the whole registry lock, which
+            // froze every other session's connect/disconnect. Bound it so one
+            // dead link cannot stall the app.
+            tokio::time::timeout(CHANNEL_TIMEOUT, s.writer.data_bytes(bytes))
+                .await
+                .map_err(|_| "writing to the session timed out".to_string())?
+                .map_err(|e| e.to_string())
         }
         _ => Err("ssh session not found".to_string()),
     }
@@ -816,22 +927,37 @@ pub async fn resize(
 ) -> Result<(), String> {
     let sessions = registry.sessions.lock().await;
     match sessions.get(id) {
-        Some(Session::Ssh(s)) => s
-            .writer
-            .window_change(cols, rows, 0, 0)
-            .await
-            .map_err(|e| e.to_string()),
+        Some(Session::Ssh(s)) => tokio::time::timeout(
+            CHANNEL_TIMEOUT,
+            s.writer.window_change(cols, rows, 0, 0),
+        )
+        .await
+        .map_err(|_| "resizing the session timed out".to_string())?
+        .map_err(|e| e.to_string()),
         _ => Err("ssh session not found".to_string()),
     }
 }
 
 pub async fn disconnect(registry: &SessionRegistry, id: &str) -> Result<(), String> {
-    let session = registry.sessions.lock().await.remove(id);
+    // Only remove an SSH entry. `SessionRegistry` is shared with local PTYs,
+    // and removing one by mistake would silently drop its child process.
+    let session = {
+        let mut sessions = registry.sessions.lock().await;
+        match sessions.get(id) {
+            Some(Session::Ssh(_)) => sessions.remove(id),
+            _ => None,
+        }
+    };
     if let Some(Session::Ssh(s)) = session {
-        let _ = s
-            .handle
-            .disconnect(Disconnect::ByApplication, "closed by user", "")
-            .await;
+        if let Some(abort) = s.reader_abort {
+            abort.abort();
+        }
+        let _ = tokio::time::timeout(
+            CLEANUP_TIMEOUT,
+            s.handle
+                .disconnect(Disconnect::ByApplication, "closed by user", ""),
+        )
+        .await;
     }
     Ok(())
 }
@@ -919,8 +1045,18 @@ async fn authenticate_keyboard_interactive(
                 };
                 let (respond, answers) = tokio::sync::oneshot::channel();
                 prompt.prompt(challenge, respond);
-                let Some(answers) = answers.await.ok().flatten() else {
-                    return Ok(false);
+                // A prompt a person is answering needs a generous window, but
+                // a prompt nobody will ever answer must not hang the connect.
+                let answer = tokio::time::timeout(INTERACTIVE_TIMEOUT, answers)
+                    .await
+                    .map_err(|_| "keyboard-interactive prompt timed out".to_string())?;
+                let answers = match answer {
+                    // The modal was closed without an answer: the user chose to
+                    // abort, which is different from bad credentials.
+                    Ok(None) => return Err("connection cancelled".to_string()),
+                    // The tab went away and dropped the responder.
+                    Err(_) => return Err("connection cancelled".to_string()),
+                    Ok(Some(answers)) => answers,
                 };
                 if answers.len() != expected {
                     return Err("keyboard-interactive response count mismatch".to_string());

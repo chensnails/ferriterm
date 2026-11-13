@@ -166,7 +166,8 @@ export function TabBar() {
           setRenameDraft(entry.title);
         },
       },
-      ...(entry.closed && entry.lastConnect
+      ...(entry.lastConnect &&
+      (entry.phase === "disconnected" || entry.phase === "error")
         ? [
             {
               label: t("sessions.reconnect"),
@@ -229,6 +230,14 @@ export function TabBar() {
           const cls = ["tab"];
           if (s.id === activeId) cls.push("active");
           if (s.closed) cls.push("closed");
+          if (s.phase === "connecting") cls.push("connecting");
+          if (s.phase === "error") cls.push("error");
+          // Only a tab the operator can actually resume gets the inline
+          // reconnect button; a PTY or serial tab has nothing to re-dial, and
+          // a live tab must not remount over its own connection.
+          const canReconnect =
+            !!s.lastConnect &&
+            (s.phase === "disconnected" || s.phase === "error");
           return (
             <div
               key={s.id}
@@ -252,7 +261,25 @@ export function TabBar() {
               )}
               {showNumbers && <span className="tab-num">{index + 1}</span>}
               <span className="tab-label">{s.title}</span>
-              {s.closed && s.lastConnect && (
+              {s.phase === "connecting" && (
+                <span
+                  className="tab-spinner"
+                  title={t("connection.connecting")}
+                  aria-label={t("connection.connecting")}
+                />
+              )}
+              {s.phase === "error" && (
+                <span
+                  className="tab-error-dot"
+                  title={
+                    s.lastError
+                      ? t("connection.errorWithDetail", { error: s.lastError })
+                      : t("connection.failure.unknown")
+                  }
+                  aria-label={t("connection.error")}
+                />
+              )}
+              {canReconnect && (
                 <button
                   className="tab-reconnect"
                   title={t("sessions.reconnect")}

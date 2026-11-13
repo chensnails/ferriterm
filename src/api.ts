@@ -6,6 +6,25 @@ export const isTauri =
 
 export type SessionKind = "ssh" | "pty" | "serial" | "telnet" | "sftp";
 
+/** Mirrors `ft_core::CloseReason`; the wire value is snake_case. */
+export type CloseReason =
+  | "user"
+  | "remote_eof"
+  | "transport_error"
+  | "timeout"
+  | "device_removed"
+  | "shell_exit"
+  | "connect_failed"
+  | "unknown";
+
+/** Payload of `terminal://<id>/closed`. A missing payload means an older
+    backend that emitted a bare close event without a reason. */
+export interface ClosedPayload {
+  reason: CloseReason;
+  /** Raw transport detail, shown as secondary text; never localised. */
+  message?: string;
+}
+
 export type HostProtocol = "ssh" | "sftp" | "telnet" | "serial" | "local";
 
 export interface ProtocolOptions {
@@ -1124,8 +1143,13 @@ export function onOutput(
   return listen<number[]>(outputEvent(id), (e) => cb(new Uint8Array(e.payload)));
 }
 
-export function onClosed(id: string, cb: () => void): Promise<UnlistenFn> {
-  return listen(closedEvent(id), () => cb());
+export function onClosed(
+  id: string,
+  cb: (payload: ClosedPayload | null) => void,
+): Promise<UnlistenFn> {
+  return listen<ClosedPayload | null>(closedEvent(id), (event) =>
+    cb(event.payload ?? null),
+  );
 }
 
 export function onTransferUpdate(

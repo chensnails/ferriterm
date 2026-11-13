@@ -148,17 +148,26 @@ impl client::Handler for SshHandler {
     }
 }
 
+use crate::lifecycle::{GuardMap, SessionGuard};
+
 pub struct SshSession {
     pub handle: Arc<Handle<SshHandler>>,
     pub writer: ChannelWriteHalf<Msg>,
     /// Character set the host speaks, used for shell output and SFTP names.
     pub encoding: String,
+    /// Generation marker: a reader loop from a replaced connection must not
+    /// tear down the session that took its id.
+    pub guard: SessionGuard,
+    /// Aborts the reader task on an explicit disconnect, so a half-open link
+    /// cannot keep the task and its channel alive forever.
+    pub reader_abort: Option<tokio::task::AbortHandle>,
 }
 
 pub struct PtySession {
     pub master: Box<dyn MasterPty + Send>,
     pub writer: Box<dyn Write + Send>,
     pub child: Box<dyn Child + Send + Sync>,
+    pub guard: SessionGuard,
 }
 
 pub enum Session {
@@ -169,4 +178,6 @@ pub enum Session {
 #[derive(Default, Clone)]
 pub struct SessionRegistry {
     pub sessions: Arc<Mutex<HashMap<String, Session>>>,
+    /// Reservations for both SSH and PTY, held across the whole connect window.
+    pub guards: GuardMap,
 }

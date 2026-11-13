@@ -1,9 +1,12 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
+use std::time::Duration;
 
 use super::vault::VaultProvider;
-use ft_core::{events, RecorderRegistry, SessionRegistry, TerminalSink};
+use ft_core::{
+    events, CloseReason, ClosedPayload, RecorderRegistry, SessionRegistry, TerminalSink,
+};
 use ft_ssh::{
     ConnectContext, HostKeyChallenge, HostKeyDecision, HostKeyPrompt, KeyboardInteractiveChallenge,
     KeyboardInteractivePrompt, KnownHostsStore, TofuVerifier,
@@ -16,18 +19,33 @@ pub(crate) struct TauriSink {
     pub(crate) recorders: RecorderRegistry,
 }
 
+/// Cleanup must not hold the UI hostage: a stuck forward or SFTP cache cannot
+/// be allowed to delay the closed event or a disconnect command forever.
+const REAP_TIMEOUT: Duration = Duration::from_secs(5);
+
 impl TerminalSink for TauriSink {
     fn output(&self, id: &str, data: Vec<u8>) {
         self.recorders.write_output(id, &data);
         let _ = self.app.emit(&events::output(id), data);
     }
     fn closed(&self, id: &str) {
-        let _ = self.app.emit(&events::closed(id), ());
+        self.closed_with(id, ClosedPayload::new(CloseReason::Unknown));
+    }
+    fn closed_with(&self, id: &str, payload: ClosedPayload) {
+        // A user-initiated close is the one case where the frontend cannot be
+        // relied on to stop the recorder (it may already have removed the tab).
+        if payload.reason == CloseReason::User {
+            self.recorders.stop(id);
+        }
+        let _ = self.app.emit(&events::closed(id), payload);
     }
 }
 
 pub struct PromptQueue<T> {
-    pending: Arc<StdMutex<HashMap<u64, oneshot::Sender<T>>>>,
+    /// Request id -> (reply channel, owning session id). Keeping the owner
+    /// lets a cancelled connect drop every prompt it left behind instead of
+    /// leaving a oneshot (and a modal waiting on it) orphaned forever.
+    pending: Arc<StdMutex<HashMap<u64, (oneshot::Sender<T>, String)>>>,
     next_id: Arc<AtomicU64>,
 }
 
@@ -50,10 +68,10 @@ impl<T> Default for PromptQueue<T> {
 }
 
 impl<T> PromptQueue<T> {
-    fn register(&self, respond: oneshot::Sender<T>) -> u64 {
+    fn register(&self, session_id: &str, respond: oneshot::Sender<T>) -> u64 {
         let request_id = self.next_id.fetch_add(1, Ordering::Relaxed);
         if let Ok(mut pending) = self.pending.lock() {
-            pending.insert(request_id, respond);
+            pending.insert(request_id, (respond, session_id.to_string()));
         }
         request_id
     }
@@ -63,8 +81,20 @@ impl<T> PromptQueue<T> {
             .pending
             .lock()
             .ok()
-            .and_then(|mut pending| pending.remove(&request_id));
+            .and_then(|mut pending| pending.remove(&request_id).map(|(sender, _)| sender));
         respond.is_some_and(|respond| respond.send(value).is_ok())
+    }
+
+    /// Drop every unanswered prompt belonging to a session. Dropping the
+    /// sender makes the awaiting connect fail fast instead of hanging until
+    /// someone answers a modal that no longer has a tab behind it.
+    fn cancel_session(&self, session_id: &str) -> usize {
+        let Ok(mut pending) = self.pending.lock() else {
+            return 0;
+        };
+        let before = pending.len();
+        pending.retain(|_, (_, owner)| owner != session_id);
+        before - pending.len()
     }
 }
 
@@ -137,6 +167,11 @@ pub struct SshRuntimeState {
     pub(crate) transfers: ft_transfer::TransferManager,
     remote: Arc<ft_monitor::RemoteMonitor>,
     labels: Arc<SessionLabels>,
+    /// Sessions currently inside `ssh_connect`. A disconnect that arrives here
+    /// cannot be handled by `ft_ssh::disconnect` (no registry entry exists
+    /// yet), so it is recorded and honoured as soon as connect returns.
+    connecting: Arc<StdMutex<HashSet<String>>>,
+    cancelled: Arc<StdMutex<HashSet<String>>>,
 }
 
 impl SshRuntimeState {
@@ -159,6 +194,8 @@ impl SshRuntimeState {
             transfers,
             remote,
             labels,
+            connecting: Arc::default(),
+            cancelled: Arc::default(),
         }
     }
 
@@ -166,6 +203,49 @@ impl SshRuntimeState {
     /// agent service so both name a session the same way.
     pub fn labels(&self) -> Arc<SessionLabels> {
         self.labels.clone()
+    }
+
+    /// Reserve the id for the duration of a connect. A second connect on the
+    /// same id is rejected instead of overwriting the first one in the
+    /// registry and leaking its reader task.
+    fn begin_connect(&self, id: &str) -> bool {
+        let Ok(mut connecting) = self.connecting.lock() else {
+            return false;
+        };
+        if let Ok(mut cancelled) = self.cancelled.lock() {
+            cancelled.remove(id);
+        }
+        connecting.insert(id.to_string())
+    }
+
+    fn finish_connect(&self, id: &str) -> bool {
+        if let Ok(mut connecting) = self.connecting.lock() {
+            connecting.remove(id);
+        }
+        self.cancelled
+            .lock()
+            .is_ok_and(|mut cancelled| cancelled.remove(id))
+    }
+
+    /// Honour a disconnect that raced an in-flight connect. Returns true if a
+    /// connect was actually in progress (so the caller knows to reap).
+    fn cancel_connect(&self, id: &str) -> bool {
+        let connecting = self.connecting.lock().is_ok_and(|set| set.contains(id));
+        if connecting {
+            if let Ok(mut cancelled) = self.cancelled.lock() {
+                cancelled.insert(id.to_string());
+            }
+        }
+        // Prompts can also outlive a completed connect if the user closed the
+        // tab while a host-key / keyboard-interactive modal was open.
+        self.host_keys.cancel_session(id);
+        self.keyboard.cancel_session(id);
+        connecting
+    }
+
+    pub fn cancel_prompts(&self, id: &str) {
+        self.host_keys.cancel_session(id);
+        self.keyboard.cancel_session(id);
     }
 
     /// Reclaims everything a session was holding when it went away, whether it
@@ -199,7 +279,7 @@ struct TauriHostKeyPrompt {
 
 impl HostKeyPrompt for TauriHostKeyPrompt {
     fn prompt(&self, challenge: HostKeyChallenge, respond: oneshot::Sender<HostKeyDecision>) {
-        let request_id = self.state.register(respond);
+        let request_id = self.state.register(&self.session_id, respond);
         let _ = self.app.emit(
             "hostkey://verify",
             serde_json::json!({
@@ -227,7 +307,7 @@ impl KeyboardInteractivePrompt for TauriKeyboardPrompt {
         challenge: KeyboardInteractiveChallenge,
         respond: oneshot::Sender<Option<Vec<String>>>,
     ) {
-        let request_id = self.state.register(respond);
+        let request_id = self.state.register(&self.session_id, respond);
         let prompts: Vec<serde_json::Value> = challenge
             .prompts
             .iter()
@@ -274,6 +354,47 @@ pub fn ssh_keyboard_interactive_respond(
 
 #[tauri::command]
 pub async fn ssh_connect(
+    app: AppHandle,
+    state: State<'_, SessionRegistry>,
+    recorders: State<'_, RecorderRegistry>,
+    runtime: State<'_, SshRuntimeState>,
+    credentials: State<'_, Arc<ft_security::CredentialStore>>,
+    id: String,
+    args: ft_ssh::SshConnectArgs,
+) -> Result<(), String> {
+    // One connect per tab id. Without this, a fast double click or a retry that
+    // overlaps a slow connect silently replaces the first session in the
+    // registry and leaks its reader task.
+    if !runtime.begin_connect(&id) {
+        return Err("a connection for this session is already in progress".to_string());
+    }
+    let result = ssh_connect_inner(
+        app,
+        state.clone(),
+        recorders.clone(),
+        runtime.clone(),
+        credentials.clone(),
+        id.clone(),
+        args,
+    )
+    .await;
+    let cancelled = runtime.finish_connect(&id);
+    // A prompt can be registered during connect and never answered (the user
+    // closed the tab, or a modal was dismissed). Never leave oneshots behind.
+    runtime.cancel_prompts(&id);
+    if cancelled {
+        if result.is_ok() {
+            // Close the tab while the handshake was finishing: the session is
+            // live in the registry but nobody is listening to it any more.
+            let _ = tokio::time::timeout(REAP_TIMEOUT, runtime.reap(&id)).await;
+            let _ = ft_ssh::disconnect(&state, &id).await;
+        }
+        return Err("connection cancelled".to_string());
+    }
+    result
+}
+
+async fn ssh_connect_inner(
     app: AppHandle,
     state: State<'_, SessionRegistry>,
     recorders: State<'_, RecorderRegistry>,
@@ -460,11 +581,32 @@ pub async fn ssh_resize(
 
 #[tauri::command]
 pub async fn ssh_disconnect(
+    app: AppHandle,
     state: State<'_, SessionRegistry>,
     runtime: State<'_, SshRuntimeState>,
+    recorders: State<'_, RecorderRegistry>,
     id: String,
 ) -> Result<(), String> {
-    runtime.reap(&id).await;
+    // A connect may still be in flight. Mark it cancelled first so it tears
+    // down its own session when it eventually returns, then drop any modal
+    // prompt that would otherwise wait forever for an answer.
+    let in_flight = runtime.cancel_connect(&id);
+    let existed = state.sessions.lock().await.contains_key(&id);
+    if existed || in_flight {
+        let _ = tokio::time::timeout(REAP_TIMEOUT, runtime.reap(&id)).await;
+    }
+    // Explicit close is a close too: emit it once with a reason so every
+    // listener agrees on the state instead of waiting for a reader loop that
+    // may never wake up. The sink also releases the recording for us.
+    let sink = TauriSink {
+        app: app.clone(),
+        recorders: recorders.inner().clone(),
+    };
+    if let Some((_, guard)) = state.guards.take_any(&id) {
+        guard.finish(&sink, &id, CloseReason::User, None);
+    } else {
+        sink.closed_with(&id, ClosedPayload::new(CloseReason::User));
+    }
     ft_ssh::disconnect(&state, &id).await
 }
 

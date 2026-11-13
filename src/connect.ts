@@ -1,4 +1,5 @@
 import {
+  type CloseReason,
   type HostEntry,
   type JumpHop,
   type SerialConfig,
@@ -7,6 +8,67 @@ import {
 } from "./api";
 
 export type ConnectArgs = Omit<SshConnectArgs, "cols" | "rows">;
+
+/** One tab's connection state. `closed` in `SessionMeta` stays as a derived
+    mirror so every existing consumer keeps working, but the UI reads this
+    richer phase so "connecting", "live" and "failed" are no longer the same
+    look. */
+export type SessionPhase =
+  | "connecting"
+  | "connected"
+  | "disconnected"
+  | "error";
+
+/** A close the operator caused (or a local shell that simply exited) is not a
+    failure: it must not start the reconnect ladder or light up an error badge. */
+export function isExpectedClose(reason: CloseReason | undefined): boolean {
+  return (
+    !reason ||
+    reason === "user" ||
+    reason === "shell_exit" ||
+    reason === "unknown"
+  );
+}
+
+/** Reasons that deserve a persistent, visible error on the tab. */
+export function isFailureReason(reason: CloseReason | undefined): boolean {
+  return (
+    reason === "transport_error" ||
+    reason === "timeout" ||
+    reason === "device_removed" ||
+    reason === "connect_failed"
+  );
+}
+
+export function closeReasonKey(reason: CloseReason | undefined): string {
+  return `connection.reason.${reason ?? "unknown"}`;
+}
+
+export type FailureKind =
+  | "cancelled"
+  | "auth"
+  | "timeout"
+  | "duplicate"
+  | "network"
+  | "unknown";
+
+/** Backend messages are prose; pick a stable localised heading so the tab and
+    status bar can say what went wrong without parsing English at render time. */
+export function classifyFailure(message: string): FailureKind {
+  const text = message.toLowerCase();
+  if (/cancel/.test(text)) return "cancelled";
+  if (isAuthFailure(message)) return "auth";
+  if (/timed out|timeout|deadline|elapsed/.test(text)) return "timeout";
+  if (/already in progress|already live/.test(text)) return "duplicate";
+  if (
+    /resolve|no address|failed to connect|connection refused|unreachable|network|socket|device|port|reset/.test(
+      text,
+    )
+  ) {
+    return "network";
+  }
+  return "unknown";
+}
 
 /** A password typed in the connect dialog, kept out of the vault until the
     transport has actually authenticated with it. */

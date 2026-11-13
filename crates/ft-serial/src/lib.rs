@@ -3,17 +3,24 @@
 //! `TerminalSink`, so recording and the webview events need no special case.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::io::Read;
+use std::sync::{Arc, Mutex as StdMutex};
 use std::time::Duration;
 
-use ft_core::TerminalSink;
+use ft_core::{CloseReason, GuardMap, SessionGuard, TerminalSink};
 use serde::{Deserialize, Serialize};
 use serial2::{CharSize, FlowControl, Parity, SerialPort, Settings, StopBits};
-use tokio::sync::Mutex;
 
 const MAX_PATH_LEN: usize = 256;
 const MAX_BAUD_RATE: u32 = 4_000_000;
+const READ_POLL: Duration = Duration::from_millis(100);
+const WRITE_TIMEOUT: Duration = Duration::from_secs(2);
+/// Opening a wedged COM port can block indefinitely on Windows. Move it off
+/// the Tokio worker and bound it so the connect command always comes back.
+const OPEN_TIMEOUT: Duration = Duration::from_secs(10);
+/// A device that keeps returning zero bytes is gone (unplugged / suspended),
+/// not idle. Bound the spin so the reader thread can report and exit.
+const MAX_EMPTY_READS: u32 = 100;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -102,12 +109,20 @@ pub fn list_ports() -> Result<Vec<SerialPortInfo>, String> {
 
 struct SerialSession {
     port: Arc<SerialPort>,
-    closed: Arc<AtomicBool>,
+    guard: SessionGuard,
 }
 
+/// A plain `std` mutex is deliberate: the reader is a dedicated OS thread (a
+/// blocking `read`), so it must be able to release its own registry entry
+/// without needing a Tokio runtime context.
 #[derive(Default, Clone)]
 pub struct SerialRegistry {
-    sessions: Arc<Mutex<HashMap<String, SerialSession>>>,
+    sessions: Arc<StdMutex<HashMap<String, SerialSession>>>,
+    guards: GuardMap,
+}
+
+fn sessions_map<T>(lock: &Arc<StdMutex<T>>) -> Result<std::sync::MutexGuard<'_, T>, String> {
+    lock.lock().map_err(|_| "serial registry is unavailable".to_string())
 }
 
 pub async fn open(
@@ -117,93 +132,190 @@ pub async fn open(
     config: SerialConfig,
 ) -> Result<(), String> {
     validate(&config)?;
-    if registry.sessions.lock().await.contains_key(&id) {
-        return Err(format!("serial session {id} already exists"));
+    // Reserve the id before touching hardware. Two rapid double clicks can no
+    // longer both win, and a close during the open is visible to us below.
+    let Some(guard) = registry.guards.begin(&id, sink.clone()) else {
+        return Err("a serial connection for this session is already in progress".to_string());
+    };
+    let mut port = match open_port(config.clone()).await {
+        Ok(port) => port,
+        Err(error) => {
+            registry.guards.take_if(&id, &guard);
+            return Err(error);
+        }
+    };
+    if let Err(error) = port
+        .set_read_timeout(READ_POLL)
+        .and_then(|_| port.set_write_timeout(WRITE_TIMEOUT))
+    {
+        registry.guards.take_if(&id, &guard);
+        return Err(format!("failed to configure {}: {error}", config.path));
     }
-    let mut port = SerialPort::open(&config.path, |mut settings: Settings| {
-        settings.set_raw();
-        settings.set_baud_rate(config.baud_rate)?;
-        settings.set_char_size(match config.data_bits {
-            5 => CharSize::Bits5,
-            6 => CharSize::Bits6,
-            7 => CharSize::Bits7,
-            _ => CharSize::Bits8,
-        });
-        settings.set_stop_bits(if config.stop_bits == 2 {
-            StopBits::Two
-        } else {
-            StopBits::One
-        });
-        settings.set_parity(match config.parity.as_str() {
-            "odd" => Parity::Odd,
-            "even" => Parity::Even,
-            _ => Parity::None,
-        });
-        settings.set_flow_control(match config.flow_control.as_str() {
-            "rtscts" => FlowControl::RtsCts,
-            "xonxoff" => FlowControl::XonXoff,
-            _ => FlowControl::None,
-        });
-        Ok(settings)
-    })
-    .map_err(|e| format!("failed to open {}: {e}", config.path))?;
-    port.set_read_timeout(Duration::from_millis(100))
-        .map_err(|e| e.to_string())?;
-    port.set_write_timeout(Duration::from_secs(2))
-        .map_err(|e| e.to_string())?;
+    if guard.is_stopped() || !registry.guards.is_current(&id, &guard) {
+        registry.guards.take_if(&id, &guard);
+        return Err("connection cancelled".to_string());
+    }
 
     let port = Arc::new(port);
-    let closed = Arc::new(AtomicBool::new(false));
-    let event_id = id.clone();
-    let reader_port = port.clone();
-    let reader_closed = closed.clone();
-    std::thread::spawn(move || pump(&*reader_port, sink, event_id, reader_closed));
+    // Publish the session before starting the reader: a device that fails
+    // immediately must not emit a closed event before open() has returned.
+    sessions_map(&registry.sessions)?.insert(
+        id.clone(),
+        SerialSession {
+            port: port.clone(),
+            guard: guard.clone(),
+        },
+    );
 
-    registry
-        .sessions
-        .lock()
-        .await
-        .insert(id, SerialSession { port, closed });
+    let event_id = id.clone();
+    let reader_guard = guard.clone();
+    let reader_registry = registry.clone();
+    let reader_sink = sink.clone();
+    std::thread::spawn(move || {
+        let (reason, message) = pump(&*port, reader_sink, event_id.clone(), reader_guard.clone());
+        finish(
+            &reader_registry,
+            &event_id,
+            &reader_guard,
+            reason,
+            message,
+        );
+    });
     Ok(())
 }
 
-fn pump<P: std::io::Read>(
+async fn open_port(config: SerialConfig) -> Result<SerialPort, String> {
+    let path = config.path.clone();
+    let task = tokio::task::spawn_blocking(move || {
+        SerialPort::open(&config.path, |mut settings: Settings| {
+            settings.set_raw();
+            settings.set_baud_rate(config.baud_rate)?;
+            settings.set_char_size(match config.data_bits {
+                5 => CharSize::Bits5,
+                6 => CharSize::Bits6,
+                7 => CharSize::Bits7,
+                _ => CharSize::Bits8,
+            });
+            settings.set_stop_bits(if config.stop_bits == 2 {
+                StopBits::Two
+            } else {
+                StopBits::One
+            });
+            settings.set_parity(match config.parity.as_str() {
+                "odd" => Parity::Odd,
+                "even" => Parity::Even,
+                _ => Parity::None,
+            });
+            settings.set_flow_control(match config.flow_control.as_str() {
+                "rtscts" => FlowControl::RtsCts,
+                "xonxoff" => FlowControl::XonXoff,
+                _ => FlowControl::None,
+            });
+            Ok(settings)
+        })
+        .map_err(|e| format!("failed to open {}: {e}", config.path))
+    });
+    match tokio::time::timeout(OPEN_TIMEOUT, task).await {
+        Ok(Ok(result)) => result,
+        Ok(Err(join)) => Err(format!("failed to open {path}: {join}")),
+        Err(_) => Err(format!(
+            "opening {path} timed out after {}s (check that the device is connected and not in use)",
+            OPEN_TIMEOUT.as_secs()
+        )),
+    }
+}
+
+/// Reads a device until it stops. Reports *why* it stopped so the webview can
+/// distinguish an unplugged cable from a clean shutdown.
+fn pump<P: Read>(
     mut port: P,
     sink: Arc<dyn TerminalSink>,
     id: String,
-    closed: Arc<AtomicBool>,
-) {
+    guard: SessionGuard,
+) -> (CloseReason, Option<String>) {
     let mut buf = [0u8; 4096];
+    let mut empty_reads = 0u32;
     loop {
-        if closed.load(Ordering::Relaxed) {
-            break;
+        if guard.is_stopped() {
+            return (CloseReason::User, None);
         }
         match port.read(&mut buf) {
-            Ok(0) => std::thread::sleep(Duration::from_millis(5)),
-            Ok(n) => sink.output(&id, buf[..n].to_vec()),
+            Ok(0) => {
+                empty_reads += 1;
+                if empty_reads >= MAX_EMPTY_READS {
+                    return (
+                        CloseReason::DeviceRemoved,
+                        Some("device stopped responding (unplugged or suspended)".into()),
+                    );
+                }
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            Ok(n) => {
+                empty_reads = 0;
+                sink.output(&id, buf[..n].to_vec());
+            }
             Err(err) if err.kind() == std::io::ErrorKind::Interrupted => continue,
             Err(err) if err.kind() == std::io::ErrorKind::TimedOut => continue,
-            Err(_) => break,
+            Err(err) => {
+                let reason = match err.kind() {
+                    std::io::ErrorKind::NotFound
+                    | std::io::ErrorKind::BrokenPipe
+                    | std::io::ErrorKind::UnexpectedEof => CloseReason::DeviceRemoved,
+                    std::io::ErrorKind::TimedOut => CloseReason::Timeout,
+                    _ => CloseReason::TransportError,
+                };
+                return (reason, Some(err.to_string()));
+            }
         }
     }
-    sink.closed(&id);
+}
+
+/// The reader releases its own registry entry. Previously an unplugged device
+/// left a dead entry behind forever, which made reconnect impossible.
+fn finish(
+    registry: &SerialRegistry,
+    id: &str,
+    guard: &SessionGuard,
+    reason: CloseReason,
+    message: Option<String>,
+) {
+    let Some((sink, owned_guard)) = registry.guards.take_if(id, guard) else {
+        return; // a newer connection owns this id; stay silent
+    };
+    if let Ok(mut sessions) = sessions_map(&registry.sessions) {
+        if matches!(sessions.get(id), Some(s) if s.guard.same(guard)) {
+            sessions.remove(id);
+        }
+    }
+    owned_guard.finish(sink.as_ref(), id, reason, message);
 }
 
 pub async fn write(registry: &SerialRegistry, id: &str, data: String) -> Result<(), String> {
     let port = {
-        let sessions = registry.sessions.lock().await;
+        let sessions = sessions_map(&registry.sessions)?;
         match sessions.get(id) {
-            Some(session) => session.port.clone(),
-            None => return Err("serial session not found".to_string()),
+            Some(session) if !session.guard.is_stopped() => session.port.clone(),
+            Some(_) => return Err("serial session is closed; reconnect to continue".to_string()),
+            None => return Err("serial session not found; reconnect to continue".to_string()),
         }
     };
     port.write_all(data.as_bytes()).map_err(|e| e.to_string())
 }
 
 pub async fn close(registry: &SerialRegistry, id: &str) -> Result<(), String> {
-    let session = registry.sessions.lock().await.remove(id);
-    if let Some(session) = session {
-        session.closed.store(true, Ordering::Relaxed);
+    let taken = registry.guards.take_any(id);
+    {
+        let mut sessions = sessions_map(&registry.sessions)?;
+        if let Some((_, guard)) = &taken {
+            if matches!(sessions.get(id), Some(s) if s.guard.same(guard)) {
+                sessions.remove(id);
+            }
+        } else {
+            sessions.remove(id);
+        }
+    }
+    if let Some((sink, guard)) = taken {
+        guard.finish(sink.as_ref(), id, CloseReason::User, None);
     }
     Ok(())
 }
@@ -211,6 +323,9 @@ pub async fn close(registry: &SerialRegistry, id: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ft_core::ClosedPayload;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Mutex;
 
     fn config() -> SerialConfig {
         SerialConfig {
@@ -258,10 +373,17 @@ mod tests {
         .is_err());
     }
 
+    struct NullSink;
+
+    impl TerminalSink for NullSink {
+        fn output(&self, _id: &str, _data: Vec<u8>) {}
+        fn closed(&self, _id: &str) {}
+    }
+
     #[tokio::test]
-    async fn rejects_missing_device() {
+    async fn rejects_missing_device_and_releases_the_reservation() {
         let registry = SerialRegistry::default();
-        let sink = Arc::new(crate::tests::NullSink);
+        let sink: Arc<dyn TerminalSink> = Arc::new(NullSink);
         let err = open(
             sink,
             &registry,
@@ -275,18 +397,13 @@ mod tests {
         .unwrap_err();
         assert!(err.contains("failed to open"));
         assert!(write(&registry, "serial-1", "x".to_string()).await.is_err());
-    }
-
-    struct NullSink;
-
-    impl TerminalSink for NullSink {
-        fn output(&self, _id: &str, _data: Vec<u8>) {}
-        fn closed(&self, _id: &str) {}
+        assert!(!registry.guards.contains("serial-1"));
     }
 
     #[derive(Default)]
     struct CollectSink {
-        data: std::sync::Mutex<Vec<u8>>,
+        data: Mutex<Vec<u8>>,
+        closes: Mutex<Vec<CloseReason>>,
         closed: AtomicBool,
     }
 
@@ -297,18 +414,22 @@ mod tests {
         fn closed(&self, _id: &str) {
             self.closed.store(true, Ordering::Relaxed);
         }
+        fn closed_with(&self, _id: &str, payload: ClosedPayload) {
+            self.closed.store(true, Ordering::Relaxed);
+            self.closes.lock().unwrap().push(payload.reason);
+        }
     }
 
     #[test]
     fn forwards_device_bytes_to_the_sink() {
         let sink = Arc::new(CollectSink::default());
-        let closed = Arc::new(AtomicBool::new(false));
+        let guard = SessionGuard::default();
         let device = std::io::Cursor::new(b"hello from device".to_vec());
-        let stop = closed.clone();
-        let forwarder = {
-            let sink = sink.clone();
-            std::thread::spawn(move || pump(device, sink, "serial-1".to_string(), stop))
-        };
+        let sink_clone = sink.clone();
+        let stop = guard.clone();
+        let forwarder = std::thread::spawn(move || {
+            pump(device, sink_clone, "serial-1".to_string(), guard)
+        });
         for _ in 0..100 {
             if sink.data.lock().unwrap().len() >= 17 {
                 break;
@@ -316,8 +437,54 @@ mod tests {
             std::thread::sleep(Duration::from_millis(10));
         }
         assert_eq!(sink.data.lock().unwrap().as_slice(), b"hello from device");
-        closed.store(true, Ordering::Relaxed);
-        forwarder.join().unwrap();
+        stop.stop();
+        let (reason, _) = forwarder.join().unwrap();
+        assert_eq!(reason, CloseReason::User);
+        // The same guard can still announce the close once, and only once.
+        assert!(stop.finish(sink.as_ref(), "serial-1", reason, None));
+        assert_eq!(*sink.closes.lock().unwrap(), vec![CloseReason::User]);
         assert!(sink.closed.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn a_removed_device_is_reported_as_such() {
+        let sink = Arc::new(CollectSink::default());
+        let guard = SessionGuard::default();
+        let (reason, _) = pump(
+            std::io::Cursor::new(Vec::<u8>::new()),
+            sink,
+            "serial-2".to_string(),
+            guard,
+        );
+        assert_eq!(reason, CloseReason::DeviceRemoved);
+    }
+
+    #[tokio::test]
+    async fn finish_removes_only_its_own_generation() {
+        let registry = SerialRegistry::default();
+        let sink: Arc<dyn TerminalSink> = Arc::new(NullSink);
+        let old = registry.guards.begin("serial-3", sink.clone()).unwrap();
+        registry.guards.take_any("serial-3");
+        let current = registry.guards.begin("serial-3", sink).unwrap();
+        // A stale reader must not announce a close or free the live id.
+        finish(
+            &registry,
+            "serial-3",
+            &old,
+            CloseReason::DeviceRemoved,
+            None,
+        );
+        assert!(registry.guards.is_current("serial-3", &current));
+        finish(&registry, "serial-3", &current, CloseReason::User, None);
+        assert!(!registry.guards.contains("serial-3"));
+    }
+
+    #[test]
+    fn close_announces_exactly_once() {
+        let sink = Arc::new(CollectSink::default());
+        let guard = SessionGuard::default();
+        assert!(guard.finish(sink.as_ref(), "s", CloseReason::User, None));
+        assert!(!guard.finish(sink.as_ref(), "s", CloseReason::TransportError, None));
+        assert_eq!(*sink.closes.lock().unwrap(), vec![CloseReason::User]);
     }
 }

@@ -1718,6 +1718,7 @@ version = "0.1.1"
 dependencies = [
  "ft-core",
  "portable-pty",
+ "tokio",
 ]
 
 [[package]]

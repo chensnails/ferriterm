@@ -35,7 +35,27 @@ export function StatusBar() {
         ? t("status.tools")
         : t("status.home");
 
-  const tone = current ? (current.closed ? "closed" : "live") : "idle";
+  const tone = current
+    ? current.phase === "connected"
+      ? "live"
+      : current.phase === "connecting"
+        ? "connecting"
+        : current.phase === "error"
+          ? "error"
+          : "closed"
+    : "idle";
+
+  // The dot alone is ambiguous, so the cell also names the phase and, for a
+  // drop, why it ended. The detail stays in the tooltip of the tab strip.
+  const stateHint = current
+    ? current.phase === "connecting"
+      ? t("connection.connecting")
+      : current.phase === "connected"
+        ? t("connection.connected")
+        : current.closeReason
+          ? t(`connection.reason.${current.closeReason}`)
+          : t("connection.disconnected")
+    : t("status.focusTerminal");
 
   // The left cell doubles as "back to the terminal": from home or the transfer
   // view it returns to the last open session, which is the one that was active.
@@ -60,7 +80,7 @@ export function StatusBar() {
           type="button"
           className={`statusbar-session ${tone}`}
           onClick={focusTerminal}
-          title={t("status.focusTerminal")}
+          title={stateHint}
         >
           <span className="statusbar-dot" aria-hidden="true" />
           <span className="statusbar-title">{label}</span>

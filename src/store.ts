@@ -16,6 +16,8 @@ import {
   type PolicyDecision,
   type AuditOrigin,
   type CaptureMode,
+  type ClosedPayload,
+  type CloseReason,
 } from "./api";
 import {
   DEFAULT_SSH_SECURITY,
@@ -25,9 +27,12 @@ import {
 } from "./ssh-algorithms";
 import {
   planHostConnect,
+  isFailureReason,
   stripPendingSecrets,
   type PendingConnect,
+  type SessionPhase,
 } from "./connect";
+import { terminalHandle } from "./terminal-registry";
 import { isSensitiveCommand } from "./commands";
 import {
   normalizeCombo,
@@ -182,7 +187,18 @@ export interface SessionMeta {
   id: string;
   kind: SessionKind;
   title: string;
+  /** Derived mirror of `phase`, kept for the many existing consumers. */
   closed: boolean;
+  phase: SessionPhase;
+  /** Raw backend message from the most recent failed connect. */
+  lastError?: string;
+  closeReason?: CloseReason;
+  closeMessage?: string;
+  connectedAt?: number;
+  closedAt?: number;
+  reconnectAttempt?: number;
+  /** Bumped on an in-place reconnect so only that panel remounts. */
+  connectEpoch: number;
   production?: boolean;
   hostId?: string;
   /** What this session currently keeps on disk; undefined means nothing. */
@@ -636,7 +652,13 @@ interface AppState {
   cancelCloseSession: () => void;
   confirmCloseSession: () => void;
   activate: (id: string) => void;
-  markClosed: (id: string) => void;
+  markClosed: (id: string, payload?: ClosedPayload | null) => void;
+  markConnecting: (id: string) => void;
+  markConnected: (id: string) => void;
+  markSessionError: (id: string, message: string) => void;
+  setReconnectAttempt: (id: string, attempt: number) => void;
+  /** Cancels an in-flight connect without closing the tab. */
+  cancelConnect: (id: string) => void;
   startCapture: (id: string, cols: number, rows: number, mode?: CaptureMode) => Promise<void>;
   stopCapture: (id: string) => Promise<void>;
   /** Switches a running session between log, replay and both. */
@@ -758,6 +780,26 @@ function scheduleHistorySave() {
     const entries = useAppStore.getState().commandHistory;
     api.setSetting("commandHistory", JSON.stringify(entries)).catch(() => {});
   }, 600);
+}
+
+/** A tab that ends must not leave the monitor, the transfer view or a pending
+    close confirmation pointing at a session that no longer exists. */
+function clearedSessionRefs(s: AppState, ids: string[]) {
+  const gone = new Set(ids);
+  return {
+    monitorTarget: gone.has(s.monitorTarget) ? "local" : s.monitorTarget,
+    transferSessionId:
+      s.transferSessionId && gone.has(s.transferSessionId)
+        ? null
+        : s.transferSessionId,
+    transferTabs: s.transferTabs.filter((id) => !gone.has(id)),
+    pendingCloseId:
+      s.pendingCloseId && gone.has(s.pendingCloseId) ? null : s.pendingCloseId,
+    focusedSessionId:
+      s.focusedSessionId && gone.has(s.focusedSessionId)
+        ? null
+        : s.focusedSessionId,
+  };
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -1217,7 +1259,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => ({
       sessions: [
         ...s.sessions,
-        { id, kind, title, closed: false, production, hostId, pending },
+        {
+          id,
+          kind,
+          title,
+          closed: false,
+          phase: "connecting",
+          connectEpoch: 0,
+          production,
+          hostId,
+          pending,
+        },
       ],
       activeId: id,
     }));
@@ -1367,6 +1419,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           kind: "pty",
           title: i18n.t("session.localTitle"),
           closed: false,
+          phase: "connecting" as SessionPhase,
+          connectEpoch: 0,
           pending: { type: "pty" },
         },
       ],
@@ -1512,7 +1566,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         broadcastTargets: s.broadcastTargets.filter(
           (targetId) => targetId !== id,
         ),
-        focusedSessionId: s.focusedSessionId === id ? null : s.focusedSessionId,
+        ...clearedSessionRefs(s, [id]),
       };
     });
   },
@@ -1533,12 +1587,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         api.close(session.kind, session.id).catch(() => {});
         if (session.capture) api.recordingStop(session.id).catch(() => {});
       });
+    const removed = state.sessions
+      .filter((session) => session.id !== id)
+      .map((session) => session.id);
     set((s) => ({
       sessions: s.sessions.filter((x) => x.id === id),
       activeId: id,
       splitId: null,
       broadcastTargets: s.broadcastTargets.filter((target) => target === id),
-      focusedSessionId: s.focusedSessionId === id ? s.focusedSessionId : null,
+      ...clearedSessionRefs(s, removed),
     }));
   },
 
@@ -1548,13 +1605,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       api.close(session.kind, session.id).catch(() => {});
       if (session.capture) api.recordingStop(session.id).catch(() => {});
     });
-    set({
+    const removed = state.sessions.map((session) => session.id);
+    set((s) => ({
       sessions: [],
       activeId: HOME_TAB,
       splitId: null,
       broadcastTargets: [],
-      focusedSessionId: null,
-    });
+      ...clearedSessionRefs(s, removed),
+    }));
   },
 
   requestCloseSession: (id) => {
@@ -1579,15 +1637,110 @@ export const useAppStore = create<AppState>((set, get) => ({
       splitId: s.splitId === id ? null : s.splitId,
     })),
 
-  markClosed: (id) => {
+  markClosed: (id, payload) => {
     const entry = get().sessions.find((s) => s.id === id);
-    if (entry?.capture) api.recordingStop(id).catch(() => {});
+    if (!entry) return;
+    if (entry.capture) api.recordingStop(id).catch(() => {});
+    const reason = payload?.reason ?? "unknown";
+    const failed = isFailureReason(reason);
     set((s) => ({
       sessions: s.sessions.map((x) =>
-        x.id === id ? { ...x, closed: true, capture: undefined } : x,
+        x.id === id
+          ? {
+              ...x,
+              closed: true,
+              phase: failed ? ("error" as SessionPhase) : ("disconnected" as SessionPhase),
+              capture: undefined,
+              closeReason: reason,
+              closeMessage: payload?.message,
+              closedAt: Date.now(),
+            }
+          : x,
       ),
       splitId: s.splitId === id ? null : s.splitId,
+      ...clearedSessionRefs(s, [id]),
     }));
+  },
+
+  markConnecting: (id) =>
+    set((s) => ({
+      sessions: s.sessions.map((x) =>
+        x.id === id
+          ? {
+              ...x,
+              phase: "connecting" as SessionPhase,
+              closed: false,
+              lastError: undefined,
+              closeReason: undefined,
+              closeMessage: undefined,
+            }
+          : x,
+      ),
+    })),
+
+  markConnected: (id) =>
+    set((s) => ({
+      sessions: s.sessions.map((x) =>
+        x.id === id
+          ? {
+              ...x,
+              phase: "connected" as SessionPhase,
+              closed: false,
+              connectedAt: Date.now(),
+              reconnectAttempt: 0,
+              lastError: undefined,
+              closeReason: undefined,
+              closeMessage: undefined,
+            }
+          : x,
+      ),
+    })),
+
+  markSessionError: (id, message) => {
+    const entry = get().sessions.find((s) => s.id === id);
+    if (!entry) return;
+    if (entry.capture) api.recordingStop(id).catch(() => {});
+    set((s) => ({
+      sessions: s.sessions.map((x) =>
+        x.id === id
+          ? {
+              ...x,
+              phase: "error" as SessionPhase,
+              closed: true,
+              lastError: message,
+              closeReason: "connect_failed" as CloseReason,
+              closeMessage: message,
+              closedAt: Date.now(),
+              capture: undefined,
+            }
+          : x,
+      ),
+      splitId: s.splitId === id ? null : s.splitId,
+      ...clearedSessionRefs(s, [id]),
+    }));
+  },
+
+  setReconnectAttempt: (id, attempt) =>
+    set((s) => ({
+      sessions: s.sessions.map((x) =>
+        x.id === id
+          ? { ...x, phase: "connecting" as SessionPhase, closed: false, reconnectAttempt: attempt }
+          : x,
+      ),
+    })),
+
+  cancelConnect: (id) => {
+    const entry = get().sessions.find((s) => s.id === id);
+    if (!entry || entry.phase !== "connecting") return;
+    const view = terminalHandle(id);
+    if (view?.cancelConnect) {
+      view.cancelConnect();
+      return;
+    }
+    // The panel's lazy chunk may not have mounted yet; release the backend
+    // reservation directly so the id is free for the next attempt.
+    api.close(entry.kind, id).catch(() => {});
+    get().markClosed(id, { reason: "user" });
   },
 
   startCapture: async (id, cols, rows, mode) => {
@@ -1671,17 +1824,40 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   reconnect: (id) => {
-    const state = get();
-    const session = state.sessions.find((s) => s.id === id);
+    const session = get().sessions.find((s) => s.id === id);
     if (!session?.lastConnect) return;
-    state.openSession(
-      session.kind,
-      session.title,
-      session.lastConnect,
-      session.production,
-      session.hostId,
-    );
-    state.closeSession(id);
+    // Never replay a one-shot password that was never verified.
+    const pending = stripPendingSecrets(session.lastConnect);
+    if (!pending) return;
+    // Reconnect in the same tab. Opening a second tab and closing the old one
+    // used to let the dying view receive its own close event and start a ghost
+    // reconnect ladder against an id nobody was looking at any more.
+    const view = terminalHandle(id);
+    const inPlace = !!view?.retryNow;
+    set((s) => ({
+      sessions: s.sessions.map((x) =>
+        x.id === id
+          ? {
+              ...x,
+              pending,
+              lastConnect: pending,
+              phase: "connecting" as SessionPhase,
+              closed: false,
+              // A live view re-dials itself and keeps its scrollback; only a
+              // panel that has not mounted yet needs the epoch bump.
+              connectEpoch: inPlace ? x.connectEpoch : x.connectEpoch + 1,
+              reconnectAttempt: 0,
+              lastError: undefined,
+              closeReason: undefined,
+              closeMessage: undefined,
+            }
+          : x,
+      ),
+      activeId: id,
+      splitId: s.splitId === id ? null : s.splitId,
+    }));
+    view?.retryNow?.();
+    if (session.kind !== "sftp") void get().startCapture(id, 80, 24);
   },
 
   scrubSessionSecrets: (id) => {

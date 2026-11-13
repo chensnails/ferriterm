@@ -11,10 +11,24 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { api, isTauri, onClosed, onOutput, type SessionKind } from "./api";
+import {
+  api,
+  isTauri,
+  onClosed,
+  onOutput,
+  type ClosedPayload,
+  type SessionKind,
+} from "./api";
 import { writeClipboardText } from "./clipboard";
 import type { PendingConnect } from "./connect";
-import { isAuthFailure, stripPendingSecrets } from "./connect";
+import {
+  classifyFailure,
+  closeReasonKey,
+  isAuthFailure,
+  isExpectedClose,
+  isFailureReason,
+  stripPendingSecrets,
+} from "./connect";
 import { connectAlgorithms } from "./ssh-algorithms";
 import {
   registerTerminal,
@@ -94,18 +108,23 @@ export class TerminalView implements TerminalHandle {
   private keywordDecorations: { decoration: IDecoration; marker: IMarker }[] =
     [];
   private osc52: IDisposable;
-  private readonly onSessionClosed: () => void;
   private pending: PendingConnect | null = null;
   private reconnectTimer: number | undefined;
   private reconnectAttempt = 0;
+  /** Incremented per connect attempt so a late promise or a close event from
+      a superseded attempt cannot overwrite the state of the current one. */
+  private openSeq = 0;
+  private connecting = false;
+  private connected = false;
+  /** Set when the operator asked to cancel; the close event we caused is
+      expected and must not be printed a second time. */
+  private cancelRequested = false;
 
   constructor(
     readonly id: string,
     private kind: SessionKind,
     private readonly container: HTMLElement,
-    onSessionClosed: () => void,
   ) {
-    this.onSessionClosed = onSessionClosed;
     const appearance = currentAppearance();
     this.term = new Terminal({
       allowProposedApi: true,
@@ -236,11 +255,7 @@ export class TerminalView implements TerminalHandle {
           this.scheduleKeywords();
         });
       }),
-      onClosed(this.id, () => {
-        if (this.disposed) return;
-        this.term.writeln(`\r\n\x1b[90m${i18n.t("terminal.disconnected")}\x1b[0m`);
-        if (!this.scheduleReconnect()) this.onSessionClosed();
-      }),
+      onClosed(this.id, (payload) => this.handleClosed(payload)),
     ]).then((fns) => {
       if (this.disposed) fns.forEach((fn) => fn());
       else this.unlisten.push(...fns);
@@ -256,10 +271,47 @@ export class TerminalView implements TerminalHandle {
       connecting itself, so the same code path serves the retry ladder. */
   start(pending: PendingConnect) {
     this.pending = pending;
-    void this.ready.then(() => this.open(pending, false));
+    this.cancelRequested = false;
+    useAppStore.getState().markConnecting(this.id);
+    void this.ready.then(() => {
+      if (this.disposed) return;
+      this.open(pending, false);
+    });
+  }
+
+  /** Re-dials the current target in place. Keeps the scrollback, which a
+      remount would throw away, and refuses to stack a second attempt on top of
+      a connect that is already running. */
+  retryNow() {
+    if (this.disposed || this.connecting || !this.pending) return;
+    this.cancelRequested = false;
+    this.reconnectAttempt = 0;
+    useAppStore.getState().markConnecting(this.id);
+    this.open(this.pending, false);
+  }
+
+  /** Aborts a connect that is still in flight. The backend releases its id
+      reservation, the tab stays open in a "disconnected" state so the same
+      button can retry without losing output already on screen. */
+  cancelConnect() {
+    if (this.disposed || !this.connecting) return;
+    this.cancelRequested = true;
+    this.connecting = false;
+    window.clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = undefined;
+    this.openSeq += 1;
+    this.term.writeln(
+      `\r\n\x1b[90m${i18n.t("connection.cancelledByUser")}\x1b[0m`,
+    );
+    useAppStore.getState().markClosed(this.id, { reason: "user" });
+    api.close(this.kind, this.id).catch(() => {});
   }
 
   private open(pending: PendingConnect, retry: boolean) {
+    const seq = ++this.openSeq;
+    this.connecting = true;
+    this.connected = false;
+    this.cancelRequested = false;
     const { cols, rows } = this.term;
     const algorithms = connectAlgorithms(
       useAppStore.getState().sshSecurity,
@@ -279,14 +331,31 @@ export class TerminalView implements TerminalHandle {
             : api.ptySpawn(this.id, cols, rows, pending.shell, pending.cwd);
     connect
       .then(() => {
+        // A superseded attempt (cancel, reconnect, unmount) must not mark the
+        // tab connected, and its session has to be released or it leaks.
+        if (this.disposed || seq !== this.openSeq) {
+          api.close(this.kind, this.id).catch(() => {});
+          return;
+        }
+        this.connecting = false;
+        this.connected = true;
         this.reconnectAttempt = 0;
+        useAppStore.getState().markConnected(this.id);
         useAppStore.getState().setStatus("");
         this.persistDeferredSecrets(pending);
         this.stripSecrets();
       })
       .catch((err) => {
-        if (this.disposed) return;
+        if (this.disposed || seq !== this.openSeq) return;
+        this.connecting = false;
         const message = String(err);
+        if (this.cancelRequested || classifyFailure(message) === "cancelled") {
+          this.term.writeln(
+            `\r\n\x1b[90m${i18n.t("connection.cancelledByUser")}\x1b[0m`,
+          );
+          useAppStore.getState().markClosed(this.id, { reason: "user" });
+          return;
+        }
         if (retry) {
           // A rejected retry after a drop is usually a credential problem; do
           // not keep replaying the same secret through the rest of the ladder.
@@ -301,13 +370,56 @@ export class TerminalView implements TerminalHandle {
           return;
         }
         this.stripSecrets();
-        useAppStore.getState().setStatus(message, true);
-        this.term.writeln(
-          `\r\n\x1b[31m${i18n.t("terminal.connectFailed", { error: message })}\x1b[0m`,
-        );
-        this.reportHostError(message);
-        this.onSessionClosed();
+        this.reportFailure(message);
       });
+  }
+
+  /** Single funnel for every close event, whether we asked for it or not.
+      The reason decides whether the tab looks broken, merely offline, or was
+      closed on purpose; only failures and unexpected drops retry. */
+  private handleClosed(payload?: ClosedPayload | null) {
+    if (this.disposed) return;
+    this.connecting = false;
+    this.connected = false;
+    window.clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = undefined;
+    const reason = payload?.reason ?? "unknown";
+    const detail = payload?.message?.trim();
+    const cancelled = this.cancelRequested || reason === "user";
+    this.cancelRequested = false;
+    // A cancel already wrote its own line and set the tab state.
+    if (!cancelled) {
+      this.term.writeln(
+        `\r\n\x1b[90m${i18n.t(closeReasonKey(reason))}\x1b[0m`,
+      );
+      if (detail) {
+        this.term.writeln(
+          `\x1b[90m${i18n.t("connection.detail", { message: detail })}\x1b[0m`,
+        );
+      }
+      useAppStore.getState().markClosed(this.id, payload ?? { reason });
+    }
+    if (isExpectedClose(reason) || cancelled) return;
+    if (this.scheduleReconnect()) return;
+    // Only the resumable protocols have a ladder to exhaust, and only a real
+    // failure deserves the red give-up line; a remote EOF on telnet/serial is
+    // simply "disconnected" and waits for a manual reconnect.
+    const resumable =
+      this.pending?.type === "ssh" || this.pending?.type === "sftp";
+    if (resumable || isFailureReason(reason)) {
+      this.reportGiveUp(detail ?? i18n.t(closeReasonKey(reason)));
+    }
+  }
+
+  private reportFailure(message: string) {
+    const kind = classifyFailure(message);
+    useAppStore.getState().setStatus(message, true);
+    useAppStore.getState().markSessionError(this.id, message);
+    this.term.writeln(
+      `\r\n\x1b[31m${i18n.t(`connection.failure.${kind}`)}\x1b[0m` +
+        (message ? `\r\n\x1b[90m${i18n.t("connection.detail", { message })}\x1b[0m` : ""),
+    );
+    this.reportHostError(message);
   }
 
   /** Stores a password or passphrase only after the transport authenticated
@@ -360,6 +472,7 @@ export class TerminalView implements TerminalHandle {
     }
     const delay = RECONNECT_DELAYS_MS[this.reconnectAttempt];
     this.reconnectAttempt += 1;
+    useAppStore.getState().setReconnectAttempt(this.id, this.reconnectAttempt);
     this.term.writeln(
       `\r\n\x1b[90m${i18n.t("terminal.reconnecting", {
         attempt: this.reconnectAttempt,
@@ -369,7 +482,7 @@ export class TerminalView implements TerminalHandle {
     );
     this.reconnectTimer = window.setTimeout(() => {
       this.reconnectTimer = undefined;
-      if (!this.disposed) this.open(pending, true);
+      if (!this.disposed && !this.cancelRequested) this.open(pending, true);
     }, delay);
     return true;
   }
@@ -378,8 +491,8 @@ export class TerminalView implements TerminalHandle {
     this.term.writeln(
       `\r\n\x1b[31m${i18n.t("terminal.reconnectGaveUp", { error })}\x1b[0m`,
     );
+    useAppStore.getState().markSessionError(this.id, error);
     this.reportHostError(error);
-    this.onSessionClosed();
   }
 
   private reportHostError(error: string) {
@@ -876,6 +989,12 @@ export class TerminalView implements TerminalHandle {
     // chunk arriving late); tearing the same terminal down twice throws.
     if (this.disposed) return;
     this.disposed = true;
+    // Invalidate any in-flight connect promise and release a reservation the
+    // panel never got to use; otherwise the id stays held until app exit.
+    this.openSeq += 1;
+    if (this.connecting) api.close(this.kind, this.id).catch(() => {});
+    this.connecting = false;
+    this.connected = false;
     window.clearTimeout(this.keywordTimer);
     window.clearTimeout(this.reconnectTimer);
     this.reconnectTimer = undefined;
