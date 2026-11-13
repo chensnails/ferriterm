@@ -315,6 +315,183 @@
   overflow-x: auto;
 }
 
+/* IP calculator: nine independent modules on a two-column grid. Reuses the
+   island language (geo-card, net-form, net-actions) with a few ipc-* helpers. */
+.ipcalc-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  align-items: start;
+  overflow-y: auto;
+  padding-right: var(--space-1);
+}
+
+.ipc-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.ipc-title {
+  margin: 0;
+  font-size: var(--font-ui);
+  font-weight: 600;
+  color: var(--fg-primary);
+}
+
+.ipc-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.ipc-slash {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ipc-slash-mark {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+}
+
+.ipc-prefix {
+  width: 3em;
+  text-align: center;
+  font-family: var(--font-mono);
+}
+
+.ipc-octets {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.ipc-octet {
+  width: 3.2em;
+  text-align: center;
+  font-family: var(--font-mono);
+}
+
+.ipc-sep {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+}
+
+.ipc-select-field {
+  flex: 1 1 auto;
+}
+
+.ipc-select {
+  flex: 1;
+  min-width: 0;
+  height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: var(--font-ui);
+  font-size: var(--font-ui-sm);
+}
+
+.ipc-select:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.ipc-radio {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ipc-radio legend {
+  padding: 0;
+  margin-bottom: var(--space-1);
+}
+
+.ipc-radio label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-ui-sm);
+  color: var(--fg-primary);
+  cursor: pointer;
+}
+
+.ipc-radio input {
+  accent-color: var(--accent);
+}
+
+.ipc-subnets {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ipc-netlist-btn {
+  height: var(--control-h);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  color: var(--fg-primary);
+  font-size: var(--font-ui-sm);
+  cursor: pointer;
+}
+
+.ipc-netlist-btn:hover {
+  border-color: var(--accent);
+}
+
+.ipc-out {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  background: var(--sub-bg);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  overflow-x: auto;
+}
+
+.ipc-netlist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 12em;
+  overflow-y: auto;
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  background: var(--sub-bg);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+}
+
+.ipc-netlist code {
+  color: var(--fg-primary);
+}
+
+@media (max-width: 760px) {
+  .ipcalc-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Right dock (S4): one card per companion panel. Cards stack vertically and
    both the dock width and each card height are drag-resizable. */
 #dock {

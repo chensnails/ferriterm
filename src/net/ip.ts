@@ -219,3 +219,114 @@ export function describeSubnet(input: string): SubnetReport | string {
     binaryMask: binaryOf(mask, bits),
   };
 }
+
+/* ---------- helpers for the richer IP calculator modules ---------- */
+
+function countLeadingOnes(value: bigint, bits: number): number {
+  let count = 0;
+  for (let shift = bits - 1; shift >= 0; shift -= 1) {
+    if ((value >> BigInt(shift)) & 1n) count += 1;
+    else break;
+  }
+  return count;
+}
+
+/** IPv4 dotted-decimal netmask for a prefix length, or null if out of range. */
+export function netmaskForPrefix(prefix: number): string | null {
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) return null;
+  return formatIpv4(maskOf(prefix, 32));
+}
+
+/** IPv4 hexadecimal netmask (per-octet, uppercase) for a prefix length. */
+export function hexMaskForPrefix(prefix: number): string | null {
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) return null;
+  const mask = maskOf(prefix, 32);
+  return [24, 16, 8, 0]
+    .map((shift) => ((mask >> BigInt(shift)) & 0xffn).toString(16).padStart(2, "0").toUpperCase())
+    .join(".");
+}
+
+/** Prefix length for a contiguous dotted-decimal netmask, or null if invalid. */
+export function prefixForNetmask(mask: string): number | null {
+  const parsed = parseAddress(mask);
+  if (!parsed || parsed.version !== 4) return null;
+  const leading = countLeadingOnes(parsed.value, 32);
+  if (maskOf(leading, 32) !== parsed.value) return null;
+  return leading;
+}
+
+/** Split an IPv4 address into four octets, or null if not a valid IPv4 address. */
+export function ipv4Octets(ip: string): number[] | null {
+  const parsed = parseAddress(ip);
+  if (!parsed || parsed.version !== 4) return null;
+  const value = parsed.value;
+  return [
+    Number((value >> 24n) & 0xffn),
+    Number((value >> 16n) & 0xffn),
+    Number((value >> 8n) & 0xffn),
+    Number(value & 0xffn),
+  ];
+}
+
+/** Dotted-binary form of an IPv4 address, or null when invalid. */
+export function ipv4ToBinary(ip: string): string | null {
+  const octets = ipv4Octets(ip);
+  if (!octets) return null;
+  return octets.map((octet) => octet.toString(2).padStart(8, "0")).join(".");
+}
+
+/** Dotted-hexadecimal form of an IPv4 address, or null when invalid. */
+export function ipv4ToHex(ip: string): string | null {
+  const octets = ipv4Octets(ip);
+  if (!octets) return null;
+  return octets.map((octet) => octet.toString(16).padStart(2, "0").toUpperCase()).join(".");
+}
+
+/** IPv4 address from a 32-bit binary string (dots optional), or null. */
+export function binaryToIpv4(binary: string): string | null {
+  const bits = binary.replace(/[^01]/g, "");
+  if (bits.length !== 32) return null;
+  return formatIpv4(BigInt(`0b${bits}`));
+}
+
+/** IPv4 address from an 8-digit hex string (dots optional), or null. */
+export function hexToIpv4(hex: string): string | null {
+  const digits = hex.replace(/\./g, "").replace(/[^0-9a-fA-F]/g, "");
+  if (digits.length !== 8) return null;
+  return formatIpv4(BigInt(`0x${digits.toLowerCase()}`));
+}
+
+/** Smallest prefix whose block holds at least `hosts` addresses, or null. */
+export function prefixForHostCount(hosts: number): number | null {
+  if (!Number.isInteger(hosts) || hosts < 1) return null;
+  if (hosts > 2 ** 32) return null;
+  const needed = Math.ceil(Math.log2(hosts));
+  return Math.max(0, Math.min(32, 32 - needed));
+}
+
+/** Wildcard (inverse) mask for a dotted-decimal netmask, or null if invalid. */
+export function wildcardForMask(mask: string): string | null {
+  const parsed = parseAddress(mask);
+  if (!parsed || parsed.version !== 4) return null;
+  return formatIpv4(V4_MAX ^ parsed.value);
+}
+
+/** Network / node / broadcast for an IPv4 address and its dotted netmask. */
+export function networkNodeBroadcast(
+  ip: string,
+  mask: string,
+): { network: string; node: string; broadcast: string } | null {
+  const parsedIp = parseAddress(ip);
+  const parsedMask = parseAddress(mask);
+  if (!parsedIp || parsedIp.version !== 4 || !parsedMask || parsedMask.version !== 4) {
+    return null;
+  }
+  const maskValue = parsedMask.value;
+  const network = parsedIp.value & maskValue;
+  const wildcard = V4_MAX ^ maskValue;
+  return {
+    network: formatIpv4(network),
+    node: formatIpv4(parsedIp.value & wildcard),
+    broadcast: formatIpv4(network | wildcard),
+  };
+}

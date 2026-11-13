@@ -1151,11 +1151,16 @@
     },
     "ipcalc": {
       "title": "IP calculator",
-      "hint": "Subnet, mask and usable range for a CIDR block.",
+      "hint": "Nine calculators: CIDR subnets, mask conversion, base conversion and multicast ranges.",
       "input": "CIDR",
       "sample": "Reset",
       "invalidAddress": "That is not a valid IPv4 or IPv6 address.",
       "invalidPrefix": "Prefix length is out of range.",
+      "invalidPair": "The IP address or subnet mask is invalid.",
+      "invalidClass": "This address is not class A, B or C, so it cannot be split by class.",
+      "invalidCount": "Enter a count greater than 0.",
+      "tooManyHosts": "The requested hosts exceed what this network class can hold.",
+      "tooManySubnets": "The requested subnets exceed what this network class can split into.",
       "network": "Network",
       "netmask": "Netmask",
       "wildcard": "Wildcard",
@@ -1168,7 +1173,64 @@
       "addressBits": "Address",
       "networkBits": "Network",
       "maskBits": "Mask",
-      "hintShort": "Accepts IPv4 or IPv6 with an optional /prefix."
+      "hintShort": "Accepts IPv4 or IPv6 with an optional /prefix.",
+      "networkHint": "Shows the network, broadcast, first and last usable addresses for the given network:",
+      "firstUsable": "First usable",
+      "lastUsable": "Last usable",
+      "subnets": "Subnets",
+      "hostsPerNet": "Hosts per network (network and broadcast addresses included)",
+      "listTruncated": "Only the first 256 subnets are shown.",
+      "twoFormatsSep": "or",
+      "modules": {
+        "network": "Network & IP address calculator",
+        "maskFromBits": "Subnet mask from mask bits",
+        "subnetByCount": "IP subnet mask calculator",
+        "base": "IP base converter",
+        "maskMulticast": "Subnet mask from mask bits (multicast)",
+        "maskFromHosts": "Subnet mask from host count",
+        "netNode": "Network / node calculator",
+        "maskConvert": "Subnet mask converter",
+        "wildcard": "Wildcard mask calculator"
+      },
+      "f": {
+        "maskBitsShort": "Mask bits",
+        "decimalMask": "Decimal subnet mask",
+        "hexMask": "Hexadecimal subnet mask",
+        "tcpIp": "TCP/IP address",
+        "netType": "Network type",
+        "subnetIpCount": "Pick the number of subnets",
+        "hostsPerSubnet": "or pick the hosts per network (broadcast included)",
+        "usableCount": "Usable addresses",
+        "totalCount": "Total addresses",
+        "multicastRange": "IP multicast range",
+        "neededAddresses": "Addresses needed",
+        "maskBitsResult": "Mask bits",
+        "node": "Node / host",
+        "wildcardResult": "Wildcard mask",
+        "decimalMaskInput": "Decimal subnet mask",
+        "maskBitsInput": "Mask bits",
+        "maskInput": "Mask",
+        "binary": "Binary TCP/IP address",
+        "hex": "Hexadecimal TCP/IP address",
+        "decimal": "Decimal TCP/IP address",
+        "decimal2": "Decimal TCP/IP address"
+      },
+      "netType": {
+        "none": "Default",
+        "a": "Class A",
+        "b": "Class B",
+        "c": "Class C"
+      },
+      "btn": {
+        "calc": "Calculate",
+        "reset": "Clear & recalc",
+        "clear": "Clear",
+        "netList": "Network list"
+      },
+      "note": {
+        "cidr": "The \"bits\" form of a network mask is also called CIDR (Classless Inter-Domain Routing).",
+        "multicast": "224.0.0.0 is reserved for multicast; its first four bits are fixed to 1110. The control channel uses 224.0.0.0–224.0.0.255; globally scoped (internet-wide) multicast addresses are 224.0.1.0–238.255.255.255; and locally administered multicast addresses are 239.0.0.0–239.255.255.255."
+      }
     },
     "scope": {
       "private": "Private",
