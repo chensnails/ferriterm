@@ -125,10 +125,21 @@ These phases refine the existing baseline; they do not redefine it. Rulings:
   theme-card radii now come from tokens; `::placeholder` no longer applies an
   `0.8` alpha over `--fg-muted` (which dropped its contrast below 4.5:1).
 - **Theme scope.** S1–S4 touch `:root` (shared by all themes) plus the default
-  `dark`/`light` blocks only. The 23 bundled themes inherit the shared rules
+  `dark`/`light` blocks only. The 37 bundled themes inherit the shared rules
   and are not individually rewritten. The retired `one-dark` (a duplicate of
   `atom-one-dark`) is resolved through `normalizeThemeId()` in `theme.ts`, so
   a stored setting from an older build still lands on a real theme.
+- **Theme families.** The 37 bundled themes are grouped in the picker by source:
+  `社区暗色` / `社区亮色` (popular open-source colour schemes — Nord, Dracula,
+  Catppuccin, Tokyo Night, Gruvbox, Rosé Pine, Ayu, Monokai, Solarized, GitHub,
+  Atom One, iTerm2, Termius, Tango, One Half…) and `软件原生` (the first-party
+  baseline + warm/slate originals plus traditional emulator colour tables —
+  Campbell, Campbell PowerShell, Vintage, SecureCRT Solarized Light). Community
+  and emulator schemes keep their upstream ANSI palettes and chrome colours
+  verbatim (same as the long-shipped nord/dracula/etc., which carry their
+  authentic contrast), so a scheme looks exactly as its ecosystem defines it; the
+  stricter 7:1 / 4.5:1 budget in §2.2 is held by the first-party warm/slate
+  themes only.
 - **Three-state kit (S2).** `EmptyState`, `Skeleton`, `LoadingState`,
   `ErrorState` and `Notice` share one rhythm and one accent edge. An empty
   state has a title/description hierarchy; loading uses a spinner plus a

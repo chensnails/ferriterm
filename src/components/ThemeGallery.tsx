@@ -2,8 +2,13 @@ import { useRef, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import type { ImportedTheme } from "../scheme";
 import type { ThemePack } from "../api";
-import { BUILTIN_THEMES, type Theme } from "../theme";
+import { BUILTIN_THEMES, type Theme, type ThemeCategory, type BuiltinTheme } from "../theme";
 import { CheckIcon } from "./icons";
+
+// The picker orders categories as: community dark, community light, then the
+// first-party baseline and emulator colour tables. Within a category, themes
+// keep their order in BUILTIN_THEMES.
+const CATEGORY_ORDER: ThemeCategory[] = ["community-dark", "community-light", "native"];
 
 /**
  * The theme picker as a wall of real swatches instead of a dropdown. Each
@@ -37,6 +42,7 @@ export function ThemeGallery({
     name: string,
     base: string,
     tokens?: Record<string, string>,
+    caption?: string,
   ) => {
     const active = theme === id;
     const previewTheme =
@@ -75,23 +81,56 @@ export function ThemeGallery({
               <CheckIcon size={12} />
             </span>
           ) : (
-            <span>{baseLabel(base)}</span>
+            <span>{caption}</span>
           )}
         </span>
       </button>
     );
   };
 
+  const grouped = new Map<ThemeCategory, BuiltinTheme[]>();
+  for (const item of BUILTIN_THEMES) {
+    const list = grouped.get(item.category) ?? [];
+    list.push(item);
+    grouped.set(item.category, list);
+  }
+
+  const hasUserThemes = packs.length > 0 || imported.length > 0;
+
   return (
-    <div className="theme-grid" role="radiogroup" aria-label={t("settings.themeTitle")}>
-      {BUILTIN_THEMES.map((item) =>
-        renderCard(item.id, t(`settings.theme_${item.id}`), item.base),
-      )}
-      {packs.map((pack) =>
-        renderCard(pack.id, pack.name, pack.base, pack.tokens),
-      )}
-      {imported.map((item) =>
-        renderCard(item.id, item.name, item.base, item.tokens),
+    <div className="theme-gallery" role="radiogroup" aria-label={t("settings.themeTitle")}>
+      {CATEGORY_ORDER.map((cat) => {
+        const items = grouped.get(cat);
+        if (!items || items.length === 0) return null;
+        return (
+          <section className="theme-category" key={cat} aria-label={t(`settings.theme_cat_${cat}`)}>
+            <div className="theme-category-title">
+              <span>{t(`settings.theme_cat_${cat}`)}</span>
+              <span className="theme-category-count">{items.length}</span>
+            </div>
+            <div className="theme-grid">
+              {items.map((item) =>
+                renderCard(
+                  item.id,
+                  t(`settings.theme_${item.id}`),
+                  item.base,
+                  undefined,
+                  t(`settings.theme_cat_${cat}`),
+                ),
+              )}
+            </div>
+          </section>
+        );
+      })}
+      {hasUserThemes && (
+        <div className="theme-grid">
+          {packs.map((pack) =>
+            renderCard(pack.id, pack.name, pack.base, pack.tokens, baseLabel(pack.base)),
+          )}
+          {imported.map((item) =>
+            renderCard(item.id, item.name, item.base, item.tokens, baseLabel(item.base)),
+          )}
+        </div>
       )}
     </div>
   );

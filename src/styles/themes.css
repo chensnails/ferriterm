@@ -3,6 +3,38 @@
    `data-theme`, so its tokens (and `color-scheme`) resolve from the same blocks
    the app uses — no duplicated colour tables. The card chrome itself stays in
    the app theme so selection stays readable. */
+.theme-gallery {
+  display: flex;
+  flex-direction: column;
+}
+
+.theme-category {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-5);
+}
+
+.theme-category:first-child {
+  margin-top: 0;
+}
+
+.theme-category-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--fg-muted);
+  letter-spacing: 0.02em;
+}
+
+.theme-category-count {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  opacity: 0.8;
+}
+
 .theme-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
@@ -106,7 +138,7 @@
   color: var(--accent);
 }
 
-.settings-pane.searching .theme-grid {
+.settings-pane.searching .theme-gallery {
   display: none;
 }
 

@@ -666,3 +666,395 @@
   --tag-pink: #ec6cb0;
   --tag-gray: #7d8590;
 }
+
+/* Monokai — classic Sublime palette, vivid accents on near-black. */
+[data-theme="monokai"] {
+  --bg-base: #272822;
+  --bg-panel: #1E1F1C;
+  --bg-elevated: #34352E;
+  --border: #45463B;
+  --fg-primary: #F8F8F2;
+  --fg-muted: #A59F87;
+  --fg-on-accent: #272822;
+  --accent: #66D9EF;
+  --accent-hover: #8CE0F5;
+  --danger: #F92672;
+  --warning: #F4BF75;
+  --success: #A6E22E;
+  --selection: #49483E88;
+  --overlay: rgb(0 0 0 / 0.5);
+  --shadow-panel: 0 12px 32px rgb(0 0 0 / 0.5);
+  --tag-blue: #66D9EF;
+  --tag-green: #A6E22E;
+  --tag-amber: #FD971F;
+  --tag-red: #F92672;
+  --tag-purple: #AE81FF;
+  --tag-cyan: #A1EFE4;
+  --tag-pink: #FF6188;
+  --tag-gray: #75715E;
+  --color-scheme: dark;
+}
+
+/* Catppuccin Latte — the light member of the Catppuccin family. */
+[data-theme="catppuccin-latte"] {
+  --bg-base: #EFF1F5;
+  --bg-panel: #E6E9EF;
+  --bg-elevated: #FBFCFE;
+  --border: #D5DAE2;
+  --fg-primary: #4C4F69;
+  --fg-muted: #6C6F85;
+  --fg-on-accent: #FFFFFF;
+  --accent: #1E66F5;
+  --accent-hover: #1A5BD6;
+  --danger: #D20F39;
+  --warning: #DF8E1D;
+  --success: #1E7A33;
+  --selection: #1E66F533;
+  --overlay: rgb(76 79 105 / 0.18);
+  --shadow-panel: 0 12px 32px rgb(76 79 105 / 0.16);
+  --tag-blue: #1E66F5;
+  --tag-green: #1E7A33;
+  --tag-amber: #9A5B00;
+  --tag-red: #D20F39;
+  --tag-purple: #8839EF;
+  --tag-cyan: #179299;
+  --tag-pink: #EA76CB;
+  --tag-gray: #6C6F85;
+  --color-scheme: light;
+}
+
+/* Gruvbox Light — warm retro terminal scheme. */
+[data-theme="gruvbox-light"] {
+  --bg-base: #FBF1D5;
+  --bg-panel: #EBDBB2;
+  --bg-elevated: #FDF8E8;
+  --border: #D8C99A;
+  --fg-primary: #282828;
+  --fg-muted: #7C6F64;
+  --fg-on-accent: #FBF1D5;
+  --accent: #458588;
+  --accent-hover: #83A598;
+  --danger: #9D0006;
+  --warning: #9C5A00;
+  --success: #4D5A00;
+  --selection: #45858833;
+  --overlay: rgb(60 50 30 / 0.18);
+  --shadow-panel: 0 12px 32px rgb(60 50 30 / 0.16);
+  --tag-blue: #076678;
+  --tag-green: #4D5A00;
+  --tag-amber: #9C5A00;
+  --tag-red: #9D0006;
+  --tag-purple: #6B2F6B;
+  --tag-cyan: #0F6E6E;
+  --tag-pink: #8F3F5A;
+  --tag-gray: #7C6F64;
+  --color-scheme: light;
+}
+
+/* Ayu Light — soft, minimal light editor theme. */
+[data-theme="ayu-light"] {
+  --bg-base: #FAFAFA;
+  --bg-panel: #F0F0F2;
+  --bg-elevated: #E8E8EC;
+  --border: #DCDCE1;
+  --fg-primary: #5C6773;
+  --fg-muted: #8B8D98;
+  --fg-on-accent: #FFFFFF;
+  --accent: #2E7DE9;
+  --accent-hover: #1E6FD8;
+  --danger: #D64550;
+  --warning: #B5760F;
+  --success: #2E8B57;
+  --selection: #2E7DE933;
+  --overlay: rgb(60 60 70 / 0.16);
+  --shadow-panel: 0 12px 32px rgb(40 50 70 / 0.14);
+  --tag-blue: #2E7DE9;
+  --tag-green: #2E8B57;
+  --tag-amber: #B5760F;
+  --tag-red: #D64550;
+  --tag-purple: #7A4FD0;
+  --tag-cyan: #0E9BB0;
+  --tag-pink: #D23A86;
+  --tag-gray: #8B8D98;
+  --color-scheme: light;
+}
+
+/* Rose Pine Dawn — light sibling of Rose Pine. */
+[data-theme="rose-pine-dawn"] {
+  --bg-base: #FAF4ED;
+  --bg-panel: #F2EBE2;
+  --bg-elevated: #FFFFFF;
+  --border: #E6DCD0;
+  --fg-primary: #575279;
+  --fg-muted: #898AA6;
+  --fg-on-accent: #FAF4ED;
+  --accent: #575279;
+  --accent-hover: #3E3A5C;
+  --danger: #8C3A56;
+  --warning: #9C6B1E;
+  --success: #3F7A63;
+  --selection: #57527933;
+  --overlay: rgb(87 82 121 / 0.16);
+  --shadow-panel: 0 12px 32px rgb(87 82 121 / 0.14);
+  --tag-blue: #575279;
+  --tag-green: #3F7A63;
+  --tag-amber: #9C6B1E;
+  --tag-red: #8C3A56;
+  --tag-purple: #6E5A9E;
+  --tag-cyan: #2F6E6E;
+  --tag-pink: #9C4A6B;
+  --tag-gray: #898AA6;
+  --color-scheme: light;
+}
+
+/* Tokyo Night Day — light sibling of Tokyo Night. */
+[data-theme="tokyo-night-day"] {
+  --bg-base: #E1E2E7;
+  --bg-panel: #D5D7DE;
+  --bg-elevated: #EDEEF2;
+  --border: #C4C7CF;
+  --fg-primary: #3760BF;
+  --fg-muted: #6A7393;
+  --fg-on-accent: #FFFFFF;
+  --accent: #2E7DE9;
+  --accent-hover: #1E6FD8;
+  --danger: #B52A53;
+  --warning: #976500;
+  --success: #0A7A45;
+  --selection: #2E7DE933;
+  --overlay: rgb(55 60 100 / 0.16);
+  --shadow-panel: 0 12px 32px rgb(55 60 100 / 0.14);
+  --tag-blue: #2E7DE9;
+  --tag-green: #0A7A45;
+  --tag-amber: #976500;
+  --tag-red: #B52A53;
+  --tag-purple: #6A3FC0;
+  --tag-cyan: #0A6E7E;
+  --tag-pink: #9C3A6B;
+  --tag-gray: #6A7393;
+  --color-scheme: light;
+}
+
+/* One Half Light — balanced light desaturated palette. */
+[data-theme="one-half-light"] {
+  --bg-base: #FAFAFA;
+  --bg-panel: #F0F0F2;
+  --bg-elevated: #E8E8EC;
+  --border: #DCDCE1;
+  --fg-primary: #383A42;
+  --fg-muted: #8B8D98;
+  --fg-on-accent: #FFFFFF;
+  --accent: #2E5FCF;
+  --accent-hover: #244FB0;
+  --danger: #A54242;
+  --warning: #976500;
+  --success: #4F6B23;
+  --selection: #2E5FCF33;
+  --overlay: rgb(50 50 60 / 0.16);
+  --shadow-panel: 0 12px 32px rgb(40 50 70 / 0.14);
+  --tag-blue: #2E5FCF;
+  --tag-green: #4F6B23;
+  --tag-amber: #976500;
+  --tag-red: #A54242;
+  --tag-purple: #6E4FA0;
+  --tag-cyan: #0F6E6E;
+  --tag-pink: #9C3A6B;
+  --tag-gray: #8B8D98;
+  --color-scheme: light;
+}
+
+/* Tango Light — GNOME Tango colour scheme (light). */
+[data-theme="tango-light"] {
+  --bg-base: #FFFFFF;
+  --bg-panel: #F2F2F2;
+  --bg-elevated: #E8E8E8;
+  --border: #D0D0D0;
+  --fg-primary: #2E3436;
+  --fg-muted: #5C6264;
+  --fg-on-accent: #FFFFFF;
+  --accent: #3465A4;
+  --accent-hover: #2A5388;
+  --danger: #B00000;
+  --warning: #8A7000;
+  --success: #2E6B04;
+  --selection: #3465A433;
+  --overlay: rgb(46 52 54 / 0.16);
+  --shadow-panel: 0 12px 32px rgb(46 52 54 / 0.14);
+  --tag-blue: #3465A4;
+  --tag-green: #2E6B04;
+  --tag-amber: #8A7000;
+  --tag-red: #B00000;
+  --tag-purple: #6E4A75;
+  --tag-cyan: #0F6E6E;
+  --tag-pink: #9C3A6B;
+  --tag-gray: #5C6264;
+  --color-scheme: light;
+}
+
+/* SecureCRT Solarized Light — Solarized Light as shipped by SecureCRT. */
+[data-theme="securecrt-solarized-light"] {
+  --bg-base: #FDF6E3;
+  --bg-panel: #EEE8D5;
+  --bg-elevated: #FFFAF0;
+  --border: #D8D2C0;
+  --fg-primary: #556B72;
+  --fg-muted: #5C6A6A;
+  --fg-on-accent: #FDF6E3;
+  --accent: #1D6CA2;
+  --accent-hover: #1E736C;
+  --danger: #C72421;
+  --warning: #826200;
+  --success: #5F6D00;
+  --selection: #B3D4E088;
+  --overlay: rgb(0 0 0 / 0.45);
+  --shadow-panel: 0 12px 32px rgb(88 110 117 / 0.18);
+  --tag-blue: #0F62FF;
+  --tag-green: #16803D;
+  --tag-amber: #9B6406;
+  --tag-red: #DF1313;
+  --tag-purple: #9937F6;
+  --tag-cyan: #047A8F;
+  --tag-pink: #D51675;
+  --tag-gray: #65708A;
+  --color-scheme: light;
+}
+
+/* Campbell — Windows Console default colour table. */
+[data-theme="campbell"] {
+  --bg-base: #0C0C0C;
+  --bg-panel: #161616;
+  --bg-elevated: #222222;
+  --border: #383838;
+  --fg-primary: #CCCCCC;
+  --fg-muted: #969696;
+  --fg-on-accent: #0C0C0C;
+  --accent: #3A96DD;
+  --accent-hover: #5AADEA;
+  --danger: #E74856;
+  --warning: #C19C00;
+  --success: #16C60C;
+  --selection: #3A96DD33;
+  --overlay: rgb(0 0 0 / 0.55);
+  --shadow-panel: 0 12px 32px rgb(0 0 0 / 0.5);
+  --tag-blue: #3B78FF;
+  --tag-green: #16C60C;
+  --tag-amber: #C19C00;
+  --tag-red: #E74856;
+  --tag-purple: #B4009E;
+  --tag-cyan: #61D6D6;
+  --tag-pink: #E86FB0;
+  --tag-gray: #767676;
+  --color-scheme: dark;
+}
+
+/* Campbell PowerShell — Campbell on the PowerShell blue canvas. */
+[data-theme="campbell-powershell"] {
+  --bg-base: #012456;
+  --bg-panel: #06285E;
+  --bg-elevated: #0A3A7A;
+  --border: #1B4B8F;
+  --fg-primary: #E8E8E8;
+  --fg-muted: #A9C2E0;
+  --fg-on-accent: #012456;
+  --accent: #4FC3F7;
+  --accent-hover: #76D2F8;
+  --danger: #FF6B73;
+  --warning: #F9C54A;
+  --success: #4CE06A;
+  --selection: #4FC3F733;
+  --overlay: rgb(0 0 0 / 0.55);
+  --shadow-panel: 0 12px 32px rgb(0 0 0 / 0.5);
+  --tag-blue: #6CB6FF;
+  --tag-green: #4CE06A;
+  --tag-amber: #F9C54A;
+  --tag-red: #FF6B73;
+  --tag-purple: #C77DFF;
+  --tag-cyan: #5FD6E6;
+  --tag-pink: #FF8FC0;
+  --tag-gray: #A9C2E0;
+  --color-scheme: dark;
+}
+
+/* Vintage — legacy Windows console 16-colour table. */
+[data-theme="vintage"] {
+  --bg-base: #000000;
+  --bg-panel: #0A0A0A;
+  --bg-elevated: #161616;
+  --border: #303030;
+  --fg-primary: #C0C0C0;
+  --fg-muted: #949494;
+  --fg-on-accent: #000000;
+  --accent: #2E9BFF;
+  --accent-hover: #59B0FF;
+  --danger: #FF5555;
+  --warning: #E0C000;
+  --success: #4CE04C;
+  --selection: #2E9BFF33;
+  --overlay: rgb(0 0 0 / 0.6);
+  --shadow-panel: 0 12px 32px rgb(0 0 0 / 0.5);
+  --tag-blue: #4F9BFF;
+  --tag-green: #4CE04C;
+  --tag-amber: #E0C000;
+  --tag-red: #FF5555;
+  --tag-purple: #C77DFF;
+  --tag-cyan: #5FD6E6;
+  --tag-pink: #FF8FC0;
+  --tag-gray: #949494;
+  --color-scheme: dark;
+}
+
+/* One Half Dark — balanced dark desaturated palette. */
+[data-theme="one-half-dark"] {
+  --bg-base: #282A2E;
+  --bg-panel: #1E2024;
+  --bg-elevated: #34373C;
+  --border: #3D4047;
+  --fg-primary: #DCE0E8;
+  --fg-muted: #9BA0AA;
+  --fg-on-accent: #282A2E;
+  --accent: #81A2BE;
+  --accent-hover: #9DB8D0;
+  --danger: #EC6A5F;
+  --warning: #F0C674;
+  --success: #B9CA4A;
+  --selection: #81A2BE33;
+  --overlay: rgb(0 0 0 / 0.5);
+  --shadow-panel: 0 12px 32px rgb(0 0 0 / 0.5);
+  --tag-blue: #81A2BE;
+  --tag-green: #B9CA4A;
+  --tag-amber: #F0C674;
+  --tag-red: #EC6A5F;
+  --tag-purple: #B294BB;
+  --tag-cyan: #8ABEB7;
+  --tag-pink: #E58FB4;
+  --tag-gray: #9BA0AA;
+  --color-scheme: dark;
+}
+
+/* Tango Dark — GNOME Tango colour scheme (dark). */
+[data-theme="tango-dark"] {
+  --bg-base: #2E3436;
+  --bg-panel: #23282A;
+  --bg-elevated: #3A4144;
+  --border: #4A5254;
+  --fg-primary: #D3D7CF;
+  --fg-muted: #A7ADA9;
+  --fg-on-accent: #2E3436;
+  --accent: #729FCF;
+  --accent-hover: #8FB8DE;
+  --danger: #EF2929;
+  --warning: #C4A000;
+  --success: #8AE234;
+  --selection: #729FCF33;
+  --overlay: rgb(0 0 0 / 0.5);
+  --shadow-panel: 0 12px 32px rgb(0 0 0 / 0.5);
+  --tag-blue: #729FCF;
+  --tag-green: #8AE234;
+  --tag-amber: #FCE94F;
+  --tag-red: #EF2929;
+  --tag-purple: #AD7FA8;
+  --tag-cyan: #34E2E2;
+  --tag-pink: #E58FB4;
+  --tag-gray: #A7ADA9;
+  --color-scheme: dark;
+}
