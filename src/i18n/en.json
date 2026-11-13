@@ -372,6 +372,7 @@
     "theme_warm-taupe": "Warm Taupe",
     "theme_warm-graphite": "Warm Graphite",
     "theme_warm-pine": "Warm Pine",
+    "theme_slate-mono": "Slate Mono",
     "fontSize": "Font size",
     "scrollback": "Scrollback lines",
     "scrollbackHint": "Number of lines kept in terminal history.",

@@ -609,6 +609,38 @@
   --tag-gray: #a3a795;
 }
 
+/* Neutral charcoal. Sampled from a flat grey UI: one surface ramp
+   (#141414 base -> #1f1f1f panel -> #262626 elevated) with a #3b3b3b hairline,
+   and an accent that is deliberately achromatic so selection, focus and the
+   primary button read as "brighter surface", not as a second colour. Every
+   pair is documented in docs/UI_SPEC.md 2.2. */
+[data-theme="slate-mono"] {
+  --bg-base: #141414;
+  --bg-panel: #1f1f1f;
+  --bg-elevated: #262626;
+  --border: #3b3b3b;
+  --fg-primary: #e6e6e6;
+  --fg-muted: #8f8f8f;
+  --fg-on-accent: #141414;
+  --accent: #e0e0e0;
+  --accent-hover: #f4f4f4;
+  --danger: #f07a72;
+  --warning: #d9a441;
+  --success: #63b57f;
+  --selection: #e0e0e033;
+  --overlay: rgb(0 0 0 / 0.6);
+  --shadow-panel: 0 12px 32px rgb(0 0 0 / 0.55);
+  --tag-blue: #74a5db;
+  --tag-green: #6fbf8f;
+  --tag-amber: #d9a441;
+  --tag-red: #ef7a76;
+  --tag-purple: #b795e0;
+  --tag-cyan: #5fbfb8;
+  --tag-pink: #e08eb0;
+  --tag-gray: #8f8f8f;
+  color-scheme: dark;
+}
+
 [data-theme="github-dark"] {
   --bg-base: #0d1117;
   --bg-panel: #161b22;

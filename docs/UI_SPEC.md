@@ -125,7 +125,7 @@ These phases refine the existing baseline; they do not redefine it. Rulings:
   theme-card radii now come from tokens; `::placeholder` no longer applies an
   `0.8` alpha over `--fg-muted` (which dropped its contrast below 4.5:1).
 - **Theme scope.** S1–S4 touch `:root` (shared by all themes) plus the default
-  `dark`/`light` blocks only. The 22 bundled themes inherit the shared rules
+  `dark`/`light` blocks only. The 23 bundled themes inherit the shared rules
   and are not individually rewritten. The retired `one-dark` (a duplicate of
   `atom-one-dark`) is resolved through `normalizeThemeId()` in `theme.ts`, so
   a stored setting from an older build still lands on a real theme.
@@ -173,6 +173,14 @@ The terminal palettes keep the same luminance bands (no ANSI colour below
 4.5:1 on `--bg-base`), so `ls --color` output stays legible next to the chrome.
 These four are additive: the 18 inherited themes still ship their upstream
 palettes unchanged.
+
+The achromatic sibling `slate-mono` follows the same table with one twist: the
+surface ramp is a flat grey (#141414 / #1f1f1f / #262626 over a #3b3b3b
+hairline) and `--accent` is `#e0e0e0` — a brighter surface instead of a hue, so
+focus rings, the active-tab edge and the primary button gain contrast without
+introducing a second colour. Its terminal palette keeps the same 4.5:1 floor on
+`--bg-base`, so the chrome stays quiet while `ls --color` remains the only
+chromatic content on screen.
 
 ## 3. Component inventory
 

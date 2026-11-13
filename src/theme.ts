@@ -105,6 +105,9 @@ export const BUILTIN_THEMES: BuiltinTheme[] = [
   { id: "warm-taupe", base: "light" },
   { id: "warm-graphite", base: "dark" },
   { id: "warm-pine", base: "dark" },
+  // The flat-grey counterpart: no hue in the chrome at all, so the only
+  // colour on screen is what the terminal prints.
+  { id: "slate-mono", base: "dark" },
 ];
 
 function palette(
@@ -519,6 +522,27 @@ export const BUILTIN_PALETTES: Record<string, TerminalPalette> = {
     "#cbb4e2",
     "#95cfc5",
     "#eeece0",
+  ]),
+  // Achromatic: the chrome carries no hue, so the accent is a brighter surface
+  // rather than a colour. ANSI keeps the same luminance band as the tag row, so
+  // nothing in `ls --color` falls below 4.5:1 on the #141414 terminal surface.
+  "slate-mono": palette("#141414", "#e6e6e6", "#e0e0e0", "#e0e0e033", [
+    "#343434",
+    "#e0776f",
+    "#8fbf7f",
+    "#d8b26a",
+    "#74a5db",
+    "#b795e0",
+    "#6fb8b2",
+    "#c9c9c9",
+    "#858585",
+    "#f28d86",
+    "#a6d193",
+    "#e8c882",
+    "#8fb8e6",
+    "#cbaadf",
+    "#8bccc6",
+    "#f2f2f2",
   ]),
 };
 

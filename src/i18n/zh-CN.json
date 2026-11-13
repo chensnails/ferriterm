@@ -372,6 +372,7 @@
     "theme_warm-taupe": "暖灰褐",
     "theme_warm-graphite": "暖石墨",
     "theme_warm-pine": "暖松灰",
+    "theme_slate-mono": "石板炭灰",
     "fontSize": "字号",
     "scrollback": "回滚行数",
     "scrollbackHint": "终端历史保留的行数。",
