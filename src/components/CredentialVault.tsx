@@ -13,7 +13,7 @@ import { KeyManagerDialog } from "./KeyManagerDialog";
 import { KnownHostsDialog } from "./KnownHostsDialog";
 import { PasswordManagerDialog } from "./PasswordManagerDialog";
 import { SelectSetting } from "./SettingsControls";
-import { DaySeparator, Skeleton } from "./ui";
+import { DaySeparator, Notice, SettingGroup, SettingRow, Skeleton } from "./ui";
 import { UnlockDialog, type VaultAction } from "./UnlockDialog";
 
 const AUTO_LOCK_CHOICES = [0, 5, 15, 30, 60];
@@ -97,46 +97,68 @@ export function CredentialVault() {
 
   return (
     <>
-      <fieldset className="settings-group vault-overview">
-        <legend>{t("vault.overviewTitle")}</legend>
-        {!isTauri && <p className="hint">{t("vault.desktopOnly")}</p>}
-        <div className="vault-status-line">
-          <span
-            className={
-              masterMode
-                ? status?.locked
-                  ? "badge warn"
-                  : "badge ok"
-                : "badge ok"
-            }
-          >
-            {masterMode
-              ? status?.locked
-                ? t("vault.stateLocked")
-                : t("vault.stateUnlocked")
-              : t("vault.stateLocal")}
-          </span>
-          <span className="hint">
-            {t(masterMode ? "vault.modeMaster" : "vault.modeLocal")}
-          </span>
-        </div>
-        <p className="hint">{t("vault.entriesCount", { count: status?.entries ?? 0 })}</p>
-        <div className="plugin-actions">
-          {masterMode && status?.locked && (
-            <button type="button" className="primary" onClick={() => setAction("unlock")}>
-              {t("vault.action.unlock")}
-            </button>
-          )}
-          {masterMode && !status?.locked && (
-            <button type="button" onClick={() => void lock()}>
-              {t("vault.lock")}
-            </button>
-          )}
-        </div>
-      </fieldset>
+      {/* Feedback belongs at the top of the pane: the action that produced it
+          can be anywhere in a long list, and a message appended after the audit
+          log used to land off-screen. */}
+      {error && (
+        <Notice tone="danger" className="vault-feedback">
+          {error}
+        </Notice>
+      )}
+      {message && !error && (
+        <Notice className="vault-feedback">{message}</Notice>
+      )}
 
-      <fieldset className="settings-group">
-        <legend>{t("vault.securityTitle")}</legend>
+      <SettingGroup title={t("vault.overviewTitle")}>
+        {!isTauri && (
+          <p className="ui-setting-group-hint">{t("vault.desktopOnly")}</p>
+        )}
+        <SettingRow
+          title={
+            <span className="vault-state">
+              <span
+                className={
+                  masterMode
+                    ? status?.locked
+                      ? "badge warn"
+                      : "badge ok"
+                    : "badge ok"
+                }
+              >
+                {masterMode
+                  ? status?.locked
+                    ? t("vault.stateLocked")
+                    : t("vault.stateUnlocked")
+                  : t("vault.stateLocal")}
+              </span>
+            </span>
+          }
+          hint={t(masterMode ? "vault.modeMaster" : "vault.modeLocal")}
+        >
+          <span className="vault-count">
+            {t("vault.entriesCount", { count: status?.entries ?? 0 })}
+          </span>
+        </SettingRow>
+        {masterMode && (
+          <div className="plugin-actions">
+            {status?.locked ? (
+              <button
+                type="button"
+                className="primary"
+                onClick={() => setAction("unlock")}
+              >
+                {t("vault.action.unlock")}
+              </button>
+            ) : (
+              <button type="button" onClick={() => void lock()}>
+                {t("vault.lock")}
+              </button>
+            )}
+          </div>
+        )}
+      </SettingGroup>
+
+      <SettingGroup title={t("vault.securityTitle")}>
         <div className="plugin-actions">
           <button
             type="button"
@@ -154,7 +176,9 @@ export function CredentialVault() {
             </button>
           )}
         </div>
-        {!masterMode && <p className="hint">{t("vault.masterHint")}</p>}
+        {!masterMode && (
+          <p className="ui-setting-group-hint">{t("vault.masterHint")}</p>
+        )}
         <SelectSetting
           title={t("vault.autoLock")}
           hint={t("vault.autoLockHint")}
@@ -169,10 +193,9 @@ export function CredentialVault() {
                 : t("vault.autoLockMinutes", { count: value }),
           }))}
         />
-      </fieldset>
+      </SettingGroup>
 
-      <fieldset className="settings-group">
-        <legend>{t("vault.keysSectionTitle")}</legend>
+      <SettingGroup title={t("vault.keysSectionTitle")}>
         <div className="plugin-actions">
           <button type="button" onClick={() => setKeyManagerOpen(true)}>
             {t("keys.manage")}
@@ -184,63 +207,71 @@ export function CredentialVault() {
             {t("knownHosts.manage")}
           </button>
         </div>
-      </fieldset>
+      </SettingGroup>
 
-      <fieldset className="settings-group">
-        <legend>{t("vault.libraryTitle")}</legend>
+      <SettingGroup title={t("vault.libraryTitle")}>
         {entries.length === 0 ? (
-          <p className="hint">{t("vault.entriesEmpty")}</p>
+          <p className="ui-setting-group-hint">{t("vault.entriesEmpty")}</p>
         ) : (
-          <>
-            <ul className="plugin-list">
-              {entries.map((entry) => (
-                <li key={entry.secretRef} className="plugin-row">
-                  <span className="plugin-name">
-                    {entry.label || entry.secretRef}
-                  </span>
-                  <span className="plugin-kind">{entry.kind}</span>
-                  <button
-                    type="button"
-                    className="link-btn danger"
-                    onClick={() => void deleteEntry(entry)}
-                  >
-                    {t("common.delete")}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {confirmingClear ? (
-              <div className="plugin-actions">
-                <button type="button" className="danger" onClick={() => void clearEntries()}>
-                  {t("vault.clearConfirm")}
+          <ul className="vault-list">
+            {entries.map((entry) => (
+              <li
+                key={entry.secretRef}
+                className="vault-row"
+                title={entry.secretRef}
+              >
+                <span className="vault-row-name">
+                  {entry.label || entry.secretRef}
+                </span>
+                <span className="vault-row-kind">
+                  {t(`vault.kind.${entry.kind}`, { defaultValue: entry.kind })}
+                </span>
+                <button
+                  type="button"
+                  className="link-btn danger vault-row-action"
+                  onClick={() => void deleteEntry(entry)}
+                >
+                  {t("common.delete")}
                 </button>
-                <button type="button" onClick={() => setConfirmingClear(false)}>
-                  {t("common.cancel")}
-                </button>
-              </div>
-            ) : (
-              <div className="plugin-actions">
-                <button type="button" onClick={() => setConfirmingClear(true)}>
-                  {t("vault.clearAll")}
-                </button>
-              </div>
-            )}
-          </>
+              </li>
+            ))}
+          </ul>
         )}
-        {masterMode && (
-          <div className="plugin-actions">
-            <button type="button" className="danger" onClick={() => setAction("reset")}>
+        <div className="plugin-actions">
+          {confirmingClear ? (
+            <>
+              <button
+                type="button"
+                className="danger"
+                onClick={() => void clearEntries()}
+              >
+                {t("vault.clearConfirm")}
+              </button>
+              <button type="button" onClick={() => setConfirmingClear(false)}>
+                {t("common.cancel")}
+              </button>
+            </>
+          ) : (
+            <button type="button" onClick={() => setConfirmingClear(true)}>
+              {t("vault.clearAll")}
+            </button>
+          )}
+          {masterMode && (
+            <button
+              type="button"
+              className="danger"
+              onClick={() => setAction("reset")}
+            >
               {t("vault.action.reset")}
             </button>
-          </div>
-        )}
-        <p className="hint">{t("vault.resetHint")}</p>
-      </fieldset>
+          )}
+        </div>
+        <p className="ui-setting-group-hint">{t("vault.resetHint")}</p>
+      </SettingGroup>
 
-      <fieldset className="settings-group">
-        <legend>{t("vault.auditTitle")}</legend>
+      <SettingGroup title={t("vault.auditTitle")}>
         {audit.length === 0 ? (
-          <p className="hint">{t("vault.auditEmpty")}</p>
+          <p className="ui-setting-group-hint">{t("vault.auditEmpty")}</p>
         ) : (
           <ul className="vault-audit">
             {groupByDay(audit, (record) => parseStamp(record.at)).map(
@@ -249,7 +280,11 @@ export function CredentialVault() {
                   <DaySeparator
                     as="li"
                     sticky
-                    label={group.key === "unknown" ? t("time.unknownDay") : dayLabel(group.date)}
+                    label={
+                      group.key === "unknown"
+                        ? t("time.unknownDay")
+                        : dayLabel(group.date)
+                    }
                     count={t("time.dayCount", { count: group.items.length })}
                   />
                   {group.items.map((record) => {
@@ -281,14 +316,7 @@ export function CredentialVault() {
             {t("knownHosts.refresh")}
           </button>
         </div>
-      </fieldset>
-
-      {message && <p className="hint sync-message">{message}</p>}
-      {error && (
-        <p className="error-text" role="alert">
-          {error}
-        </p>
-      )}
+      </SettingGroup>
 
       {action && (
         <UnlockDialog mode={action} onClose={() => setAction(null)} onDone={finish} />

@@ -330,9 +330,11 @@ label.sync-action {
 
 /* Inside a settings pane an action row keeps a gutter from the row above, but
    only sideways: vertical padding made every section that ends with buttons sit
-   further from the next title than one that ends with a hint. */
+   further from the next title than one that ends with a hint. The horizontal
+   inset is gone too — buttons now start on the same left edge as the heading
+   and the rows above them. */
 .settings-pane .plugin-actions {
-  padding: 0 var(--space-1);
+  padding: 0;
 }
 
 /* Action rows carry one button material. These used to fall through to the UA

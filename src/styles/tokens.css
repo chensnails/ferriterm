@@ -496,6 +496,119 @@
   --tag-gray: #90949d;
 }
 
+/* ---- Warm grey family ------------------------------------------------
+   One palette temperature, four moods: the surfaces stay in a warm neutral
+   range (luminance 0.01–0.87) and only the accent, the danger/success pair and
+   the tag row change. Every pair below is documented in docs/UI_SPEC.md §2.2:
+   body text ≥ 12:1, secondary text ≥ 4.5:1 against both --bg-base and
+   --bg-elevated, accent ≥ 4.5:1 against --bg-panel and ≥ 4.5:1 for
+   --fg-on-accent on top of it. */
+[data-theme="warm-linen"] {
+  --bg-base: #f3efe8;
+  --bg-panel: #fbf8f3;
+  --bg-elevated: #eae4da;
+  --border: #d8cfc1;
+  --fg-primary: #2a2521;
+  --fg-muted: #6b6259;
+  --fg-on-accent: #ffffff;
+  --accent: #a3542a;
+  --accent-hover: #8a4522;
+  --danger: #b3261e;
+  --warning: #8a5a00;
+  --success: #47661f;
+  --selection: #a3542a33;
+  --overlay: rgb(38 30 24 / 0.42);
+  --shadow-panel: 0 12px 32px rgb(60 44 30 / 0.18);
+  --tag-blue: #2f5f9c;
+  --tag-green: #3f6b21;
+  --tag-amber: #8a5a00;
+  --tag-red: #a8231b;
+  --tag-purple: #7a4687;
+  --tag-cyan: #2b6560;
+  --tag-pink: #9c3a68;
+  --tag-gray: #6b6259;
+  color-scheme: light;
+}
+
+[data-theme="warm-taupe"] {
+  --bg-base: #e7e1d7;
+  --bg-panel: #f4efe7;
+  --bg-elevated: #dcd4c7;
+  --border: #c6bbaa;
+  --fg-primary: #26221d;
+  --fg-muted: #5f574e;
+  --fg-on-accent: #ffffff;
+  --accent: #2b6560;
+  --accent-hover: #234f4b;
+  --danger: #a92a20;
+  --warning: #7d5300;
+  --success: #43601d;
+  --selection: #2b656033;
+  --overlay: rgb(32 26 20 / 0.44);
+  --shadow-panel: 0 12px 32px rgb(60 44 30 / 0.2);
+  --tag-blue: #2a5a94;
+  --tag-green: #3b6520;
+  --tag-amber: #7d5300;
+  --tag-red: #9c221a;
+  --tag-purple: #74407f;
+  --tag-cyan: #256167;
+  --tag-pink: #93365f;
+  --tag-gray: #5f574e;
+  color-scheme: light;
+}
+
+[data-theme="warm-graphite"] {
+  --bg-base: #1b1917;
+  --bg-panel: #221f1c;
+  --bg-elevated: #2b2723;
+  --border: #3b352f;
+  --fg-primary: #e7ded3;
+  --fg-muted: #a89d90;
+  --fg-on-accent: #1b1917;
+  --accent: #e0913f;
+  --accent-hover: #eda759;
+  --danger: #f0736b;
+  --warning: #e6b45c;
+  --success: #9dbe72;
+  --selection: #e0913f33;
+  --overlay: rgb(0 0 0 / 0.55);
+  --shadow-panel: 0 12px 32px rgb(0 0 0 / 0.5);
+  --tag-blue: #7fa8d9;
+  --tag-green: #9dbe72;
+  --tag-amber: #e6b45c;
+  --tag-red: #ef8377;
+  --tag-purple: #c39ae0;
+  --tag-cyan: #6fbdb6;
+  --tag-pink: #e08eb0;
+  --tag-gray: #a89d90;
+}
+
+[data-theme="warm-pine"] {
+  --bg-base: #191c18;
+  --bg-panel: #1f231e;
+  --bg-elevated: #272c25;
+  --border: #353c31;
+  --fg-primary: #e4e3d7;
+  --fg-muted: #a3a795;
+  --fg-on-accent: #191c18;
+  --accent: #9dbb82;
+  --accent-hover: #b3d098;
+  --danger: #e88379;
+  --warning: #ddb768;
+  --success: #9dbb82;
+  --selection: #9dbb8233;
+  --overlay: rgb(0 0 0 / 0.55);
+  --shadow-panel: 0 12px 32px rgb(0 0 0 / 0.5);
+  --tag-blue: #86a9cf;
+  --tag-green: #9dbb82;
+  --tag-amber: #ddb768;
+  --tag-red: #e88379;
+  --tag-purple: #bda2d6;
+  --tag-cyan: #7fbdb3;
+  --tag-pink: #d79cb4;
+  --tag-gray: #a3a795;
+}
+
 [data-theme="github-dark"] {
   --bg-base: #0d1117;
   --bg-panel: #161b22;

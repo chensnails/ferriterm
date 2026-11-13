@@ -125,7 +125,7 @@ These phases refine the existing baseline; they do not redefine it. Rulings:
   theme-card radii now come from tokens; `::placeholder` no longer applies an
   `0.8` alpha over `--fg-muted` (which dropped its contrast below 4.5:1).
 - **Theme scope.** S1–S4 touch `:root` (shared by all themes) plus the default
-  `dark`/`light` blocks only. The 18 bundled themes inherit the shared rules
+  `dark`/`light` blocks only. The 22 bundled themes inherit the shared rules
   and are not individually rewritten. The retired `one-dark` (a duplicate of
   `atom-one-dark`) is resolved through `normalizeThemeId()` in `theme.ts`, so
   a stored setting from an older build still lands on a real theme.
@@ -152,6 +152,27 @@ These phases refine the existing baseline; they do not redefine it. Rulings:
   out of compact panes. Verified by capture at 1518×1047, 1100×800, 860×700
   and 660×620 physical px: the 1080/860/720/620/560/440 tiers degrade the
   status bar and settings nav without overlap or clipping.
+
+### 2.2 Warm grey family
+
+Four themes — `warm-linen`, `warm-taupe` (light), `warm-graphite`, `warm-pine`
+(dark) — ride one warm neutral surface ramp and differ by accent, not by
+temperature. They are held to a stricter budget than the inherited themes, so
+a warm background can never cost readability:
+
+| Pair | Minimum | Why |
+|---|---|---|
+| `--fg-primary` on `--bg-base` / `--bg-panel` | 7:1 | body copy |
+| `--fg-muted` on `--bg-base`, `--bg-panel`, `--bg-elevated` | 4.5:1 | hints sit on all three |
+| `--accent` on `--bg-base` / `--bg-panel` | 4.5:1 | link/ghost button text |
+| `--fg-on-accent` on `--accent` | 4.5:1 | primary button label |
+| `--danger` / `--warning` / `--success` on `--bg-panel` | 4.5:1 | state text |
+| `--tag-*` on `--bg-base` | 4.5:1 | chips only ever sit on the base surface |
+
+The terminal palettes keep the same luminance bands (no ANSI colour below
+4.5:1 on `--bg-base`), so `ls --color` output stays legible next to the chrome.
+These four are additive: the 18 inherited themes still ship their upstream
+palettes unchanged.
 
 ## 3. Component inventory
 

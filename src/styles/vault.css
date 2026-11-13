@@ -19,8 +19,8 @@
 }
 
 .badge.warn {
-  border-color: color-mix(in srgb, #d9a521 55%, var(--border));
-  color: #d9a521;
+  border-color: color-mix(in srgb, var(--warning) 55%, var(--border));
+  color: var(--warning);
 }
 
 .saved-secret {
@@ -30,11 +30,80 @@
   margin-top: 4px;
 }
 
-.vault-status-line {
-  display: flex;
+/* Pane-level feedback sits above the first section, with the same gutter the
+   sections use between them. */
+.vault-feedback {
+  margin-bottom: var(--space-2);
+}
+
+/* Vault overview: the state chip and the entry count share the first row, so
+   the section opens with one readable summary instead of three stacked lines
+   that each looked like a stray paragraph. */
+.vault-state {
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
+}
+
+.vault-state-note {
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+}
+
+.vault-count {
+  flex: 0 0 auto;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Stored secrets: one column grid, so the kind and the delete action line up
+   down the list instead of drifting with the length of each name. */
+.vault-list {
+  display: flex;
+  flex-direction: column;
   margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--divider);
+}
+
+.vault-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 8rem) auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--divider);
+  font-size: var(--font-ui);
+}
+
+.vault-row:last-child {
+  border-bottom: 0;
+}
+
+.vault-row-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vault-row-kind {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vault-row-action {
+  justify-self: end;
+  flex: 0 0 auto;
 }
 
 /* One inset well with hairline rows: twelve bordered boxes read as twelve

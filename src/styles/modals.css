@@ -230,12 +230,12 @@
 }
 
 /* Flat section blocks: card chrome is gone, only a light label and hairline
-   dividers between rows remain (reference alignment). The top padding is what
-   separates one section from the one above; dropping it here made every legacy
-   pane (vault, plugins, sync) read as one long run of labels. */
+   dividers between rows remain (reference alignment). The top spacing is what
+   separates one section from the one above; it matches the modern
+   `.ui-setting-group` rhythm so a pane never mixes two densities. */
 .settings-pane .settings-group {
   gap: var(--space-2);
-  margin: var(--space-4) 0 0;
+  margin: var(--space-5) 0 0;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -245,10 +245,13 @@
   margin-top: var(--space-1);
 }
 
+/* Legacy legends carry the same weight as `.ui-setting-group-title`: at body
+   size the pane had no hierarchy between "section" and "row title". */
 .settings-pane .settings-group legend {
-  padding: 0;
-  font-size: var(--font-ui);
+  padding: 0 0 var(--space-2);
+  font-size: var(--fs-lg);
   font-weight: 600;
+  line-height: var(--lh-tight);
   color: var(--fg-primary);
 }
 
@@ -332,7 +335,7 @@
 
 .settings-pane .plugin-row {
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-1);
+  padding: var(--space-2) 0;
   border: 0;
   border-bottom: 1px solid var(--border);
   border-radius: 0;

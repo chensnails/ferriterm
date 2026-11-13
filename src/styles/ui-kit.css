@@ -358,7 +358,7 @@
   justify-content: space-between;
   gap: var(--space-4);
   min-width: 0;
-  padding: var(--space-3) var(--space-1);
+  padding: var(--space-3) 0;
   border-bottom: 1px solid var(--divider);
 }
 
@@ -571,13 +571,16 @@
   padding-top: var(--space-1);
 }
 
+/* Heading, hint, rows and action rows share one left edge: the pane used to
+   indent rows by 4px while the title stayed flush, so every section looked
+   slightly sheared. */
 .ui-setting-group-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
   min-height: var(--control-h);
-  padding: 0 var(--space-1) var(--space-2);
+  padding: 0 0 var(--space-2);
 }
 
 .ui-setting-group-title {
@@ -603,7 +606,7 @@
 
 .ui-setting-group-hint {
   margin: 0;
-  padding: 0 var(--space-1) var(--space-2);
+  padding: 0 0 var(--space-2);
   font-size: var(--fs-sm);
   line-height: var(--line-ui);
   color: var(--fg-muted);
@@ -613,6 +616,24 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+
+/* Action rows inside a group open with the same gap the rows above them use,
+   so a group that ends in buttons is not visually tighter than one that ends
+   in a hint. A group that *starts* with buttons already gets its gap from the
+   group head. */
+.ui-setting-group-body > .plugin-actions {
+  padding-bottom: var(--space-1);
+}
+
+.ui-setting-group-body > .plugin-actions:not(:first-child) {
+  padding-top: var(--space-3);
+}
+
+/* A hint that explains the buttons above it needs its own gap, otherwise it
+   reads as a second label of the first button. */
+.ui-setting-group-body > .plugin-actions + .ui-setting-group-hint {
+  padding-top: var(--space-2);
 }
 
 /* On/off switch: the state lives in the control, no extra value label. */
