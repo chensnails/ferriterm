@@ -14,6 +14,7 @@ import { useAppStore } from "../store";
 import { isNetworkTool } from "../toolGroups";
 import { NetGeoIp } from "./NetGeoIp";
 import { NetIpCalc } from "./NetIpCalc";
+import { NetLocalInfo } from "./NetLocalInfo";
 import { UtilityTool } from "./UtilityTools";
 import { Notice, Segmented } from "./ui";
 
@@ -34,6 +35,7 @@ export function NetTools() {
             {tool === "ping" && <NetProbe />}
             {tool === "geoip" && <NetGeoIp />}
             {tool === "ipcalc" && <NetIpCalc />}
+            {tool === "netinfo" && <NetLocalInfo />}
           </>
         ) : (
           <UtilityTool id={tool} />

@@ -1346,6 +1346,92 @@
       "hint": "批量生成随机的 UUID v4。",
       "count": "数量",
       "generate": "重新生成"
+    },
+    "netinfo": {
+      "title": "本机网络查询",
+      "hint": "集中展示网卡、WiFi 连接质量与对端连接，缺失项明确标注。",
+      "refresh": "刷新",
+      "refreshing": "采集中…",
+      "loading": "正在读取本机网络状态…",
+      "generatedAt": "采集于 {time}",
+      "missing": "未配置",
+      "sections": {
+        "adapters": "网卡信息",
+        "wifi": "WiFi 连接质量",
+        "connections": "对端连接"
+      },
+      "status": {
+        "up": "已连接",
+        "down": "未连接",
+        "disabled": "未启用",
+        "unknown": "状态未知"
+      },
+      "kind": {
+        "ethernet": "有线",
+        "wifi": "无线",
+        "virtual": "虚拟",
+        "loopback": "环回",
+        "other": "其他"
+      },
+      "wifiState": {
+        "connected": "已连接",
+        "disconnected": "未连接",
+        "disabled": "已禁用",
+        "unknown": "状态未知"
+      },
+      "platform": {
+        "windows": "Windows",
+        "linux": "Linux",
+        "macos": "macOS",
+        "unknown": "未知平台"
+      },
+      "fields": {
+        "mac": "MAC 地址",
+        "ipv4": "IPv4 地址",
+        "ipv6": "IPv6 地址",
+        "gateway": "默认网关",
+        "dns": "DNS 服务器",
+        "dnsGlobal": "DNS 服务器（全局）",
+        "ssid": "网络名称 SSID",
+        "signal": "信号强度",
+        "rssi": "RSSI",
+        "rxRate": "协商速率 · 接收",
+        "txRate": "协商速率 · 发送",
+        "band": "频段",
+        "bssid": "BSSID"
+      },
+      "notes": {
+        "noMac": "无 MAC 地址",
+        "noAddress": "未分配 IP 地址",
+        "noGateway": "无默认网关",
+        "noDns": "无 DNS 配置",
+        "dnsGlobal": "DNS 为系统全局配置",
+        "notConnected": "当前未连接无线网络",
+        "signalUnavailable": "信号强度不可用",
+        "rateUnavailable": "协商速率不可用",
+        "needsElevation": "部分读数需要管理员权限",
+        "noWifiAdapter": "未检测到无线网卡"
+      },
+      "source": {
+        "adapters": "网卡信息",
+        "wifi": "WiFi 连接质量",
+        "connections": "对端连接"
+      },
+      "sourceFailed": "{source} 采集失败：{detail}",
+      "adaptersEmpty": "未读取到网卡信息。",
+      "wifiEmpty": "未检测到无线网络接口，或 WLAN 服务未运行。",
+      "conn": {
+        "filterActive": "全部活跃",
+        "filterEstablished": "仅已建立",
+        "protocol": "协议",
+        "local": "本地地址",
+        "remote": "对端地址",
+        "remotePort": "对端端口",
+        "state": "状态",
+        "process": "进程 / PID",
+        "empty": "当前没有非监听状态的 TCP 连接。",
+        "limit": "仅显示前 {count} 条，共 {total} 条。"
+      }
     }
   },
   "status": {

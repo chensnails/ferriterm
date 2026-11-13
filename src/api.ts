@@ -1219,6 +1219,70 @@ export function geoipLookup(query: string): Promise<GeoInfo> {
   return invoke<GeoInfo>("geoip_lookup", { query });
 }
 
+export type LinkStatus = "up" | "down" | "disabled" | "unknown";
+export type AdapterKind = "ethernet" | "wifi" | "virtual" | "loopback" | "other";
+export type WifiState = "connected" | "disconnected" | "disabled" | "unknown";
+
+/** Empty strings/arrays are reported absences, not parse failures. */
+export interface LocalNetAdapter {
+  name: string;
+  description: string;
+  kind: AdapterKind;
+  status: LinkStatus;
+  mac: string;
+  ipv4: string[];
+  ipv6: string[];
+  gateways: string[];
+  dns: string[];
+  dnsScope: string;
+  notes: string[];
+}
+
+export interface LocalWifi {
+  interface: string;
+  ssid: string;
+  bssid: string;
+  mac: string;
+  state: WifiState;
+  signalPercent: number | null;
+  rssiDbm: number | null;
+  rxRateMbps: number | null;
+  txRateMbps: number | null;
+  band: string;
+  notes: string[];
+}
+
+export interface PeerConnection {
+  protocol: string;
+  localAddr: string;
+  localPort: number;
+  remoteAddr: string;
+  remotePort: number;
+  state: string;
+  pid: number;
+  process: string;
+}
+
+export interface LocalNetSource {
+  source: string;
+  ok: boolean;
+  detail: string;
+}
+
+export interface LocalNetSnapshot {
+  generatedAt: number;
+  platform: string;
+  adapters: LocalNetAdapter[];
+  wifi: LocalWifi[];
+  connections: PeerConnection[];
+  sources: LocalNetSource[];
+}
+
+/** One-shot snapshot of local adapters, WLAN quality and peer connections. */
+export function localNetSnapshot(): Promise<LocalNetSnapshot> {
+  return invoke<LocalNetSnapshot>("local_net_snapshot");
+}
+
 export function onNetToolOutput(
   cb: (chunk: NetToolChunk) => void,
 ): Promise<UnlistenFn> {

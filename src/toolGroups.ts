@@ -5,6 +5,7 @@ import {
   GlobeIcon,
   KeyIcon,
   ListIcon,
+  NetworkIcon,
   PulseIcon,
   SearchIcon,
   ShieldIcon,
@@ -21,7 +22,7 @@ import {
  */
 export type ToolGroupId = "network" | "frontend" | "encoding" | "text";
 
-export type NetworkToolId = "ping" | "geoip" | "ipcalc";
+export type NetworkToolId = "ping" | "geoip" | "ipcalc" | "netinfo";
 export type UtilityToolId = Exclude<NetToolId, NetworkToolId>;
 
 export interface ToolEntry {
@@ -41,6 +42,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
       { id: "ping", icon: SignalIcon },
       { id: "geoip", icon: GlobeIcon },
       { id: "ipcalc", icon: SlidersIcon },
+      { id: "netinfo", icon: NetworkIcon },
     ],
   },
   {
@@ -73,7 +75,7 @@ export const ALL_TOOL_IDS: NetToolId[] = TOOL_GROUPS.flatMap((group) =>
   group.tools.map((tool) => tool.id),
 );
 
-/** Narrows the selected id to the three tools that need the desktop backend. */
+/** Narrows the selected id to the tools that need the desktop backend. */
 export function isNetworkTool(id: NetToolId): id is NetworkToolId {
-  return id === "ping" || id === "geoip" || id === "ipcalc";
+  return id === "ping" || id === "geoip" || id === "ipcalc" || id === "netinfo";
 }

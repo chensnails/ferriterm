@@ -845,3 +845,145 @@ body.dock-resizing-y * {
   }
 }
 
+/* Local network snapshot: three stacked sections, each scrolls with the pane
+   instead of squeezing its cards. */
+.netinfo-pane {
+  overflow-y: auto;
+  padding-right: var(--space-1);
+}
+
+.netinfo-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.netinfo-time {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-ui-sm);
+  color: var(--fg-muted);
+}
+
+.netinfo-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.netinfo-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.netinfo-card {
+  min-width: 0;
+}
+
+.netinfo-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.netinfo-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.netinfo-row dt {
+  flex: 0 0 38%;
+  font-size: var(--font-ui-sm);
+  color: var(--fg-muted);
+}
+
+.netinfo-row dd {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  min-width: 0;
+}
+
+.netinfo-row dd code {
+  padding: 0 var(--space-1);
+  background: var(--bg-base);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  color: var(--fg-primary);
+  word-break: break-all;
+}
+
+.netinfo-missing {
+  font-size: var(--font-ui-sm);
+  color: var(--fg-muted);
+}
+
+.netinfo-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.netinfo-signal {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.netinfo-signal-track {
+  flex: 1;
+  height: var(--space-2);
+  overflow: hidden;
+  background: var(--bg-base);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-sm);
+}
+
+.netinfo-signal-fill {
+  width: var(--signal, 0%);
+  height: 100%;
+  background: var(--accent);
+}
+
+.netinfo-signal-value {
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  color: var(--fg-primary);
+}
+
+.netinfo-filter {
+  align-self: flex-start;
+}
+
+.netinfo-table {
+  flex-shrink: 0;
+}
+
+.netinfo-table th:nth-child(1) { width: 9%; }
+.netinfo-table th:nth-child(2) { width: 26%; }
+.netinfo-table th:nth-child(3) { width: 22%; }
+.netinfo-table th:nth-child(4) { width: 11%; }
+.netinfo-table th:nth-child(5) { width: 16%; }
+.netinfo-table th:nth-child(6) { width: 16%; }
+
+.netinfo-table th,
+.netinfo-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.netinfo-pane .ui-notice,
+.netinfo-pane .ui-empty-state {
+  flex-shrink: 0;
+}

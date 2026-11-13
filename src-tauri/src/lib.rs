@@ -2,6 +2,7 @@ mod agent;
 mod ai;
 mod ai_history;
 mod commands;
+mod local_net;
 mod logging;
 mod net_tools;
 mod policy;
@@ -228,6 +229,7 @@ pub fn run() {
             net_tools::net_tool_start,
             net_tools::net_tool_cancel,
             net_tools::geoip_lookup,
+            local_net::local_net_snapshot,
             ai::ai_list_providers,
             ai::ai_save_provider,
             ai::ai_delete_provider,

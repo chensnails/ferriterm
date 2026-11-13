@@ -1346,6 +1346,92 @@
       "hint": "Generate random UUID v4 values.",
       "count": "Count",
       "generate": "Generate"
+    },
+    "netinfo": {
+      "title": "Local network",
+      "hint": "Adapters, Wi-Fi link quality and peer connections, with gaps labelled.",
+      "refresh": "Refresh",
+      "refreshing": "Collecting…",
+      "loading": "Reading local network state…",
+      "generatedAt": "Captured at {time}",
+      "missing": "not configured",
+      "sections": {
+        "adapters": "Network adapters",
+        "wifi": "Wi-Fi link quality",
+        "connections": "Peer connections"
+      },
+      "status": {
+        "up": "Connected",
+        "down": "Not connected",
+        "disabled": "Disabled",
+        "unknown": "Unknown"
+      },
+      "kind": {
+        "ethernet": "Ethernet",
+        "wifi": "Wireless",
+        "virtual": "Virtual",
+        "loopback": "Loopback",
+        "other": "Other"
+      },
+      "wifiState": {
+        "connected": "Connected",
+        "disconnected": "Disconnected",
+        "disabled": "Disabled",
+        "unknown": "Unknown"
+      },
+      "platform": {
+        "windows": "Windows",
+        "linux": "Linux",
+        "macos": "macOS",
+        "unknown": "Unknown platform"
+      },
+      "fields": {
+        "mac": "MAC address",
+        "ipv4": "IPv4 addresses",
+        "ipv6": "IPv6 addresses",
+        "gateway": "Default gateway",
+        "dns": "DNS servers",
+        "dnsGlobal": "DNS servers (system-wide)",
+        "ssid": "SSID",
+        "signal": "Signal strength",
+        "rssi": "RSSI",
+        "rxRate": "Negotiated rate · RX",
+        "txRate": "Negotiated rate · TX",
+        "band": "Band",
+        "bssid": "BSSID"
+      },
+      "notes": {
+        "noMac": "No MAC address",
+        "noAddress": "No IP address assigned",
+        "noGateway": "No default gateway",
+        "noDns": "No DNS configured",
+        "dnsGlobal": "DNS is a system-wide setting",
+        "notConnected": "Not connected to Wi-Fi",
+        "signalUnavailable": "Signal strength unavailable",
+        "rateUnavailable": "Negotiated rate unavailable",
+        "needsElevation": "Some readings require admin rights",
+        "noWifiAdapter": "No wireless adapter found"
+      },
+      "source": {
+        "adapters": "Adapters",
+        "wifi": "Wi-Fi quality",
+        "connections": "Peer connections"
+      },
+      "sourceFailed": "{source} collection failed: {detail}",
+      "adaptersEmpty": "No adapter information was returned.",
+      "wifiEmpty": "No wireless interface found, or the WLAN service is not running.",
+      "conn": {
+        "filterActive": "All active",
+        "filterEstablished": "Established only",
+        "protocol": "Protocol",
+        "local": "Local address",
+        "remote": "Peer address",
+        "remotePort": "Peer port",
+        "state": "State",
+        "process": "Process / PID",
+        "empty": "No non-listening TCP connections right now.",
+        "limit": "Showing the first {count} of {total} rows."
+      }
     }
   },
   "status": {

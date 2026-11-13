@@ -279,6 +279,7 @@ export type NetToolId =
   | "ping"
   | "geoip"
   | "ipcalc"
+  | "netinfo"
   | "json"
   | "color"
   | "regex"
