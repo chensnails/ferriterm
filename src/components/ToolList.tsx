@@ -1,15 +1,9 @@
 import { useTranslation } from "react-i18next";
-import { useAppStore, type NetToolId } from "../store";
-import { GlobeIcon, SignalIcon, SlidersIcon } from "./icons";
-import { ListRow, PanelHeader } from "./ui";
+import { useAppStore } from "../store";
+import { ALL_TOOL_IDS, TOOL_GROUPS } from "../toolGroups";
+import { ListRow, PanelHeader, SectionHeader } from "./ui";
 
-const TOOLS: { id: NetToolId; icon: typeof GlobeIcon }[] = [
-  { id: "ping", icon: SignalIcon },
-  { id: "geoip", icon: GlobeIcon },
-  { id: "ipcalc", icon: SlidersIcon },
-];
-
-/** Sidebar content for the network toolbox module. */
+/** Sidebar content for the toolbox module: one section per tool group. */
 export function ToolList() {
   const { t } = useTranslation();
   const netTool = useAppStore((s) => s.netTool);
@@ -22,24 +16,32 @@ export function ToolList() {
         title={
           <>
             {t("tools.title")}
-            <span className="head-count"> ({TOOLS.length})</span>
+            <span className="head-count"> ({ALL_TOOL_IDS.length})</span>
           </>
         }
       />
       <div className="tool-list">
-        {TOOLS.map((tool) => {
-          const Icon = tool.icon;
-          return (
-            <ListRow
-              key={tool.id}
-              icon={<Icon size={16} />}
-              title={t(`tools.${tool.id}.title`)}
-              meta={t(`tools.${tool.id}.hint`)}
-              selected={netTool === tool.id}
-              onClick={() => setNetTool(tool.id)}
+        {TOOL_GROUPS.map((group) => (
+          <section key={group.id} className="tool-group">
+            <SectionHeader
+              title={t(`tools.groups.${group.id}`)}
+              count={group.tools.length}
             />
-          );
-        })}
+            {group.tools.map((tool) => {
+              const Icon = tool.icon;
+              return (
+                <ListRow
+                  key={tool.id}
+                  icon={<Icon size={16} />}
+                  title={t(`tools.${tool.id}.title`)}
+                  meta={t(`tools.${tool.id}.hint`)}
+                  selected={netTool === tool.id}
+                  onClick={() => setNetTool(tool.id)}
+                />
+              );
+            })}
+          </section>
+        ))}
       </div>
       <p className="hint tool-list-foot">{t("tools.localHint")}</p>
     </>

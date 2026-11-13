@@ -8,3 +8,4 @@ soak-runs/
 e2e-artifacts/
 *.local
 .DS_Store
+.workbuddy/

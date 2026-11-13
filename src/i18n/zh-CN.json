@@ -12,7 +12,7 @@
     "hosts": "主机列表",
     "showHosts": "显示主机列表",
     "activeTask": "有进行中的传输任务",
-    "showTools": "显示网络工具箱"
+    "showTools": "显示工具箱"
   },
   "dock": {
     "title": "面板停靠区",
@@ -1093,9 +1093,28 @@
     "close": "关闭窗口"
   },
   "tools": {
-    "title": "网络工具箱",
-    "localHint": "探测在本机执行，不经过会话。",
+    "title": "工具箱",
+    "localHint": "所有工具均在本机运行，不经过会话。",
     "desktopOnly": "网络工具需要在桌面应用中运行。",
+    "groups": {
+      "network": "网络",
+      "frontend": "前端",
+      "encoding": "编码与转换",
+      "text": "文本工具"
+    },
+    "common": {
+      "mode": "模式",
+      "input": "输入",
+      "copy": "复制",
+      "copied": "已复制",
+      "clear": "清空",
+      "sample": "示例",
+      "empty": "结果会显示在这里。",
+      "error": "处理失败。",
+      "encode": "编码",
+      "decode": "解码",
+      "swap": "结果作为输入"
+    },
     "ping": {
       "title": "Ping / 路由追踪",
       "hint": "检测可达性，并查看报文经过的路径。",
@@ -1158,11 +1177,81 @@
       "linkLocal": "链路本地",
       "multicast": "组播",
       "reserved": "保留"
+    },
+    "json": {
+      "title": "JSON 格式化",
+      "hint": "格式化、校验与压缩 JSON。",
+      "format": "格式化",
+      "minify": "压缩",
+      "indent": "缩进",
+      "invalid": "不是合法的 JSON。"
+    },
+    "color": {
+      "title": "颜色转换",
+      "hint": "在 HEX、RGB 与 HSL 之间换算。",
+      "value": "颜色值",
+      "hex": "HEX",
+      "rgb": "RGB",
+      "hsl": "HSL",
+      "preview": "预览",
+      "invalid": "无法识别该颜色值。"
+    },
+    "regex": {
+      "title": "正则测试",
+      "hint": "用示例文本验证正则表达式。",
+      "pattern": "表达式",
+      "flags": "标志",
+      "text": "测试文本",
+      "matches": "共 {count} 处匹配",
+      "noMatches": "没有匹配",
+      "invalid": "表达式或标志无效。",
+      "emptyMatch": "（空匹配）"
+    },
+    "base64": {
+      "title": "Base64 编解码",
+      "hint": "编码或解码 Base64 文本，支持中文。",
+      "invalid": "不是合法的 Base64。"
+    },
+    "url": {
+      "title": "URL 编解码",
+      "hint": "对 URL 组件进行百分号编码或解码。",
+      "invalid": "百分号编码无效。"
+    },
+    "timestamp": {
+      "title": "时间戳转换",
+      "hint": "把 Unix 时间换算为本地、UTC 与 ISO 时间。",
+      "unix": "Unix 时间戳",
+      "local": "本地时间",
+      "utc": "UTC",
+      "iso": "ISO 8601",
+      "milliseconds": "毫秒",
+      "now": "当前时间",
+      "invalid": "请输入合法的 Unix 时间戳。"
+    },
+    "counter": {
+      "title": "文本统计",
+      "hint": "统计字符、词数、行数与字节数。",
+      "chars": "字符",
+      "words": "词数",
+      "lines": "行数",
+      "bytes": "字节（UTF-8）",
+      "placeholder": "输入或粘贴文本…"
+    },
+    "hash": {
+      "title": "哈希计算",
+      "hint": "计算 SHA-1、SHA-256 与 SHA-512 摘要。",
+      "unsupported": "哈希计算需要安全上下文。"
+    },
+    "uuid": {
+      "title": "UUID 生成",
+      "hint": "批量生成随机的 UUID v4。",
+      "count": "数量",
+      "generate": "重新生成"
     }
   },
   "status": {
     "home": "首页",
-    "tools": "网络工具箱",
+    "tools": "工具箱",
     "sessions": "{count} 个会话",
     "split": "分屏",
     "production": "生产",

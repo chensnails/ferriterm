@@ -13,6 +13,90 @@
   margin: var(--space-2) 0 0;
 }
 
+/* Grouped toolbox: one section per family of tools. */
+.tool-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.tool-group + .tool-group {
+  margin-top: var(--space-2);
+}
+
+/* Shared surface for the local utility tools. */
+.tool-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.tool-field .hint {
+  flex-shrink: 0;
+}
+
+.tool-area {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  padding: var(--space-2);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--fg-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+  line-height: var(--line-ui);
+  outline: none;
+  resize: none;
+}
+
+.tool-area:focus {
+  border-color: var(--accent);
+}
+
+.tool-area::placeholder {
+  color: var(--fg-muted);
+}
+
+.tool-swatch-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.tool-swatch {
+  width: var(--control-h);
+  height: var(--control-h);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.tool-match-count {
+  margin: 0;
+  font-size: var(--font-ui);
+  color: var(--fg-primary);
+}
+
+.tool-matches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  overflow-y: auto;
+}
+
+.tool-match {
+  padding: 0 var(--space-2);
+  background: var(--sub-bg);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-ui-sm);
+}
+
 .net-tools {
   flex: 1;
   min-height: 0;

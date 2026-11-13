@@ -267,7 +267,24 @@ export type TabNumbering = "asNeed" | "always" | "none";
 /** Which module the left rail currently shows. */
 export type SidebarView = "hosts" | "tools";
 
-export type NetToolId = "ping" | "geoip" | "ipcalc";
+/**
+ * Every entry in the toolbox, grouped in `toolGroups.ts`. The name is kept for
+ * layout persistence: it started as the network module, which is still the
+ * first group.
+ */
+export type NetToolId =
+  | "ping"
+  | "geoip"
+  | "ipcalc"
+  | "json"
+  | "color"
+  | "regex"
+  | "base64"
+  | "url"
+  | "timestamp"
+  | "counter"
+  | "hash"
+  | "uuid";
 
 /** Companion panels that live in the right dock. */
 export type DockCardId = "commands" | "monitor" | "log" | "ai";

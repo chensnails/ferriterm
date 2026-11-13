@@ -10,11 +10,13 @@ import {
   type NetToolChunk,
 } from "../api";
 import { useAppStore } from "../store";
+import { isNetworkTool } from "../toolGroups";
 import { NetGeoIp } from "./NetGeoIp";
 import { NetIpCalc } from "./NetIpCalc";
+import { UtilityTool } from "./UtilityTools";
 import { Notice, Segmented } from "./ui";
 
-/** Content page of the network toolbox module. */
+/** Content page of the toolbox module. */
 export function NetTools() {
   const { t } = useTranslation();
   const tool = useAppStore((s) => s.netTool);
@@ -26,9 +28,15 @@ export function NetTools() {
         <p className="hint">{t(`tools.${tool}.hint`)}</p>
       </header>
       <div className="net-tools-body">
-        {tool === "ping" && <NetProbe />}
-        {tool === "geoip" && <NetGeoIp />}
-        {tool === "ipcalc" && <NetIpCalc />}
+        {isNetworkTool(tool) ? (
+          <>
+            {tool === "ping" && <NetProbe />}
+            {tool === "geoip" && <NetGeoIp />}
+            {tool === "ipcalc" && <NetIpCalc />}
+          </>
+        ) : (
+          <UtilityTool id={tool} />
+        )}
       </div>
     </div>
   );

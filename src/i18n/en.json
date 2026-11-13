@@ -12,7 +12,7 @@
     "hosts": "Host list",
     "showHosts": "Show the host list",
     "activeTask": "A transfer is in progress",
-    "showTools": "Show the network toolbox"
+    "showTools": "Show the toolbox"
   },
   "dock": {
     "title": "Panels",
@@ -1093,9 +1093,28 @@
     "close": "Close window"
   },
   "tools": {
-    "title": "Network toolbox",
-    "localHint": "Probes run on this machine, not on a session.",
+    "title": "Toolbox",
+    "localHint": "All tools run on this machine, not on a session.",
     "desktopOnly": "Network tools need the desktop app.",
+    "groups": {
+      "network": "Network",
+      "frontend": "Frontend",
+      "encoding": "Encoding & conversion",
+      "text": "Text tools"
+    },
+    "common": {
+      "mode": "Mode",
+      "input": "Input",
+      "copy": "Copy",
+      "copied": "Copied",
+      "clear": "Clear",
+      "sample": "Sample",
+      "empty": "The result appears here.",
+      "error": "Something went wrong.",
+      "encode": "Encode",
+      "decode": "Decode",
+      "swap": "Use as input"
+    },
     "ping": {
       "title": "Ping / traceroute",
       "hint": "Check reachability and the path packets take.",
@@ -1158,11 +1177,81 @@
       "linkLocal": "Link-local",
       "multicast": "Multicast",
       "reserved": "Reserved"
+    },
+    "json": {
+      "title": "JSON formatter",
+      "hint": "Format, validate and minify JSON.",
+      "format": "Format",
+      "minify": "Minify",
+      "indent": "Indent",
+      "invalid": "That is not valid JSON."
+    },
+    "color": {
+      "title": "Colour converter",
+      "hint": "Convert between HEX, RGB and HSL.",
+      "value": "Colour",
+      "hex": "HEX",
+      "rgb": "RGB",
+      "hsl": "HSL",
+      "preview": "Preview",
+      "invalid": "Unrecognised colour value."
+    },
+    "regex": {
+      "title": "Regex tester",
+      "hint": "Test a pattern against sample text.",
+      "pattern": "Pattern",
+      "flags": "Flags",
+      "text": "Test text",
+      "matches": "{count, plural, one {# match} other {# matches}}",
+      "noMatches": "No matches",
+      "invalid": "Invalid expression or flags.",
+      "emptyMatch": "(empty)"
+    },
+    "base64": {
+      "title": "Base64 encoder",
+      "hint": "Encode or decode Base64 text, Unicode safe.",
+      "invalid": "That is not valid Base64."
+    },
+    "url": {
+      "title": "URL encoder",
+      "hint": "Percent-encode or decode a URL component.",
+      "invalid": "That is not valid percent-encoding."
+    },
+    "timestamp": {
+      "title": "Timestamp converter",
+      "hint": "Turn Unix time into local, UTC and ISO.",
+      "unix": "Unix timestamp",
+      "local": "Local time",
+      "utc": "UTC",
+      "iso": "ISO 8601",
+      "milliseconds": "Milliseconds",
+      "now": "Now",
+      "invalid": "Enter a valid Unix timestamp."
+    },
+    "counter": {
+      "title": "Text statistics",
+      "hint": "Count characters, words, lines and bytes.",
+      "chars": "Characters",
+      "words": "Words",
+      "lines": "Lines",
+      "bytes": "Bytes (UTF-8)",
+      "placeholder": "Type or paste text…"
+    },
+    "hash": {
+      "title": "Hash calculator",
+      "hint": "Compute SHA-1, SHA-256 and SHA-512 digests.",
+      "unsupported": "Hashing needs a secure context."
+    },
+    "uuid": {
+      "title": "UUID generator",
+      "hint": "Generate random UUID v4 values.",
+      "count": "Count",
+      "generate": "Generate"
     }
   },
   "status": {
     "home": "Home",
-    "tools": "Network tools",
+    "tools": "Toolbox",
     "sessions": "{count, plural, =0 {No sessions} one {# session} other {# sessions}}",
     "split": "Split",
     "production": "Prod",
