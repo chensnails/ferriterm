@@ -1478,7 +1478,7 @@ dependencies = [
 
 [[package]]
 name = "ferriterm"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "encoding_rs",
  "ft-agent",
@@ -1512,7 +1512,7 @@ dependencies = [
 
 [[package]]
 name = "ferriterm-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ft-agent",
  "serde",
@@ -1642,7 +1642,7 @@ checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
 
 [[package]]
 name = "ft-agent"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ring",
  "serde",
@@ -1653,7 +1653,7 @@ dependencies = [
 
 [[package]]
 name = "ft-ai"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "futures-util",
  "regex",
@@ -1665,7 +1665,7 @@ dependencies = [
 
 [[package]]
 name = "ft-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "encoding_rs",
  "portable-pty",
@@ -1677,7 +1677,7 @@ dependencies = [
 
 [[package]]
 name = "ft-import"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -1685,7 +1685,7 @@ dependencies = [
 
 [[package]]
 name = "ft-monitor"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -1695,7 +1695,7 @@ dependencies = [
 
 [[package]]
 name = "ft-plugin"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -1705,7 +1705,7 @@ dependencies = [
 
 [[package]]
 name = "ft-policy"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -1714,7 +1714,7 @@ dependencies = [
 
 [[package]]
 name = "ft-pty"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ft-core",
  "portable-pty",
@@ -1722,7 +1722,7 @@ dependencies = [
 
 [[package]]
 name = "ft-security"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ring",
  "serde",
@@ -1731,7 +1731,7 @@ dependencies = [
 
 [[package]]
 name = "ft-serial"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ft-core",
  "serde",
@@ -1741,7 +1741,7 @@ dependencies = [
 
 [[package]]
 name = "ft-ssh"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "data-encoding",
  "ft-core",
@@ -1756,7 +1756,7 @@ dependencies = [
 
 [[package]]
 name = "ft-store"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "rusqlite",
  "serde",
@@ -1765,7 +1765,7 @@ dependencies = [
 
 [[package]]
 name = "ft-sync"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "reqwest",
  "ring",
@@ -1776,7 +1776,7 @@ dependencies = [
 
 [[package]]
 name = "ft-telnet"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ft-core",
  "tokio",
@@ -1784,7 +1784,7 @@ dependencies = [
 
 [[package]]
 name = "ft-transfer"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ft-vfs",
  "serde",
@@ -1794,7 +1794,7 @@ dependencies = [
 
 [[package]]
 name = "ft-vfs"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "encoding_rs",
  "ft-core",
