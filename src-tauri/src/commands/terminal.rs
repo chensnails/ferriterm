@@ -26,10 +26,15 @@ pub async fn pty_spawn(
 #[tauri::command]
 pub async fn pty_write(
     state: State<'_, SessionRegistry>,
+    recorders: State<'_, RecorderRegistry>,
     id: String,
     data: String,
 ) -> Result<(), String> {
-    ft_pty::write(&state, &id, data).await
+    let result = ft_pty::write(&state, &id, data.clone()).await;
+    if result.is_ok() {
+        recorders.write_input(&id, data.as_bytes());
+    }
+    result
 }
 
 #[tauri::command]
@@ -54,17 +59,42 @@ pub fn recording_start(
     title: String,
     cols: u16,
     rows: u16,
-) -> Result<String, String> {
-    recorders
-        .start(&id, &title, cols, rows)
-        .map(|path| path.to_string_lossy().into_owned())
+    mode: Option<String>,
+) -> Result<ft_core::CapturePaths, String> {
+    let mode = match mode {
+        Some(raw) => ft_core::CaptureMode::parse(&raw)
+            .ok_or_else(|| format!("unknown capture mode: {raw}"))?,
+        None => ft_core::CaptureMode::default(),
+    };
+    recorders.start(&id, &title, cols, rows, mode)
+}
+
+/// Changes what a running session keeps on disk without interrupting it.
+#[tauri::command]
+pub fn recording_set_mode(
+    recorders: State<'_, RecorderRegistry>,
+    id: String,
+    title: String,
+    cols: u16,
+    rows: u16,
+    mode: String,
+) -> Result<ft_core::CapturePaths, String> {
+    let mode = ft_core::CaptureMode::parse(&mode)
+        .ok_or_else(|| format!("unknown capture mode: {mode}"))?;
+    if recorders.mode(&id).is_some() {
+        return recorders.set_mode(&id, mode);
+    }
+    // A session that is not being captured yet (a reconnect, a tab restored
+    // from a snapshot) just starts in the requested mode.
+    recorders.start(&id, &title, cols, rows, mode)
 }
 
 #[tauri::command]
-pub fn recording_stop(recorders: State<'_, RecorderRegistry>, id: String) -> Option<String> {
-    recorders
-        .stop(&id)
-        .map(|path| path.to_string_lossy().into_owned())
+pub fn recording_stop(
+    recorders: State<'_, RecorderRegistry>,
+    id: String,
+) -> Option<ft_core::CapturePaths> {
+    recorders.stop(&id)
 }
 
 #[tauri::command]
@@ -80,6 +110,18 @@ pub fn recording_read(
     name: String,
 ) -> Result<ft_core::CastFile, String> {
     recorders.read(&name)
+}
+
+#[tauri::command]
+pub fn session_log_list(
+    recorders: State<'_, RecorderRegistry>,
+) -> Result<Vec<ft_core::SessionLogMeta>, String> {
+    recorders.list_logs()
+}
+
+#[tauri::command]
+pub fn session_log_read(recorders: State<'_, RecorderRegistry>, name: String) -> Result<String, String> {
+    recorders.read_log(&name)
 }
 
 #[tauri::command]

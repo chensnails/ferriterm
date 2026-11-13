@@ -15,6 +15,7 @@ import {
   type SshSecuritySettings,
   type PolicyDecision,
   type AuditOrigin,
+  type CaptureMode,
 } from "./api";
 import {
   DEFAULT_SSH_SECURITY,
@@ -184,8 +185,10 @@ export interface SessionMeta {
   closed: boolean;
   production?: boolean;
   hostId?: string;
-  recording?: boolean;
-  recordingPath?: string;
+  /** What this session currently keeps on disk; undefined means nothing. */
+  capture?: CaptureMode;
+  captureLog?: string;
+  captureCast?: string;
   pending?: PendingConnect;
   lastConnect?: PendingConnect;
 }
@@ -633,8 +636,13 @@ interface AppState {
   confirmCloseSession: () => void;
   activate: (id: string) => void;
   markClosed: (id: string) => void;
-  startRecording: (id: string, cols: number, rows: number) => Promise<void>;
-  stopRecording: (id: string) => Promise<void>;
+  startCapture: (id: string, cols: number, rows: number, mode?: CaptureMode) => Promise<void>;
+  stopCapture: (id: string) => Promise<void>;
+  /** Switches a running session between log, replay and both. */
+  setCaptureMode: (id: string, mode: CaptureMode, cols: number, rows: number) => Promise<void>;
+  /** Capture mode new sessions start in; the tab menu remembers it. */
+  captureDefault: CaptureMode;
+  setCaptureDefault: (mode: CaptureMode) => void;
   consumePending: (id: string) => PendingConnect | undefined;
   reconnect: (id: string) => void;
   /** Drops ephemeral passwords from a session so a retry cannot resend them. */
@@ -834,6 +842,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   settingsOpen: false,
   shortcutsOpen: false,
   recordingsOpen: false,
+  captureDefault: "log",
   importRequested: false,
   tagsRequested: false,
   newHostRequested: false,
@@ -1211,6 +1220,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       ],
       activeId: id,
     }));
+    // Logging starts with the tab, not with a button: an audit trail that has
+    // to be switched on is missing exactly the sessions nobody expected to
+    // matter. SFTP tabs carry no terminal stream to capture.
+    if (kind !== "sftp") void get().startCapture(id, 80, 24);
     return id;
   },
 
@@ -1483,7 +1496,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const entry = get().sessions.find((s) => s.id === id);
     if (!entry) return;
     api.close(entry.kind, id).catch(() => {});
-    if (entry.recording) api.recordingStop(id).catch(() => {});
+    if (entry.capture) api.recordingStop(id).catch(() => {});
     set((s) => {
       const sessions = s.sessions.filter((x) => x.id !== id);
       let splitId = s.splitId === id ? null : s.splitId;
@@ -1517,7 +1530,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       .filter((session) => session.id !== id)
       .forEach((session) => {
         api.close(session.kind, session.id).catch(() => {});
-        if (session.recording) api.recordingStop(session.id).catch(() => {});
+        if (session.capture) api.recordingStop(session.id).catch(() => {});
       });
     set((s) => ({
       sessions: s.sessions.filter((x) => x.id === id),
@@ -1532,7 +1545,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const state = get();
     state.sessions.forEach((session) => {
       api.close(session.kind, session.id).catch(() => {});
-      if (session.recording) api.recordingStop(session.id).catch(() => {});
+      if (session.capture) api.recordingStop(session.id).catch(() => {});
     });
     set({
       sessions: [],
@@ -1567,49 +1580,81 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   markClosed: (id) => {
     const entry = get().sessions.find((s) => s.id === id);
-    if (entry?.recording) api.recordingStop(id).catch(() => {});
+    if (entry?.capture) api.recordingStop(id).catch(() => {});
     set((s) => ({
       sessions: s.sessions.map((x) =>
-        x.id === id ? { ...x, closed: true, recording: false } : x,
+        x.id === id ? { ...x, closed: true, capture: undefined } : x,
       ),
       splitId: s.splitId === id ? null : s.splitId,
     }));
   },
 
-  startRecording: async (id, cols, rows) => {
+  startCapture: async (id, cols, rows, mode) => {
     if (!isTauri) return;
     const session = get().sessions.find((s) => s.id === id);
-    if (!session || session.recording) return;
+    if (!session || session.capture) return;
+    const target = mode ?? get().captureDefault;
     try {
-      const path = await api.recordingStart(id, session.title, cols, rows);
+      const paths = await api.recordingStart(id, session.title, cols, rows, target);
       set((s) => ({
         sessions: s.sessions.map((x) =>
-          x.id === id ? { ...x, recording: true, recordingPath: path } : x,
-        ),
-        status: { text: i18n.t("sessions.recordingStarted", { path }), isError: false },
-      }));
-    } catch (err) {
-      set({ status: { text: String(err), isError: true } });
-    }
-  },
-
-  stopRecording: async (id) => {
-    const session = get().sessions.find((s) => s.id === id);
-    if (!session?.recording) return;
-    try {
-      const path = await api.recordingStop(id);
-      set((s) => ({
-        sessions: s.sessions.map((x) =>
-          x.id === id ? { ...x, recording: false } : x,
+          x.id === id ? { ...x, capture: target, captureLog: paths.log ?? undefined, captureCast: paths.cast ?? undefined } : x,
         ),
         status: {
-          text: i18n.t("sessions.recordingStopped", { path: path ?? "" }),
+          text: i18n.t(`sessions.captureStarted.${target}`, { path: paths.log ?? paths.cast ?? "" }),
           isError: false,
         },
       }));
     } catch (err) {
       set({ status: { text: String(err), isError: true } });
     }
+  },
+
+  stopCapture: async (id) => {
+    const session = get().sessions.find((s) => s.id === id);
+    if (!session?.capture) return;
+    try {
+      const paths = await api.recordingStop(id);
+      set((s) => ({
+        sessions: s.sessions.map((x) =>
+          x.id === id
+            ? { ...x, capture: undefined, captureLog: undefined, captureCast: undefined }
+            : x,
+        ),
+        status: {
+          text: i18n.t("sessions.captureStopped", { path: paths?.log ?? paths?.cast ?? "" }),
+          isError: false,
+        },
+      }));
+    } catch (err) {
+      set({ status: { text: String(err), isError: true } });
+    }
+  },
+
+  setCaptureMode: async (id, mode, cols, rows) => {
+    if (!isTauri) return;
+    const session = get().sessions.find((s) => s.id === id);
+    if (!session) return;
+    // The chosen mode becomes the default for sessions opened next, which is
+    // what makes the tab menu a preference and not a one-off toggle.
+    set({ captureDefault: mode });
+    api.setSetting("captureMode", mode).catch(() => {});
+    try {
+      const paths = await api.recordingSetMode(id, session.title, cols, rows, mode);
+      set((s) => ({
+        sessions: s.sessions.map((x) =>
+          x.id === id ? { ...x, capture: mode, captureLog: paths.log ?? undefined, captureCast: paths.cast ?? undefined } : x,
+        ),
+        status: { text: i18n.t(`sessions.captureSwitched.${mode}`), isError: false },
+      }));
+    } catch (err) {
+      set({ status: { text: String(err), isError: true } });
+    }
+  },
+
+  setCaptureDefault: (mode) => {
+    set({ captureDefault: mode });
+    if (isTauri) api.setSetting("captureMode", mode).catch(() => {});
   },
 
   consumePending: (id) => {
@@ -1734,11 +1779,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       setTerminalPalette(builtinPalette(theme));
     }
     void i18n.changeLanguage(language);
+    const captureMode: CaptureMode =
+      settings.captureMode === "record" || settings.captureMode === "both"
+        ? settings.captureMode
+        : "log";
     set({
       theme,
       themeVersion: get().themeVersion + 1,
       importedThemes,
       language,
+      captureDefault: captureMode,
       keepaliveSecs: Number.isFinite(keepalive) ? keepalive : get().keepaliveSecs,
       autoLockMinutes: [0, 5, 15, 30, 60].includes(
         Number.parseInt(settings["vault:autoLock"] ?? "", 10),

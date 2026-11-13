@@ -18,7 +18,7 @@ pub(crate) struct TauriSink {
 
 impl TerminalSink for TauriSink {
     fn output(&self, id: &str, data: Vec<u8>) {
-        self.recorders.write(id, &data);
+        self.recorders.write_output(id, &data);
         let _ = self.app.emit(&events::output(id), data);
     }
     fn closed(&self, id: &str) {
@@ -437,10 +437,15 @@ pub fn delete_forward_rule(runtime: State<'_, SshRuntimeState>, id: String) -> R
 #[tauri::command]
 pub async fn ssh_write(
     state: State<'_, SessionRegistry>,
+    recorders: State<'_, RecorderRegistry>,
     id: String,
     data: String,
 ) -> Result<(), String> {
-    ft_ssh::write(&state, &id, data).await
+    let result = ft_ssh::write(&state, &id, data.clone()).await;
+    if result.is_ok() {
+        recorders.write_input(&id, data.as_bytes());
+    }
+    result
 }
 
 #[tauri::command]

@@ -493,7 +493,8 @@ body {
   background: var(--bg-base);
 }
 
-.tab-record {
+.tab-capture {
+  position: relative;
   background: transparent;
   border: none;
   color: var(--fg-muted);
@@ -501,17 +502,38 @@ body {
   font-size: var(--font-ui-sm);
   padding: 0 var(--space-1);
   border-radius: var(--radius-sm);
-  opacity: 0.6;
+  opacity: 0.55;
 }
 
-.tab-record:hover {
+.tab-capture:hover {
   background: var(--bg-base);
   opacity: 1;
 }
 
-.tab-record.active {
+/* The mode is readable at a glance: accent for a log, danger for a replay. */
+.tab-capture.mode-log {
+  color: var(--accent);
+  opacity: 0.9;
+}
+
+.tab-capture.mode-record,
+.tab-capture.mode-both {
   color: var(--danger);
   opacity: 1;
+}
+
+.capture-dot {
+  position: absolute;
+  right: 1px;
+  bottom: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.tab-capture.mode-both .capture-dot {
+  background: var(--danger);
 }
 
 .tab-reconnect {

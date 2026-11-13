@@ -31,10 +31,15 @@ pub async fn serial_open(
 #[tauri::command]
 pub async fn serial_write(
     state: State<'_, ft_serial::SerialRegistry>,
+    recorders: State<'_, RecorderRegistry>,
     id: String,
     data: String,
 ) -> Result<(), String> {
-    ft_serial::write(&state, &id, data).await
+    let result = ft_serial::write(&state, &id, data.clone()).await;
+    if result.is_ok() {
+        recorders.write_input(&id, data.as_bytes());
+    }
+    result
 }
 
 #[tauri::command]
@@ -71,10 +76,15 @@ pub async fn telnet_open(
 #[tauri::command]
 pub async fn telnet_write(
     state: State<'_, ft_telnet::TelnetRegistry>,
+    recorders: State<'_, RecorderRegistry>,
     id: String,
     data: String,
 ) -> Result<(), String> {
-    ft_telnet::write(&state, &id, data).await
+    let result = ft_telnet::write(&state, &id, data.clone()).await;
+    if result.is_ok() {
+        recorders.write_input(&id, data.as_bytes());
+    }
+    result
 }
 
 #[tauri::command]

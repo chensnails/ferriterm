@@ -869,15 +869,20 @@
     "recordings": "回放会话录制"
   },
   "recordings": {
-    "title": "会话录像",
-    "loading": "正在加载录像…",
-    "empty": "还没有录像。可在会话标签上的红点处开始录制。",
+    "title": "会话记录",
+    "loading": "正在加载…",
+    "empty": "还没有录像。在会话标签上切换到「仅录像」或「日志 + 录像」即可开始。",
     "select": "选择一条录像即可在此回放。",
     "play": "播放",
     "pause": "暂停",
     "restart": "重新播放",
     "speed": "播放速度",
-    "seek": "播放进度"
+    "seek": "播放进度",
+    "tabLog": "会话日志",
+    "tabReplay": "会话录像",
+    "logsEmpty": "还没有会话日志。新会话默认开始记录日志。",
+    "logLines": "{count, plural, =0 {暂无内容} other {# 行}}",
+    "selectLog": "选择一份日志即可在此查看。"
   },
   "split": {
     "start": "分屏",
@@ -918,10 +923,6 @@
     "closed": "已断开",
     "closeTab": "关闭会话",
     "reconnect": "重新连接",
-    "record": "录制会话",
-    "stopRecord": "停止录制",
-    "recordingStarted": "已开始录制：{path}",
-    "recordingStopped": "录制已保存：{path}",
     "closeConfirmTitle": "关闭会话？",
     "closeConfirmBody": "“{title}”仍在运行，确定关闭吗？",
     "rename": "重命名标签",
@@ -930,7 +931,26 @@
     "renameSave": "保存",
     "closeOthers": "关闭其他标签",
     "closeAll": "关闭所有标签",
-    "shiftCloseHint": "按住 Shift 单击 × 可直接关闭"
+    "shiftCloseHint": "按住 Shift 单击 × 可直接关闭",
+    "captureMenu": "切换记录模式",
+    "capture": {
+      "log": "仅日志",
+      "record": "仅录像",
+      "both": "日志 + 录像",
+      "off": "不记录"
+    },
+    "captureStarted": {
+      "log": "{path} 已开始记录会话日志",
+      "record": "{path} 已开始录制会话",
+      "both": "{path} 已开始记录日志与录像"
+    },
+    "captureSwitched": {
+      "log": "已切换为仅日志",
+      "record": "已切换为仅录像",
+      "both": "已切换为日志 + 录像"
+    },
+    "captureStopped": "已停止记录：{path}",
+    "captureDefault": "新会话默认：{mode}"
   },
   "about": {
     "devVersion": "开发版本",
@@ -1116,21 +1136,38 @@
       "swap": "结果作为输入"
     },
     "ping": {
-      "title": "Ping / 路由追踪",
-      "hint": "检测可达性，并查看报文经过的路径。",
-      "kindPing": "Ping",
+      "title": "Ping / 网络诊断",
+      "hint": "ICMP、TCP、UDP 探测与路由追踪，参数可调。",
+      "kindIcmp": "ICMP",
+      "kindTcp": "TCP",
+      "kindUdp": "UDP",
       "kindTrace": "路由追踪",
       "target": "目标",
       "targetPlaceholder": "8.8.8.8 或 example.com",
-      "count": "报文数",
+      "port": "端口",
+      "count": "次数",
       "hops": "最大跳数",
+      "interval": "间隔",
+      "timeout": "超时",
+      "size": "包大小",
+      "units": "间隔与超时单位为毫秒，包大小单位为字节。",
+      "advanced": "高级参数",
+      "advancedHide": "收起参数",
       "run": "运行",
       "running": "运行中…",
       "stop": "停止",
       "empty": "运行一次探测，输出会显示在这里。",
       "finished": "结束（退出码 {code}）",
       "failed": "失败：{error}",
-      "cancelled": "已取消探测。"
+      "cancelled": "已取消探测。",
+      "udpNote": "UDP 没有握手：无回应既可能被过滤，也可能端口关闭，无法区分。",
+      "statSent": "发出",
+      "statReceived": "收到",
+      "statReplied": "有回应",
+      "statLoss": "丢包",
+      "statMin": "最小",
+      "statAvg": "平均",
+      "statMax": "最大"
     },
     "geoip": {
       "title": "GeoIP 查询",

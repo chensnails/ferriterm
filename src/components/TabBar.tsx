@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { isTauri } from "../api";
+import { isTauri, type CaptureMode } from "../api";
 import { HostIcon } from "../host-icons";
 import { beginWindowDrag, zoomWindowOnDoubleClick } from "../window-chrome";
 import { HOME_TAB, TRANSFER_TAB, useAppStore } from "../store";
@@ -15,13 +15,13 @@ import {
   ForwardIcon,
   GearIcon,
   HomeIcon,
+  LogIcon,
   PlayIcon,
   PlusIcon,
   ReconnectIcon,
   RecordIcon,
   SearchIcon,
   SplitIcon,
-  StopIcon,
   TerminalIcon,
   ThemeIcon,
 } from "./icons";
@@ -46,8 +46,10 @@ export function TabBar() {
   const closeOtherSessions = useAppStore((s) => s.closeOtherSessions);
   const closeAllSessions = useAppStore((s) => s.closeAllSessions);
   const tabNumbering = useAppStore((s) => s.tabNumbering);
-  const startRecording = useAppStore((s) => s.startRecording);
-  const stopRecording = useAppStore((s) => s.stopRecording);
+  const startCapture = useAppStore((s) => s.startCapture);
+  const stopCapture = useAppStore((s) => s.stopCapture);
+  const setCaptureMode = useAppStore((s) => s.setCaptureMode);
+  const captureDefault = useAppStore((s) => s.captureDefault);
   const reconnect = useAppStore((s) => s.reconnect);
   const splitId = useAppStore((s) => s.splitId);
   const splitActive = useAppStore((s) => s.splitActive);
@@ -78,6 +80,11 @@ export function TabBar() {
   } | null>(null);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const [captureMenu, setCaptureMenu] = useState<{
+    id: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const isTerminalView = activeId !== HOME_TAB && activeId !== TRANSFER_TAB;
   const hasActiveSession = sessions.some((s) => s.id === activeId && !s.closed);
@@ -102,6 +109,51 @@ export function TabBar() {
       onSelect: () => setSerialDialogOpen(true),
     },
   ];
+
+  /**
+   * The capture menu is the quick switch between what a session keeps: a text
+   * log, a replay, or both. Picking a mode also makes it the default for the
+   * next session, so a user who wants replays only sets it once.
+   */
+  const captureItems = (id: string): MenuItem[] => {
+    const entry = sessions.find((s) => s.id === id);
+    if (!entry) return [];
+    const view = terminalHandle(id);
+    const cols = view?.term.cols ?? 80;
+    const rows = view?.term.rows ?? 24;
+    const pick = (mode: CaptureMode) => () => {
+      if (entry.capture === mode) return;
+      void setCaptureMode(id, mode, cols, rows);
+    };
+    return [
+      {
+        label: t("sessions.capture.log"),
+        checked: entry.capture === "log",
+        onSelect: pick("log"),
+      },
+      {
+        label: t("sessions.capture.record"),
+        checked: entry.capture === "record",
+        onSelect: pick("record"),
+      },
+      {
+        label: t("sessions.capture.both"),
+        checked: entry.capture === "both",
+        onSelect: pick("both"),
+      },
+      {
+        label: t("sessions.capture.off"),
+        checked: !entry.capture,
+        onSelect: () => void stopCapture(id),
+      },
+      {
+        label: t("sessions.captureDefault", {
+          mode: t(`sessions.capture.${captureDefault}`),
+        }),
+        disabled: true,
+      },
+    ];
+  };
 
   const tabMenuItems = (id: string): MenuItem[] => {
     const entry = sessions.find((s) => s.id === id);
@@ -215,25 +267,25 @@ export function TabBar() {
               )}
               {s.kind !== "sftp" && (
                 <button
-                  className={s.recording ? "tab-record active" : "tab-record"}
-                  title={s.recording ? t("sessions.stopRecord") : t("sessions.record")}
-                  aria-label={s.recording ? t("sessions.stopRecord") : t("sessions.record")}
-                  aria-pressed={!!s.recording}
+                  className={
+                    s.capture ? `tab-capture mode-${s.capture}` : "tab-capture"
+                  }
+                  title={t(`sessions.capture.${s.capture ?? "off"}`)}
+                  aria-label={t("sessions.captureMenu")}
+                  aria-haspopup="menu"
+                  aria-expanded={captureMenu?.id === s.id}
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (s.recording) {
-                      void stopRecording(s.id);
-                    } else {
-                      const view = terminalHandle(s.id);
-                      void startRecording(
-                        s.id,
-                        view?.term.cols ?? 80,
-                        view?.term.rows ?? 24,
-                      );
-                    }
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setCaptureMenu({ id: s.id, x: rect.left, y: rect.bottom + 4 });
                   }}
                 >
-                  {s.recording ? <StopIcon size={11} /> : <RecordIcon size={11} />}
+                  {s.capture === "log" ? (
+                    <LogIcon size={11} />
+                  ) : (
+                    <RecordIcon size={11} />
+                  )}
+                  {s.capture === "both" && <span className="capture-dot" />}
                 </button>
               )}
               <button
@@ -374,6 +426,14 @@ export function TabBar() {
           y={tabMenu.y}
           items={tabMenuItems(tabMenu.id)}
           onClose={() => setTabMenu(null)}
+        />
+      )}
+      {captureMenu && (
+        <ContextMenu
+          x={captureMenu.x}
+          y={captureMenu.y}
+          items={captureItems(captureMenu.id)}
+          onClose={() => setCaptureMenu(null)}
         />
       )}
       {renameId && (

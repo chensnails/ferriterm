@@ -238,6 +238,23 @@ export interface RecordingMeta {
   duration: number;
 }
 
+/** A plain-text session log, the default capture of every session. */
+export interface SessionLogMeta {
+  name: string;
+  title: string;
+  timestamp: number;
+  size: number;
+  lines: number;
+}
+
+/** What a session writes to disk: a text log, an asciicast replay, or both. */
+export type CaptureMode = "log" | "record" | "both";
+
+export interface CapturePaths {
+  log: string | null;
+  cast: string | null;
+}
+
 export interface CastEvent {
   time: number;
   data: string;
@@ -854,11 +871,26 @@ export const api = {
     invoke<void>("telnet_resize", { id, cols, rows }),
   telnetClose: (id: string) => invoke<void>("telnet_close", { id }),
 
-  recordingStart: (id: string, title: string, cols: number, rows: number) =>
-    invoke<string>("recording_start", { id, title, cols, rows }),
-  recordingStop: (id: string) => invoke<string | null>("recording_stop", { id }),
+  recordingStart: (
+    id: string,
+    title: string,
+    cols: number,
+    rows: number,
+    mode?: CaptureMode,
+  ) => invoke<CapturePaths>("recording_start", { id, title, cols, rows, mode }),
+  recordingSetMode: (
+    id: string,
+    title: string,
+    cols: number,
+    rows: number,
+    mode: CaptureMode,
+  ) =>
+    invoke<CapturePaths>("recording_set_mode", { id, title, cols, rows, mode }),
+  recordingStop: (id: string) => invoke<CapturePaths | null>("recording_stop", { id }),
   recordingList: () => invoke<RecordingMeta[]>("recording_list"),
   recordingRead: (name: string) => invoke<CastFile>("recording_read", { name }),
+  sessionLogList: () => invoke<SessionLogMeta[]>("session_log_list"),
+  sessionLogRead: (name: string) => invoke<string>("session_log_read", { name }),
 
   importPreview: (format: ImportFormat | "auto", content: string) =>
     invoke<ImportPreview>("import_preview", { format, content }),
@@ -1110,7 +1142,7 @@ export function onForwardError(
 export const netToolOutputEvent = "net-tool://output";
 export const netToolDoneEvent = "net-tool://done";
 
-export type NetProbeKind = "ping" | "traceroute";
+export type NetProbeKind = "ping" | "tcping" | "udp" | "traceroute";
 
 export interface NetToolChunk {
   id: string;
@@ -1118,11 +1150,22 @@ export interface NetToolChunk {
   line: string;
 }
 
+/** Aggregate of one probe run; latency is absent when nothing came back. */
+export interface ProbeSummary {
+  sent: number;
+  received: number;
+  replied: number;
+  min: number | null;
+  avg: number | null;
+  max: number | null;
+}
+
 export interface NetToolDone {
   id: string;
   code: number | null;
   cancelled: boolean;
   error: string | null;
+  summary: ProbeSummary | null;
 }
 
 export interface GeoInfo {
@@ -1142,16 +1185,29 @@ export interface GeoInfo {
 }
 
 /** Runs ping or traceroute on this machine and returns the job id. */
+export interface NetProbeOptions {
+  count?: number;
+  hops?: number;
+  port?: number;
+  interval?: number;
+  timeout?: number;
+  size?: number;
+}
+
 export function startNetProbe(
   kind: NetProbeKind,
   target: string,
-  options: { count?: number; hops?: number } = {},
+  options: NetProbeOptions = {},
 ): Promise<string> {
   return invoke<string>("net_tool_start", {
     kind,
     target,
     count: options.count,
     hops: options.hops,
+    port: options.port,
+    interval: options.interval,
+    timeout: options.timeout,
+    size: options.size,
   });
 }
 

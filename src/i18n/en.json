@@ -869,15 +869,20 @@
     "recordings": "Replay session recordings"
   },
   "recordings": {
-    "title": "Recordings",
-    "loading": "Loading recordings…",
-    "empty": "No recordings yet. Start one from the red dot on a session tab.",
-    "select": "Select a recording to replay it here.",
+    "title": "Session history",
+    "loading": "Loading…",
+    "empty": "No replays yet. Switch a tab to “Replay only” or “Log + replay” to start one.",
+    "select": "Pick a replay to play it here.",
     "play": "Play",
     "pause": "Pause",
     "restart": "Restart",
     "speed": "Playback speed",
-    "seek": "Playback position"
+    "seek": "Playback position",
+    "tabLog": "Session logs",
+    "tabReplay": "Replays",
+    "logsEmpty": "No session logs yet. New sessions start logging by default.",
+    "logLines": "{count, plural, =0 {empty} one {# line} other {# lines}}",
+    "selectLog": "Pick a log to read it here."
   },
   "split": {
     "start": "Split terminal",
@@ -918,10 +923,6 @@
     "closed": "disconnected",
     "closeTab": "Close session",
     "reconnect": "Reconnect",
-    "record": "Record session",
-    "stopRecord": "Stop recording",
-    "recordingStarted": "Recording started: {path}",
-    "recordingStopped": "Recording saved: {path}",
     "closeConfirmTitle": "Close session?",
     "closeConfirmBody": "\"{title}\" is still running. Close it anyway?",
     "rename": "Rename tab",
@@ -930,7 +931,26 @@
     "renameSave": "Save",
     "closeOthers": "Close other tabs",
     "closeAll": "Close all tabs",
-    "shiftCloseHint": "Shift-click × closes without confirmation"
+    "shiftCloseHint": "Shift-click × closes without confirmation",
+    "captureMenu": "Switch capture mode",
+    "capture": {
+      "log": "Log only",
+      "record": "Replay only",
+      "both": "Log + replay",
+      "off": "Off"
+    },
+    "captureStarted": {
+      "log": "Session log started: {path}",
+      "record": "Session replay started: {path}",
+      "both": "Log and replay started: {path}"
+    },
+    "captureSwitched": {
+      "log": "Now logging only",
+      "record": "Now recording only",
+      "both": "Now logging and recording"
+    },
+    "captureStopped": "Capture stopped: {path}",
+    "captureDefault": "New sessions default to {mode}"
   },
   "about": {
     "devVersion": "Development version",
@@ -1116,21 +1136,38 @@
       "swap": "Use as input"
     },
     "ping": {
-      "title": "Ping / traceroute",
-      "hint": "Check reachability and the path packets take.",
-      "kindPing": "Ping",
+      "title": "Ping / network diagnostics",
+      "hint": "ICMP, TCP and UDP probes plus traceroute, with tunable parameters.",
+      "kindIcmp": "ICMP",
+      "kindTcp": "TCP",
+      "kindUdp": "UDP",
       "kindTrace": "Traceroute",
       "target": "Target",
       "targetPlaceholder": "8.8.8.8 or example.com",
-      "count": "Packets",
+      "port": "Port",
+      "count": "Count",
       "hops": "Max hops",
+      "interval": "Interval",
+      "timeout": "Timeout",
+      "size": "Packet size",
+      "units": "Interval and timeout are in milliseconds, packet size in bytes.",
+      "advanced": "Advanced",
+      "advancedHide": "Hide params",
       "run": "Run",
       "running": "Running…",
       "stop": "Stop",
-      "empty": "Run a probe to see its output here.",
-      "finished": "Finished (exit code {code})",
+      "empty": "Run a probe and its output will show up here.",
+      "finished": "Finished (exit {code})",
       "failed": "Failed: {error}",
-      "cancelled": "Probe cancelled."
+      "cancelled": "Probe cancelled.",
+      "udpNote": "UDP has no handshake: no reply may mean filtered or closed, and the two cannot be told apart.",
+      "statSent": "Sent",
+      "statReceived": "Received",
+      "statReplied": "Replied",
+      "statLoss": "Loss",
+      "statMin": "Min",
+      "statAvg": "Avg",
+      "statMax": "Max"
     },
     "geoip": {
       "title": "GeoIP lookup",

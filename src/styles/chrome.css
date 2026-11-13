@@ -263,7 +263,7 @@
 }
 
 .tab-close:hover,
-.tab-record:hover {
+.tab-capture:hover {
   background: var(--hover-bg);
 }
 
